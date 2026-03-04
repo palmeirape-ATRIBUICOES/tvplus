@@ -86,6 +86,9 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
@@ -1844,7 +1847,565 @@ img {
 }
 
 /* ============================================
-   RESPONSIVE
+   RESPONSIVE — MOBILE (iPhone / Android)
+   ============================================ */
+
+/* All mobile devices — hide desktop-only linebreaks */
+@media (max-width: 767px) {
+  .desktop-br {
+    display: none;
+  }
+
+  /* Force hero section visible immediately (bypass reveal animation on mobile) */
+  .hero .reveal,
+  .hero .reveal-left,
+  .hero .reveal-right,
+  .hero .reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .hero-title {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* Small phones (iPhone SE, older models) */
+@media (max-width: 480px) {
+  :root {
+    --space-xl: 2.5rem;
+    --space-2xl: 3.5rem;
+    --space-3xl: 4.5rem;
+  }
+
+  .container {
+    padding: 0 var(--space-sm);
+  }
+
+  /* Header — smaller logo for mobile */
+  .logo img {
+    height: 44px;
+  }
+
+  .header.scrolled .logo img {
+    height: 38px;
+  }
+
+  .header {
+    padding: 6px 0;
+  }
+
+  /* Hero — compact for mobile viewport */
+  .hero {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: 80px;
+  }
+
+  .hero-content {
+    padding: 0;
+  }
+
+  .hero-title {
+    font-size: clamp(1.8rem, 8vw, 2.6rem);
+    margin-bottom: var(--space-sm);
+  }
+
+  .hero-badge {
+    font-size: 0.7rem;
+    padding: 5px 12px;
+    margin-bottom: var(--space-sm);
+  }
+
+  .hero-typed-wrapper {
+    font-size: 0.9rem;
+    min-height: 50px;
+    margin-bottom: var(--space-md);
+    line-height: 1.6;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+  }
+
+  .hero-buttons .btn-primary,
+  .hero-buttons .btn-outline {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .btn-primary {
+    padding: 12px 24px;
+    font-size: 0.85rem;
+  }
+
+  .btn-outline {
+    padding: 12px 24px;
+    font-size: 0.85rem;
+  }
+
+  /* Hero stats — vertical stack on small phones */
+  .hero-stats {
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-top: var(--space-md);
+  }
+
+  .hero-stat {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    text-align: left;
+  }
+
+  .hero-stat:last-child {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .hero-stat-number {
+    font-size: 1.6rem;
+    min-width: 55px;
+  }
+
+  .hero-stat-label {
+    font-size: 0.72rem;
+    margin-top: 0;
+  }
+
+  /* Scroll indicator */
+  .scroll-indicator {
+    bottom: 20px;
+  }
+
+  .scroll-indicator span {
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+  }
+
+  .scroll-indicator .line {
+    height: 28px;
+  }
+
+  /* Trust bar */
+  .trust-items {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+  }
+
+  .trust-item {
+    flex-direction: column;
+    text-align: center;
+    padding: var(--space-sm);
+  }
+
+  .trust-icon {
+    margin: 0 auto;
+  }
+
+  .trust-text h4 {
+    font-size: 0.82rem;
+  }
+
+  .trust-text p {
+    font-size: 0.7rem;
+  }
+
+  /* About section */
+  .about {
+    padding: var(--space-2xl) 0;
+  }
+
+  .about-image {
+    aspect-ratio: 16/9;
+  }
+
+  .about-text .highlight-text {
+    font-size: 0.95rem;
+    line-height: 1.75;
+  }
+
+  .about-features {
+    grid-template-columns: 1fr;
+    gap: var(--space-xs);
+  }
+
+  .about-feature span {
+    font-size: 0.85rem;
+  }
+
+  /* Section labels/titles */
+  .section-label {
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+  }
+
+  .section-title {
+    font-size: clamp(1.6rem, 6vw, 2.2rem);
+  }
+
+  .section-subtitle {
+    font-size: 0.9rem;
+  }
+
+  /* Services */
+  .services {
+    padding: var(--space-2xl) 0;
+  }
+
+  .service-card {
+    padding: var(--space-md);
+  }
+
+  .service-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .service-card h3 {
+    font-size: 1.05rem;
+  }
+
+  .service-card p {
+    font-size: 0.85rem;
+  }
+
+  /* Differentials */
+  .differentials {
+    padding: var(--space-2xl) 0;
+  }
+
+  .sla-circle {
+    width: 160px;
+    height: 160px;
+  }
+
+  .sla-circle .sla-number {
+    font-size: 2.8rem;
+  }
+
+  .sla-circle .sla-unit {
+    font-size: 1rem;
+  }
+
+  .sla-circle .sla-label {
+    font-size: 0.65rem;
+  }
+
+  .diff-item {
+    padding: var(--space-sm) 0;
+  }
+
+  .diff-item h4 {
+    font-size: 0.92rem;
+  }
+
+  .diff-item p {
+    font-size: 0.82rem;
+  }
+
+  .diff-item-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  /* Storytelling */
+  .storytelling {
+    min-height: 80vh;
+  }
+
+  .storytelling-content {
+    padding: var(--space-2xl) 0;
+  }
+
+  .storytelling-title {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+  }
+
+  .storytelling-desc {
+    font-size: 0.95rem;
+    line-height: 1.75;
+  }
+
+  .storytelling-stats {
+    flex-direction: column;
+    gap: var(--space-md);
+    align-items: center;
+  }
+
+  .story-stat::after {
+    display: none;
+  }
+
+  .story-stat-number {
+    font-size: 2rem;
+  }
+
+  .story-stat-label {
+    font-size: 0.72rem;
+  }
+
+  /* Segments */
+  .segments {
+    padding: var(--space-2xl) 0;
+  }
+
+  .segments-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xs);
+  }
+
+  .segment-item {
+    flex-direction: column;
+    text-align: center;
+    padding: var(--space-sm);
+    gap: var(--space-xs);
+  }
+
+  .segment-icon {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+  }
+
+  .segment-item span {
+    font-size: 0.78rem;
+  }
+
+  /* Clients */
+  .clients {
+    padding: var(--space-2xl) 0;
+  }
+
+  .clients-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
+  }
+
+  .client-slot {
+    min-height: 75px;
+    padding: var(--space-sm);
+  }
+
+  .client-slot .placeholder {
+    font-size: 0.72rem;
+  }
+
+  /* CTA */
+  .cta-section {
+    padding: var(--space-2xl) 0;
+  }
+
+  .cta-title {
+    font-size: clamp(1.5rem, 6vw, 2rem);
+  }
+
+  .cta-desc {
+    font-size: 0.9rem;
+    line-height: 1.7;
+  }
+
+  .cta-contacts {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .cta-contact-item {
+    font-size: 0.78rem;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Footer */
+  .footer {
+    padding: var(--space-xl) 0 var(--space-md);
+  }
+
+  .footer-brand .footer-logo img {
+    height: 44px;
+  }
+
+  .footer-brand p {
+    font-size: 0.82rem;
+  }
+
+  .footer-links h4 {
+    font-size: 0.82rem;
+  }
+
+  .footer-links a {
+    font-size: 0.82rem;
+  }
+
+  .footer-bottom {
+    font-size: 0.7rem;
+  }
+
+  /* Floating buttons — smaller on mobile */
+  .whatsapp-fab {
+    width: 52px;
+    height: 52px;
+    bottom: 20px;
+    right: 16px;
+  }
+
+  .whatsapp-fab svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .whatsapp-tooltip {
+    display: none;
+  }
+
+  .back-to-top {
+    width: 40px;
+    height: 40px;
+    bottom: 20px;
+    left: 16px;
+  }
+
+  .back-to-top svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Mobile nav adjustments */
+  .nav-mobile a {
+    font-size: 1.4rem;
+  }
+
+  .nav-mobile {
+    gap: var(--space-md);
+  }
+
+  /* Loader */
+  .loader-logo {
+    width: 120px;
+  }
+}
+
+/* Medium phones (iPhone 12/13/14/15, Galaxy S) */
+@media (max-width: 767px) and (min-width: 481px) {
+  :root {
+    --space-xl: 3rem;
+    --space-2xl: 4.5rem;
+    --space-3xl: 5.5rem;
+  }
+
+  .logo img {
+    height: 50px;
+  }
+
+  .header.scrolled .logo img {
+    height: 42px;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 7vw, 2.8rem);
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .hero-buttons .btn-primary,
+  .hero-buttons .btn-outline {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero-stats {
+    gap: var(--space-md);
+    flex-wrap: wrap;
+  }
+
+  .hero-stat:last-child {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .trust-items {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sla-circle {
+    width: 180px;
+    height: 180px;
+  }
+
+  .sla-circle .sla-number {
+    font-size: 3.2rem;
+  }
+
+  .storytelling-stats {
+    gap: var(--space-lg);
+  }
+
+  .story-stat::after {
+    display: none;
+  }
+
+  .segments-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .whatsapp-fab {
+    width: 54px;
+    height: 54px;
+    bottom: 22px;
+    right: 18px;
+  }
+
+  .whatsapp-tooltip {
+    display: none;
+  }
+
+  .back-to-top {
+    width: 42px;
+    height: 42px;
+    bottom: 22px;
+    left: 18px;
+  }
+
+  .footer-brand .footer-logo img {
+    height: 48px;
+  }
+
+  .loader-logo {
+    width: 140px;
+  }
+
+  .about-features {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* iOS safe area padding */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .footer-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .whatsapp-fab {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .back-to-top {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ============================================
+   RESPONSIVE — TABLET & DESKTOP
    ============================================ */
 @media (min-width: 768px) {
   .nav-desktop {
