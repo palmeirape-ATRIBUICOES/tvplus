@@ -8,6 +8,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const loader = document.querySelector('.page-loader');
   window.addEventListener('load', () => {
     setTimeout(() => loader.classList.add('hidden'), 900);
+    // Force hero elements visible after loader (iOS Safari fallback)
+    setTimeout(() => {
+      document.querySelectorAll('.hero .reveal, .hero .reveal-left, .hero .reveal-right, .hero .reveal-scale').forEach(el => {
+        el.classList.add('visible');
+      });
+    }, 1000);
   });
   setTimeout(() => loader.classList.add('hidden'), 3500);
 
