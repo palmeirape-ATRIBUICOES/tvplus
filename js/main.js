@@ -289,4 +289,117 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('scroll', setActiveLink);
   setActiveLink();
 
+  // ---- Testimonials Carousel ----
+  const track = document.getElementById('carouselTrack');
+  const dotsContainer = document.getElementById('carouselDots');
+  const prevBtn = document.getElementById('carouselPrev');
+  const nextBtn = document.getElementById('carouselNext');
+
+  if (track && dotsContainer) {
+    const cards = track.querySelectorAll('.testimonial-card');
+    let currentSlide = 0;
+    let autoPlayInterval;
+
+    // Create dots
+    cards.forEach((_, i) => {
+      const dot = document.createElement('button');
+      dot.classList.add('carousel-dot');
+      if (i === 0) dot.classList.add('active');
+      dot.setAttribute('aria-label', `Depoimento ${i + 1}`);
+      dot.addEventListener('click', () => goToSlide(i));
+      dotsContainer.appendChild(dot);
+    });
+
+    function goToSlide(index) {
+      currentSlide = index;
+      const gap = parseFloat(getComputedStyle(track).gap) || 0;
+      const cardWidth = cards[0].offsetWidth;
+      track.style.transform = `translateX(-${currentSlide * (cardWidth + gap)}px)`;
+
+      dotsContainer.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === currentSlide);
+      });
+    }
+
+    function nextSlide() {
+      goToSlide((currentSlide + 1) % cards.length);
+    }
+
+    function prevSlide() {
+      goToSlide((currentSlide - 1 + cards.length) % cards.length);
+    }
+
+    if (nextBtn) nextBtn.addEventListener('click', () => { nextSlide(); resetAutoPlay(); });
+    if (prevBtn) prevBtn.addEventListener('click', () => { prevSlide(); resetAutoPlay(); });
+
+    // Auto-play
+    function startAutoPlay() {
+      autoPlayInterval = setInterval(nextSlide, 5000);
+    }
+
+    function resetAutoPlay() {
+      clearInterval(autoPlayInterval);
+      startAutoPlay();
+    }
+
+    startAutoPlay();
+
+    // Pause on hover
+    track.addEventListener('mouseenter', () => clearInterval(autoPlayInterval));
+    track.addEventListener('mouseleave', startAutoPlay);
+
+    // Touch/swipe support
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    track.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+      clearInterval(autoPlayInterval);
+    }, { passive: true });
+
+    track.addEventListener('touchend', e => {
+      touchEndX = e.changedTouches[0].screenX;
+      const diff = touchStartX - touchEndX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) nextSlide();
+        else prevSlide();
+      }
+      startAutoPlay();
+    }, { passive: true });
+
+    // Resize fix
+    window.addEventListener('resize', () => goToSlide(currentSlide));
+  }
+
+  // ---- Timeline Progress ----
+  const timelineProgress = document.getElementById('timelineProgress');
+  const timelineSteps = document.querySelectorAll('.timeline-step');
+
+  if (timelineProgress && timelineSteps.length > 0) {
+    const timelineObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const step = entry.target;
+          const stepIndex = Array.from(timelineSteps).indexOf(step);
+          const percentage = ((stepIndex + 1) / timelineSteps.length) * 100;
+          timelineProgress.style.height = `${percentage}%`;
+        }
+      });
+    }, {
+      threshold: 0.5,
+      rootMargin: '0px 0px -20% 0px'
+    });
+
+    timelineSteps.forEach(step => timelineObserver.observe(step));
+  }
+
+  // ---- Pricing Card Hover ----
+  document.querySelectorAll('.pricing-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mouse-x', `${((e.clientX - r.left) / r.width) * 100}%`);
+      card.style.setProperty('--mouse-y', `${((e.clientY - r.top) / r.height) * 100}%`);
+    });
+  });
+
 });
