@@ -88,7 +88,6 @@ async function verificarAssinaturas() {
 
             await helpers.criarPagamento(assinatura.cliente_id, cobranca.txid, valorCobranca);
 
-            const dataVencStr = new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR');
             const nomeCapitalizado = capitalizeName(assinatura.nome);
             const dataVencStr = new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR');
             const mensagemCobranca = `Olá, *${nomeCapitalizado}*!\n\n` +
