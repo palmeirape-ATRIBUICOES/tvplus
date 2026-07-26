@@ -311,6 +311,12 @@
                 <button class="btn-danger" id="btnResetDb" style="background-color: #b91c1c;">
                     <i class="fa-solid fa-trash-can"></i> Limpar Painel (Reset Local)
                 </button>
+                <button class="btn-warning" id="btnForceExpiring" style="background-color: #d97706; color: #fff; border: none; font-size: 13px; font-weight: 600; padding: 10px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-hourglass-half"></i> Forçar Expiração Próxima
+                </button>
+                <button class="btn-danger" id="btnForceExpired" style="background-color: #dc2626; color: #fff; border: none; font-size: 13px; font-weight: 600; padding: 10px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-user-slash"></i> Forçar Vencimento Ontem
+                </button>
             </div>
         </header>
 
@@ -580,6 +586,54 @@
                     logBox.textContent = `[ERRO DE CONEXÃO] ${error.message}`;
                     logBox.style.color = '#ef4444';
                 }
+            }
+        });
+
+        // Forçar Vencimento Próximo (3 dias antes)
+        document.getElementById('btnForceExpiring').addEventListener('click', async () => {
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = 'Alterando data de expiração do último cliente para daqui a 2 dias...';
+            logBox.style.color = '#eab308';
+            
+            try {
+                const response = await fetch('/api/admin/force-expiring', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    logBox.textContent = `[SUCESSO] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+                    carregarDados();
+                } else {
+                    logBox.textContent = `[ERRO] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch (error) {
+                logBox.textContent = `[ERRO DE CONEXÃO] ${error.message}`;
+                logBox.style.color = '#ef4444';
+            }
+        });
+
+        // Forçar Vencimento Ontem (Bloqueio)
+        document.getElementById('btnForceExpired').addEventListener('click', async () => {
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = 'Alterando data de expiração do último cliente para vencido ontem...';
+            logBox.style.color = '#eab308';
+            
+            try {
+                const response = await fetch('/api/admin/force-expired', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    logBox.textContent = `[SUCESSO] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+                    carregarDados();
+                } else {
+                    logBox.textContent = `[ERRO] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch (error) {
+                logBox.textContent = `[ERRO DE CONEXÃO] ${error.message}`;
+                logBox.style.color = '#ef4444';
             }
         });
 

@@ -51,6 +51,34 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware de Autenticação Básica para o Painel Administrativo
+const basicAuth = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="AuraTV Admin"');
+        return res.status(401).send('Acesso não autorizado.');
+    }
+    
+    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+    const user = auth[0];
+    const pass = auth[1];
+    
+    if (user === 'admin' && pass === '366724eA@@') {
+        return next();
+    } else {
+        res.setHeader('WWW-Authenticate', 'Basic realm="AuraTV Admin"');
+        return res.status(401).send('Credenciais incorretas.');
+    }
+};
+
+// Protege a rota do admin.html especificamente antes de servir estáticos
+app.get('/admin.html', basicAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Protege todos os endpoints administrativos /api/admin/*
+app.use('/api/admin/*', basicAuth);
+
 // Servir arquivos estáticos do frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
