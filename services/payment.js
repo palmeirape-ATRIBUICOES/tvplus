@@ -62,8 +62,11 @@ class PaymentService {
                 copiaCola: paymentData.point_of_interaction.transaction_data.qr_code
             };
         } catch (error) {
-            console.error('[PAYMENT ERROR] Falha ao criar cobrança no Mercado Pago:', error.response ? error.response.data : error.message);
-            throw new Error('Falha ao gerar cobrança Pix. Verifique os logs do servidor.');
+            const errorMsg = error.response && error.response.data 
+                ? JSON.stringify(error.response.data) 
+                : error.message;
+            console.error('[PAYMENT ERROR] Falha ao criar cobrança no Mercado Pago:', errorMsg);
+            throw new Error(`Falha ao gerar cobrança Pix: ${errorMsg}`);
         }
     }
 
