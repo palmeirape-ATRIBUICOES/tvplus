@@ -43,6 +43,7 @@ class WhatsappService {
                 }, {
                     headers: {
                         'Content-Type': 'application/json',
+                        'client-token': API_TOKEN,
                         'Client-Token': API_TOKEN
                     }
                 });
