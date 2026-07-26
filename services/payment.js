@@ -31,6 +31,9 @@ class PaymentService {
         try {
             console.log(`[PAYMENT REAL] Gerando cobrança Pix no Mercado Pago de R$ ${valor.toFixed(2)}`);
             
+            const cleanDoc = (cliente.cpfcnpj || '').replace(/\D/g, '');
+            const docType = cleanDoc.length === 14 ? 'CNPJ' : 'CPF';
+            
             const response = await axios.post('https://api.mercadopago.com/v1/payments', {
                 transaction_amount: valor,
                 description: `Mensalidade TV - ${cliente.nome}`,
@@ -40,9 +43,8 @@ class PaymentService {
                     first_name: cliente.nome.split(' ')[0] || 'Cliente',
                     last_name: cliente.nome.split(' ').slice(1).join(' ') || 'Silva',
                     identification: {
-                        type: 'CPF',
-                        // Em ambiente de produção real, o CPF seria capturado. Usamos um placeholder funcional para homologação
-                        number: '12345678909' 
+                        type: docType,
+                        number: cleanDoc
                     }
                 }
             }, {
