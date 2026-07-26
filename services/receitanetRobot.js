@@ -202,28 +202,31 @@ class ReceitanetRobotService {
 
             // Altera o campo cli_login adicionando "_SUSPENSO"
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.click('input[name="cli_login"]', { clickCount: 3 });
+            await page.click('input[name="cli_login"]');
+            await page.keyboard.down('Control');
+            await page.keyboard.press('A');
+            await page.keyboard.up('Control');
             await page.keyboard.press('Backspace');
             await page.type('input[name="cli_login"]', `${login}_SUSPENSO`);
 
-            // Grava o cliente
+            // Grava o cliente e aguarda a conclusão da navegação
             console.log(`[RECEITANET-ROBOT] Gravando bloqueio no ReceitaNet...`);
-            await page.evaluate(() => {
-                const btn = document.getElementById('GravarCliente') || document.querySelector('button[id="GravarCliente"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().includes('Gravar Cliente'));
-                if (btn) btn.click();
-                else throw new Error("Botão de gravação não localizado.");
-            });
+            await Promise.all([
+                page.evaluate(() => {
+                    const btn = document.getElementById('GravarCliente') || document.querySelector('button[id="GravarCliente"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().includes('Gravar Cliente'));
+                    if (btn) btn.click();
+                    else throw new Error("Botão de gravação não localizado.");
+                }),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+            ]);
 
-            // Aguarda o banner de sucesso por até 15 segundos
-            console.log(`[RECEITANET-ROBOT] Aguardando confirmação do bloqueio...`);
-            await page.waitForFunction(() => {
-                return document.body.innerText.includes('SUCESSO') || document.body.innerText.includes('Gravado com sucesso');
-            }, { timeout: 15000 }).catch(() => {
-                console.log(`[RECEITANET-ROBOT WARNING] Timeout ao aguardar banner de sucesso. Prosseguindo de forma tolerante...`);
-            });
+            // Delay de segurança de 3 segundos para garantir a gravação no banco do ReceitaNet
+            console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             console.log(`[RECEITANET-ROBOT] Cliente ${login} bloqueado com sucesso (renomeado para ${login}_SUSPENSO)!`);
             await browser.close();
+            return true;
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao bloquear cliente:`, error.message);
@@ -276,28 +279,31 @@ class ReceitanetRobotService {
 
             // Restaura o campo cli_login para o original
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.click('input[name="cli_login"]', { clickCount: 3 });
+            await page.click('input[name="cli_login"]');
+            await page.keyboard.down('Control');
+            await page.keyboard.press('A');
+            await page.keyboard.up('Control');
             await page.keyboard.press('Backspace');
             await page.type('input[name="cli_login"]', login);
 
-            // Grava o cliente
+            // Grava o cliente e aguarda a conclusão da navegação
             console.log(`[RECEITANET-ROBOT] Gravando reativação no ReceitaNet...`);
-            await page.evaluate(() => {
-                const btn = document.getElementById('GravarCliente') || document.querySelector('button[id="GravarCliente"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().includes('Gravar Cliente'));
-                if (btn) btn.click();
-                else throw new Error("Botão de gravação não localizado.");
-            });
+            await Promise.all([
+                page.evaluate(() => {
+                    const btn = document.getElementById('GravarCliente') || document.querySelector('button[id="GravarCliente"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().includes('Gravar Cliente'));
+                    if (btn) btn.click();
+                    else throw new Error("Botão de gravação não localizado.");
+                }),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+            ]);
 
-            // Aguarda o banner de sucesso por até 15 segundos
-            console.log(`[RECEITANET-ROBOT] Aguardando confirmação da reativação...`);
-            await page.waitForFunction(() => {
-                return document.body.innerText.includes('SUCESSO') || document.body.innerText.includes('Gravado com sucesso');
-            }, { timeout: 15000 }).catch(() => {
-                console.log(`[RECEITANET-ROBOT WARNING] Timeout ao aguardar banner de sucesso. Prosseguindo de forma tolerante...`);
-            });
+            // Delay de segurança de 3 segundos para garantir a gravação no banco do ReceitaNet
+            console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
             console.log(`[RECEITANET-ROBOT] Cliente ${login} reativado com sucesso (restaurado de ${login}_SUSPENSO)!`);
             await browser.close();
+            return true;
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao reativar cliente:`, error.message);
