@@ -195,10 +195,8 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // Vai direto para o formulário de edição do cliente
-            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
-            console.log(`[RECEITANET-ROBOT] Acessando ficha de edição em: ${editUrl}`);
-            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+            // Localiza e abre a ficha de edição real do cliente no ReceitaNet
+            const editUrl = await this.localizarEAbriFichaCliente(page, login);
 
             // Altera o campo cli_login adicionando "_SUSPENSO" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -279,10 +277,8 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // Vai para o formulário do cliente com login suspenso
-            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}_SUSPENSO`;
-            console.log(`[RECEITANET-ROBOT] Acessando ficha de edição suspensa em: ${editUrl}`);
-            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+            // Localiza e abre a ficha de edição real do cliente suspenso no ReceitaNet
+            const editUrl = await this.localizarEAbriFichaCliente(page, login);
 
             // Restaura o campo cli_login para o original diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -369,10 +365,8 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 2. Vai direto para o formulário de edição do cliente
-            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
-            console.log(`[RECEITANET-ROBOT] Acessando ficha do cliente em: ${editUrl}`);
-            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+            // 2. Localiza e abre a ficha do cliente real no ReceitaNet
+            const editUrl = await this.localizarEAbriFichaCliente(page, login);
 
             // 3. Clica em "Rescisão" (ou botão correspondente)
             console.log(`[RECEITANET-ROBOT] Acessando tela de rescisão...`);
@@ -454,6 +448,69 @@ class ReceitanetRobotService {
             await browser.close();
             throw error;
         }
+    }
+
+    /**
+     * Localiza o cliente no ReceitaNet pela tabela de listagem ou pela busca global e abre a ficha de edição
+     */
+    async localizarEAbriFichaCliente(page, login) {
+        let loadedFicha = false;
+        
+        try {
+            console.log(`[RECEITANET-ROBOT] Buscando cliente '${login}' na listagem de clientes...`);
+            await page.goto('https://sistema.receitanet.net/clientes.php', { waitUntil: 'networkidle2', timeout: 20000 });
+            
+            // Tenta localizar a busca da tabela
+            const tableSearch = await page.$('input[type="search"], input[name="busca"], #pesquisa');
+            if (tableSearch) {
+                await tableSearch.click();
+                await page.evaluate((el) => { el.value = ''; }, tableSearch);
+                await tableSearch.type(login);
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            
+            // Clica no link com o login correspondente na tabela
+            await Promise.all([
+                page.evaluate((targetLogin) => {
+                    const links = Array.from(document.querySelectorAll('a'));
+                    const link = links.find(l => {
+                        const txt = l.textContent.trim();
+                        return txt === targetLogin || 
+                               txt === `${targetLogin}_SUSPENSO` || 
+                               txt.includes(targetLogin);
+                    });
+                    if (link) link.click();
+                    else throw new Error("Link com o login correspondente não encontrado na tabela.");
+                }, login),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+            ]);
+            loadedFicha = true;
+            console.log(`[RECEITANET-ROBOT] Ficha carregada via listagem de clientes: ${page.url()}`);
+        } catch (tblErr) {
+            console.log(`[RECEITANET-ROBOT WARNING] Falha ao achar pela listagem (${tblErr.message}). Tentando busca global por autocomplete...`);
+        }
+        
+        if (!loadedFicha) {
+            console.log(`[RECEITANET-ROBOT] Buscando cliente '${login}' pela busca global...`);
+            await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
+            
+            const searchSelector = 'input[placeholder*="Nome/Login"], input[placeholder*="Digite o Nome"], input.input';
+            await page.waitForSelector(searchSelector, { timeout: 10000 });
+            await page.click(searchSelector);
+            await page.type(searchSelector, login);
+            await new Promise(r => setTimeout(r, 3000));
+            
+            await page.keyboard.press('ArrowDown');
+            await new Promise(r => setTimeout(r, 500));
+            
+            await Promise.all([
+                page.keyboard.press('Enter'),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+            ]);
+            console.log(`[RECEITANET-ROBOT] Ficha carregada via busca global por autocomplete: ${page.url()}`);
+        }
+        
+        return page.url();
     }
 }
 
