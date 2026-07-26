@@ -391,8 +391,10 @@ function resetFlow() {
     
     // Limpar campos
     cadastroForm.reset();
-    btnSubmitCadastro.disabled = false;
-    btnSubmitCadastro.innerHTML = `<span>Ativar Teste Grátis (4 Horas)</span> <i class="fa-solid fa-bolt"></i>`;
+    btnSubmitTrial.disabled = false;
+    btnSubmitBuy.disabled = false;
+    btnSubmitTrial.innerHTML = `<i class="fa-solid fa-bolt" style="color: #eab308;"></i> <span>Teste Grátis (1 Hora)</span>`;
+    btnSubmitBuy.innerHTML = `<i class="fa-solid fa-cart-shopping"></i> <span>Comprar Agora (R$ 10)</span>`;
     
     // Voltar para o Passo 1
     stepSuccess.classList.remove('active');
