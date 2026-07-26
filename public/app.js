@@ -390,7 +390,7 @@ function mostrarSucesso(login, senha) {
     
     // Configura o link de suporte de backup do WhatsApp
     const nomeCapitalizado = capitalizeName(currentClienteNome || 'Cliente');
-    const supportPhone = '5521964422488';
+    const supportPhone = '552139620880';
     const messageText = `Olá, gostaria de receber minhas credenciais da TV. Meu nome é *${nomeCapitalizado}* e meu CPF é *${currentClienteCpf}*.`;
     const encodedText = encodeURIComponent(messageText);
     const backupLink = `https://wa.me/${supportPhone}?text=${encodedText}`;
