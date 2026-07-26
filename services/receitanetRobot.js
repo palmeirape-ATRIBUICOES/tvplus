@@ -200,20 +200,28 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Acessando ficha de edição em: ${editUrl}`);
             await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
-            // Altera o campo cli_login adicionando "_SUSPENSO"
+            // Altera o campo cli_login adicionando "_SUSPENSO" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.click('input[name="cli_login"]');
-            await page.keyboard.down('Control');
-            await page.keyboard.press('A');
-            await page.keyboard.up('Control');
-            await page.keyboard.press('Backspace');
-            await page.type('input[name="cli_login"]', `${login}_SUSPENSO`);
+            await page.evaluate((loginOriginal) => {
+                const input = document.querySelector('input[name="cli_login"]');
+                if (input) {
+                    input.value = `${loginOriginal}_SUSPENSO`;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    throw new Error("Campo cli_login não localizado na página para alteração.");
+                }
+            }, login);
 
-            // Grava o cliente e aguarda a conclusão da navegação
-            console.log(`[RECEITANET-ROBOT] Gravando bloqueio no ReceitaNet...`);
+            // Grava o cliente e atualiza o Servidor Radius (botão vermelho) para cortar o sinal na hora
+            console.log(`[RECEITANET-ROBOT] Gravando bloqueio no ReceitaNet + Servidor...`);
             await Promise.all([
                 page.evaluate(() => {
-                    const btn = document.getElementById('GravarCliente') || document.querySelector('button[id="GravarCliente"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().includes('Gravar Cliente'));
+                    const buttons = Array.from(document.querySelectorAll('button, input, a'));
+                    const btnServidor = buttons.find(b => b.textContent.trim().includes('Servidor'));
+                    const btnDefault = document.getElementById('GravarCliente') || buttons.find(b => b.textContent.trim().includes('Gravar no ReceitaNet'));
+                    
+                    const btn = btnServidor || btnDefault;
                     if (btn) btn.click();
                     else throw new Error("Botão de gravação não localizado.");
                 }),
@@ -224,9 +232,8 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} bloqueado com sucesso (renomeado para ${login}_SUSPENSO)!`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${login} bloqueado com sucesso (renomeado para ${login}_SUSPENSO e sincronizado com o Servidor)!`);
             await browser.close();
-            return true;
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao bloquear cliente:`, error.message);
@@ -277,20 +284,28 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Acessando ficha de edição suspensa em: ${editUrl}`);
             await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
-            // Restaura o campo cli_login para o original
+            // Restaura o campo cli_login para o original diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.click('input[name="cli_login"]');
-            await page.keyboard.down('Control');
-            await page.keyboard.press('A');
-            await page.keyboard.up('Control');
-            await page.keyboard.press('Backspace');
-            await page.type('input[name="cli_login"]', login);
+            await page.evaluate((loginOriginal) => {
+                const input = document.querySelector('input[name="cli_login"]');
+                if (input) {
+                    input.value = loginOriginal;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    throw new Error("Campo cli_login não localizado na página para alteração.");
+                }
+            }, login);
 
-            // Grava o cliente e aguarda a conclusão da navegação
-            console.log(`[RECEITANET-ROBOT] Gravando reativação no ReceitaNet...`);
+            // Grava o cliente e atualiza o Servidor Radius (botão vermelho) para liberar o sinal na hora
+            console.log(`[RECEITANET-ROBOT] Gravando reativação no ReceitaNet + Servidor...`);
             await Promise.all([
                 page.evaluate(() => {
-                    const btn = document.getElementById('GravarCliente') || document.querySelector('button[id="GravarCliente"]') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().includes('Gravar Cliente'));
+                    const buttons = Array.from(document.querySelectorAll('button, input, a'));
+                    const btnServidor = buttons.find(b => b.textContent.trim().includes('Servidor'));
+                    const btnDefault = document.getElementById('GravarCliente') || buttons.find(b => b.textContent.trim().includes('Gravar no ReceitaNet'));
+                    
+                    const btn = btnServidor || btnDefault;
                     if (btn) btn.click();
                     else throw new Error("Botão de gravação não localizado.");
                 }),
@@ -301,9 +316,8 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} reativado com sucesso (restaurado de ${login}_SUSPENSO)!`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${login} reativado com sucesso (restaurado de ${login}_SUSPENSO e sincronizado com o Servidor)!`);
             await browser.close();
-            return true;
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao reativar cliente:`, error.message);
