@@ -125,7 +125,7 @@ const dbHelpers = {
         const telLimpo = telefone.replace(/\D/g, '');
         const cpfLimpo = cpfcnpj ? cpfcnpj.replace(/\D/g, '') : null;
         
-        let cliente = await dbGet('SELECT * FROM clientes WHERE email = ?', [email]);
+        let cliente = await dbGet('SELECT * FROM clientes WHERE cpfcnpj = ?', [cpfLimpo]);
         if (!cliente) {
             const res = await dbRun(
                 `INSERT INTO clientes (nome, email, telefone, cpfcnpj, cep, endereco, numero, bairro, cidade, uf) 

@@ -219,6 +219,8 @@ btnSubmitBuy.addEventListener('click', () => {
 
 // Reset visual dos containers do Pix antes da geração
 function resetPixUI() {
+    pixQrCode.src = '';
+    pixCopiaCola.value = '';
     valorTagContainer.style.display = 'none';
     qrCodeWrapper.style.display = 'none';
     pixInstructionsText.style.display = 'none';
