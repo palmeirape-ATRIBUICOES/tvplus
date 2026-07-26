@@ -308,6 +308,9 @@
                 <button class="btn-primary" id="btnRunCron">
                     <i class="fa-solid fa-clock"></i> Executar Cron Manual
                 </button>
+                <button class="btn-danger" id="btnResetDb" style="background-color: #b91c1c;">
+                    <i class="fa-solid fa-trash-can"></i> Limpar Painel (Reset Local)
+                </button>
             </div>
         </header>
 
@@ -550,6 +553,33 @@
             } catch (error) {
                 logBox.textContent = `[ERRO DE CONEXÃO] ${error.message}`;
                 logBox.style.color = '#ef4444';
+            }
+        });
+
+        // Limpa todo o Banco de Dados Local (Reset)
+        document.getElementById('btnResetDb').addEventListener('click', async () => {
+            const logBox = document.getElementById('logOutput');
+            
+            if (confirm("ATENÇÃO EXTREMA:\n\nIsso apagará permanentemente todos os clientes, assinaturas e pagamentos APENAS do seu painel Aura TV (sem mexer no ReceitaNet).\n\nDeseja prosseguir com o reset local?")) {
+                logBox.textContent = 'Limpando banco de dados local...';
+                logBox.style.color = '#eab308';
+                
+                try {
+                    const response = await fetch('/api/admin/clear-db', { method: 'POST' });
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        logBox.textContent = `[RESET CONCLUÍDO] ${data.message}`;
+                        logBox.style.color = '#00ff80';
+                        carregarDados();
+                    } else {
+                        logBox.textContent = `[ERRO NO RESET] ${data.error}`;
+                        logBox.style.color = '#ef4444';
+                    }
+                } catch (error) {
+                    logBox.textContent = `[ERRO DE CONEXÃO] ${error.message}`;
+                    logBox.style.color = '#ef4444';
+                }
             }
         });
 

@@ -652,6 +652,21 @@ app.post('/api/admin/excluir', async (req, res) => {
     }
 });
 
+app.post('/api/admin/clear-db', (req, res) => {
+    db.serialize(() => {
+        db.run('DELETE FROM pagamentos', (err1) => {
+            if (err1) return res.status(500).json({ error: err1.message });
+            db.run('DELETE FROM assinaturas', (err2) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+                db.run('DELETE FROM clientes', (err3) => {
+                    if (err3) return res.status(500).json({ error: err3.message });
+                    res.status(200).json({ message: 'Banco de dados local limpo com sucesso! Todos os registros locais foram apagados.' });
+                });
+            });
+        });
+    });
+});
+
 app.post('/api/admin/enviar-instrucoes', async (req, res) => {
     const { cliente_id } = req.body;
     try {
