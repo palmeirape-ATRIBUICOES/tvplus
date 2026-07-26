@@ -50,7 +50,8 @@ class PaymentService {
             }, {
                 headers: {
                     'Authorization': `Bearer ${MP_TOKEN}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Idempotency-Key': `idemp_${Date.now()}_${Math.floor(Math.random() * 1000000)}`
                 }
             });
 
