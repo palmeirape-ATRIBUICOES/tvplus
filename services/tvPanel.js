@@ -50,7 +50,7 @@ async function generateUniqueLogin(nomeCompleto) {
     const parts = normalized.split(/\s+/).filter(p => p.length > 0);
     if (parts.length === 0) return `user${Math.floor(Math.random() * 1000)}@tvplus`;
 
-    const firstName = parts[0];
+    const firstName = parts[0].substring(0, 8); // Evita nomes longos no login limitando o primeiro nome a 8 caracteres
     const lastNameParts = parts.slice(1);
 
     // Tentativa 1: primeiro_nome@tvplus (ex: thiago@tvplus)
@@ -95,7 +95,8 @@ class TvPanelService {
     async cadastrarCliente(cliente) {
         // Gerar login único seguindo o padrão @tvplus e senha numérica de 6 dígitos
         const login = await generateUniqueLogin(cliente.nome);
-        const senha = `${Math.floor(100000 + Math.random() * 900000)}`;
+        const cleanCpf = (cliente.cpfcnpj || '').replace(/\D/g, '');
+        const senha = cleanCpf || `${Math.floor(100000 + Math.random() * 900000)}`;
 
         if (MOCK_MODE) {
             console.log(`[RECEITANET-MOCK] Cadastrando lead no ReceitaNet...`);
