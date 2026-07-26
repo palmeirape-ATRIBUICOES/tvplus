@@ -541,8 +541,26 @@
             }
         });
 
-        // Carrega os dados na inicialização
+        // Carrega logs do servidor em tempo real
+        async function carregarLogsServidor() {
+            try {
+                const response = await fetch('/api/admin/server-logs');
+                const logs = await response.json();
+                if (Array.isArray(logs)) {
+                    const logBox = document.getElementById('logOutput');
+                    logBox.textContent = logs.join('\n');
+                    // Scroll automático para o final do console
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            } catch (e) {
+                // Ignora falhas de conexão silenciosamente
+            }
+        }
+
+        // Carrega os dados na inicialização e inicia o monitor de logs
         carregarDados();
+        setInterval(carregarLogsServidor, 2500);
+        carregarLogsServidor();
     </script>
 </body>
 </html>

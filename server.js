@@ -6,6 +6,25 @@ const dotenv = require('dotenv');
 // Carrega variáveis de ambiente
 dotenv.config();
 
+// Cache de logs em memória para diagnóstico administrativo
+const serverLogs = [];
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = function(...args) {
+    const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+    serverLogs.push(`[LOG] ${new Date().toLocaleTimeString('pt-BR')}: ${line}`);
+    if (serverLogs.length > 300) serverLogs.shift();
+    originalLog.apply(console, args);
+};
+
+console.error = function(...args) {
+    const line = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+    serverLogs.push(`[ERROR] ${new Date().toLocaleTimeString('pt-BR')}: ${line}`);
+    if (serverLogs.length > 300) serverLogs.shift();
+    originalError.apply(console, args);
+};
+
 // Tratamento de exceções globais para evitar crash do processo
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
@@ -608,6 +627,10 @@ app.post('/api/admin/enviar-instrucoes', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+app.get('/api/admin/server-logs', (req, res) => {
+    res.status(200).json(serverLogs);
 });
 
 // Inicia o servidor Express
