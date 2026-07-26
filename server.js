@@ -44,13 +44,22 @@ initDb().then(() => {
  * POST /api/cadastro
  */
 app.post('/api/cadastro', async (req, res) => {
-    const { nome, email, telefone, cpfcnpj, cep, endereco, numero, complemento, bairro, cidade, uf, tipoCadastro } = req.body;
+    const { nome, email, telefone, cpfcnpj, tipoCadastro } = req.body;
 
     if (!nome || !email || !telefone || !cpfcnpj) {
         return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (nome, email, telefone, cpf/cnpj).' });
     }
 
     const isTrial = tipoCadastro !== 'buy';
+
+    // Valores padrão de endereço de Palmeirina-PE para dispensar preenchimento do usuário
+    const cep = '55320000';
+    const endereco = 'Avenida Principal';
+    const numero = 'S/N';
+    const complemento = 'CASA';
+    const bairro = 'CENTRO';
+    const cidade = 'PALMEIRINA';
+    const uf = 'PE';
 
     try {
         // 1. Cadastra ou recupera o cliente no banco local com os dados do ReceitaNet
@@ -86,8 +95,8 @@ app.post('/api/cadastro', async (req, res) => {
             ...cliente,
             complemento: complemento || 'CASA',
             bairro: bairro || 'CENTRO',
-            cidade: cidade || 'SAO JOAO DE MERITI',
-            uf: uf || 'RJ'
+            cidade: cidade || 'PALMEIRINA',
+            uf: uf || 'PE'
         });
 
         const login = crmResult.login;
@@ -142,9 +151,8 @@ app.post('/api/cadastro', async (req, res) => {
 
             // Gera a cobrança Pix Mercado Pago de R$ 10,00 (1 Mês)
             console.log(`[CADASTRO] Gerando Pix de R$ 10,00 para compra direta...`);
-            const txid = `tx_${Date.now()}`;
-            const charge = await paymentService.criarCobrancaPix(txid, 10.00, cliente.nome, cliente.cpfcnpj);
-            await helpers.criarPagamento(cliente.id, txid, 10.00);
+            const charge = await paymentService.gerarCobrancaPix(10.00, cliente);
+            await helpers.criarPagamento(cliente.id, charge.txid, 10.00);
 
             res.status(200).json({
                 status: 'pendente',
@@ -152,7 +160,7 @@ app.post('/api/cadastro', async (req, res) => {
                 message: 'Cadastro realizado! Efetue o pagamento Pix de R$ 10,00 para liberar o seu acesso.',
                 pixQrCode: charge.qrCodeBase64,
                 pixCopiaCola: charge.copiaCola,
-                txid: txid
+                txid: charge.txid
             });
         }
 

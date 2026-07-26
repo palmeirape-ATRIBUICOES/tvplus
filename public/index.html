@@ -43,6 +43,7 @@
                     </button>
                     <div class="hero-guarantees">
                         <span><i class="fa-solid fa-circle-check"></i> Liberação imediata</span>
+                        <span><i class="fa-solid fa-circle-check"></i> Até 3 telas simultâneas</span>
                         <span><i class="fa-solid fa-circle-check"></i> Sem fidelidade</span>
                     </div>
                 </div>
@@ -119,11 +120,11 @@
             <div class="checkout-container-wrapper">
                 <div class="checkout-text-side">
                     <h2>Pronto para começar?</h2>
-                    <p>Insira seus dados ao lado e faça o pagamento Pix de apenas R$ 10,00 para liberar o sinal do ISPFY imediatamente.</p>
+                    <p>Insira seus dados ao lado e faça o pagamento Pix de apenas R$ 10,00 para liberar o sinal da TV imediatamente.</p>
                     
                     <ul class="checkout-bullets">
                         <li><i class="fa-solid fa-circle-check"></i> Sem multa de cancelamento</li>
-                        <li><i class="fa-solid fa-circle-check"></i> Acesso em múltiplos dispositivos</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Use em até 3 telas ao mesmo tempo</li>
                         <li><i class="fa-solid fa-circle-check"></i> Lembrete automático de renovação de 30 dias</li>
                         <li><i class="fa-solid fa-circle-check"></i> Suporte humanizado caso precise de ajuda</li>
                     </ul>
@@ -158,10 +159,7 @@
                                 <input type="tel" id="telefone" placeholder="(11) 99999-9999" required autocomplete="tel">
                             </div>
 
-                            <div class="input-group">
-                                <label for="cep"><i class="fa-solid fa-map-location-dot"></i> CEP (apenas números)</label>
-                                <input type="text" id="cep" placeholder="00000-000" required autocomplete="off">
-                            </div>
+
 
                             <div class="actions-group" style="display: flex; gap: 15px; margin-top: 20px;">
                                 <button type="button" id="btnSubmitTrial" style="flex: 1; height: 48px; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; font-weight: 600; cursor: pointer; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
@@ -296,11 +294,11 @@
                 <button id="btnCloseAdmin" class="btn-close-modal">&times;</button>
             </div>
             <div class="admin-modal-body">
-                <p>Use estas ferramentas para simular a passagem de tempo, testar os avisos de vencimento (WhatsApp) e o bloqueio automático no ISPFY.</p>
+                <p>Use estas ferramentas para simular a passagem de tempo, testar os avisos de vencimento (WhatsApp) e o bloqueio automático no ReceitaNet.</p>
                 
                 <div class="admin-action-card">
                     <h4>1. Rodar Cron de Vencimentos</h4>
-                    <p>Verifica no banco se há contas a expirar em até 3 dias (para enviar Pix de renovação) ou contas já vencidas (para efetuar bloqueio no ISPFY).</p>
+                    <p>Verifica no banco se há contas a expirar em até 3 dias (para enviar Pix de renovação) ou contas já vencidas (para efetuar bloqueio no ReceitaNet).</p>
                     <button id="btnTriggerCron" class="btn-admin-action">
                         <i class="fa-solid fa-clock"></i> Executar Checagem de Assinaturas (Cron)
                     </button>
@@ -316,7 +314,7 @@
 
                 <div class="admin-action-card">
                     <h4>3. Forçar Assinatura Vencida</h4>
-                    <p>Muda a data de vencimento do último cliente para ontem, permitindo testar o bloqueio no ISPFY e alerta de suspensão no WhatsApp.</p>
+                    <p>Muda a data de vencimento do último cliente para ontem, permitindo testar o bloqueio no ReceitaNet e alerta de suspensão no WhatsApp.</p>
                     <button id="btnForceExpired" class="btn-admin-action btn-red">
                         <i class="fa-solid fa-user-slash"></i> Forçar Expiração Total (Vencido)
                     </button>

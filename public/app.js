@@ -124,13 +124,12 @@ async function submeterFormulario(tipoCadastro) {
     const email = document.getElementById('email').value;
     const telefone = document.getElementById('telefone').value;
     const cpfcnpj = document.getElementById('cpfcnpj').value;
-    const cep = document.getElementById('cep').value;
 
     try {
         const response = await fetch('/api/cadastro', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, telefone, cpfcnpj, cep, tipoCadastro })
+            body: JSON.stringify({ nome, email, telefone, cpfcnpj, tipoCadastro })
         });
         
         const data = await response.json();

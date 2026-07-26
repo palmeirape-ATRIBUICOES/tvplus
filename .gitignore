@@ -18,8 +18,6 @@ yarn-error.log*
 
 # Screenshots de erros/testes locais
 *.png
-*.jpg
-*.jpeg
 
 # Logs de tarefas locais
 *.log
