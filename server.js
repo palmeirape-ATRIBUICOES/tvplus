@@ -629,6 +629,29 @@ app.post('/api/admin/reativar', async (req, res) => {
     }
 });
 
+app.post('/api/admin/excluir', async (req, res) => {
+    const { cliente_id } = req.body;
+    try {
+        db.get('SELECT * FROM assinaturas WHERE cliente_id = ?', [cliente_id], async (err, row) => {
+            if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
+            
+            const robot = require('./services/receitanetRobot');
+            await robot.excluirCliente(row.login_tv);
+            
+            // Exclui localmente do SQLite
+            db.run('DELETE FROM pagamentos WHERE cliente_id = ?', [cliente_id], (err1) => {
+                db.run('DELETE FROM assinaturas WHERE cliente_id = ?', [cliente_id], (err2) => {
+                    db.run('DELETE FROM clientes WHERE id = ?', [cliente_id], (err3) => {
+                        res.status(200).json({ message: 'Cliente cancelado e excluído com sucesso no ReceitaNet e no banco local!' });
+                    });
+                });
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.post('/api/admin/enviar-instrucoes', async (req, res) => {
     const { cliente_id } = req.body;
     try {

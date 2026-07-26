@@ -469,6 +469,18 @@
                         btnInstructions.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Instruções`;
                         btnInstructions.onclick = () => gerenciarCliente(c.cliente_id, 'enviar-instrucoes');
                         tdActions.appendChild(btnInstructions);
+
+                        // Botão Excluir Contrato & Cliente
+                        const btnExcluir = document.createElement('button');
+                        btnExcluir.className = 'btn-danger btn-table';
+                        btnExcluir.style.backgroundColor = '#b91c1c';
+                        btnExcluir.innerHTML = `<i class="fa-solid fa-trash-can"></i> Excluir`;
+                        btnExcluir.onclick = () => {
+                            if (confirm(`CUIDADO: Deseja realmente rescindir o contrato (cancelado chip) e EXCLUIR o cliente ${c.nome} do ReceitaNet e do banco local?`)) {
+                                gerenciarCliente(c.cliente_id, 'excluir');
+                            }
+                        };
+                        tdActions.appendChild(btnExcluir);
                     } else {
                         tdActions.innerHTML = `<span style="color:var(--text-muted);">Sem assinatura cadastrada</span>`;
                     }

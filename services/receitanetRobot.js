@@ -307,6 +307,131 @@ class ReceitanetRobotService {
             await browser.close();
             throw error;
         }
+    /**
+     * Efetua a rescisão contratual (cancelado chip) e exclui o cliente do ReceitaNet
+     * @param {string} login - Login original do cliente
+     */
+    async excluirCliente(login) {
+        const adminUser = process.env.RECEITANET_ADMIN_USER;
+        const adminPass = process.env.RECEITANET_ADMIN_PASS;
+
+        console.log(`[RECEITANET-ROBOT] Iniciando exclusão completa do login: ${login}`);
+        
+        const launchOptions = {
+            headless: true,
+            slowMo: 60,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        };
+
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        const browser = await puppeteer.launch(launchOptions);
+        const page = await browser.newPage();
+
+        // Handler para aceitar automaticamente popups de confirmação do navegador
+        page.on('dialog', async dialog => {
+            console.log(`[RECEITANET-ROBOT] Caixa de diálogo detectada: "${dialog.message()}". Confirmando...`);
+            await dialog.accept();
+        });
+
+        try {
+            // 1. Login no painel
+            await page.goto(RECEITANET_LOGIN_URL, { waitUntil: 'networkidle2' });
+            await page.waitForSelector('#username', { timeout: 10000 });
+            await page.type('#username', adminUser);
+            await page.type('#password', adminPass);
+            await Promise.all([
+                page.click('#kc-login'),
+                page.waitForNavigation({ waitUntil: 'networkidle2' })
+            ]);
+
+            // 2. Vai direto para o formulário de edição do cliente
+            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
+            console.log(`[RECEITANET-ROBOT] Acessando ficha do cliente em: ${editUrl}`);
+            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+
+            // 3. Clica em "Rescisão" (ou botão correspondente)
+            console.log(`[RECEITANET-ROBOT] Acessando tela de rescisão...`);
+            await Promise.all([
+                page.evaluate(() => {
+                    const btn = Array.from(document.querySelectorAll('button, input, a')).find(b => b.textContent.trim().includes('Rescisão'));
+                    if (btn) btn.click();
+                    else throw new Error("Botão/aba 'Rescisão' não encontrado.");
+                }),
+                page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {})
+            ]);
+
+            // 4. Seleciona o motivo "cancelado chip" no select dropdown
+            console.log(`[RECEITANET-ROBOT] Selecionando motivo 'cancelado chip'...`);
+            await page.waitForSelector('select', { timeout: 10000 });
+            await page.evaluate(() => {
+                const select = document.querySelector('select');
+                if (select) {
+                    const option = Array.from(select.options).find(o => o.text.toLowerCase().includes('cancelado chip'));
+                    if (option) {
+                        select.value = option.value;
+                        select.dispatchEvent(new Event('change'));
+                    } else {
+                        throw new Error("Opção 'cancelado chip' não localizada no select de motivos.");
+                    }
+                } else {
+                    throw new Error("Select de motivo de rescisão não localizado.");
+                }
+            });
+
+            // 5. Escreve "ok" em detalhes
+            console.log(`[RECEITANET-ROBOT] Preenchendo campo de detalhes com 'ok'...`);
+            await page.evaluate(() => {
+                const input = document.querySelector('textarea') || document.querySelector('input[name="detalhe"]') || document.querySelector('input[name="observacao"]');
+                if (input) {
+                    input.value = 'ok';
+                    input.dispatchEvent(new Event('input'));
+                } else {
+                    throw new Error("Campo de detalhe da rescisão não localizado.");
+                }
+            });
+
+            // 6. Clica em "CALCULAR"
+            console.log(`[RECEITANET-ROBOT] Clicando em CALCULAR...`);
+            await Promise.all([
+                page.evaluate(() => {
+                    const btn = Array.from(document.querySelectorAll('button, input[type="submit"], a')).find(b => b.textContent.trim().toUpperCase().includes('CALCULAR'));
+                    if (btn) btn.click();
+                    else throw new Error("Botão 'CALCULAR' não localizado.");
+                }),
+                page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {})
+            ]);
+
+            // 7. Retorna para a tela do cliente
+            console.log(`[RECEITANET-ROBOT] Retornando para a ficha do cliente...`);
+            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+
+            // 8. Clica em "Excluir"
+            console.log(`[RECEITANET-ROBOT] Clicando no botão 'Excluir'...`);
+            await page.waitForSelector('button', { timeout: 10000 });
+            await Promise.all([
+                page.evaluate(() => {
+                    const btn = document.getElementById('Excluir') || Array.from(document.querySelectorAll('button, input, a')).find(b => b.textContent.trim() === 'Excluir');
+                    if (btn) btn.click();
+                    else throw new Error("Botão 'Excluir' não localizado.");
+                }),
+                page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {})
+            ]);
+
+            console.log(`[RECEITANET-ROBOT] Cliente ${login} rescindido e excluído com sucesso do ReceitaNet!`);
+            await browser.close();
+            return true;
+
+        } catch (error) {
+            console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente:`, error.message);
+            try {
+                await page.screenshot({ path: 'C:\\Users\\thiag\\.gemini\\antigravity\\scratch\\tv-pix-platform\\error_exclusao.png' });
+            } catch (ssErr) {}
+            await browser.close();
+            throw error;
+        }
     }
 }
 
