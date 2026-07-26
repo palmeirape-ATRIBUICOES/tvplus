@@ -2,7 +2,6 @@ services:
   - type: web
     name: tv-pix-platform
     env: docker
-    port: 3000
     plan: starter # Starter plan é altamente recomendado para suportar builds Docker e volume persistente
     disk:
       name: sqlite-data
