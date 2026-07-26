@@ -513,7 +513,16 @@ async function processarConfirmacaoPagamento(txid) {
     if (assinatura) {
         console.log(`[CONFIRMAÇÃO] Ativando/renovando assinatura para ${cliente.nome} por ${meses} meses (${horasExtensao} horas)...`);
         
-        await tvPanelService.reativarCliente(assinatura.login_tv);
+        // Se a assinatura estava pendente (compra direta), ela ainda não existe no painel. Cadastramos pela primeira vez.
+        // Se já estava ativa/suspensa, apenas reativamos.
+        if (assinatura.status === 'pendente') {
+            console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Cadastrando e ativando sinal no ReceitaNet pela primeira vez...`);
+            const robot = require('./services/receitanetRobot');
+            await robot.cadastrarEAtivarTV(cliente, assinatura.login_tv, assinatura.senha_tv);
+        } else {
+            console.log(`[CONFIRMAÇÃO] Cliente existente (${assinatura.status}). Reativando sinal no ReceitaNet...`);
+            await tvPanelService.reativarCliente(assinatura.login_tv);
+        }
         
         // Estende o vencimento
         const novaAssinatura = await helpers.ativarAssinatura(
@@ -590,15 +599,30 @@ app.post('/api/admin/reativar', async (req, res) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
             const robot = require('./services/receitanetRobot');
-            await robot.reativarCliente(row.login_tv);
             
-            const novaDataVenc = new Date();
-            novaDataVenc.setDate(novaDataVenc.getDate() + 30);
-            
-            db.run("UPDATE assinaturas SET status = 'ativa', data_vencimento = ? WHERE id = ?", [novaDataVenc.toISOString(), row.id], (err2) => {
-                if (err2) return res.status(500).json({ error: err2.message });
-                res.status(200).json({ message: 'Cliente reativado por 30 dias no ReceitaNet e no banco local!' });
-            });
+            if (row.status === 'pendente') {
+                db.get('SELECT * FROM clientes WHERE id = ?', [cliente_id], async (err3, cliente) => {
+                    if (err3 || !cliente) return res.status(404).json({ error: 'Cliente não localizado no banco local.' });
+                    
+                    await robot.cadastrarEAtivarTV(cliente, row.login_tv, row.senha_tv);
+                    
+                    const novaDataVenc = new Date();
+                    novaDataVenc.setDate(novaDataVenc.getDate() + 30);
+                    db.run("UPDATE assinaturas SET status = 'ativa', data_vencimento = ? WHERE id = ?", [novaDataVenc.toISOString(), row.id], (err2) => {
+                        if (err2) return res.status(500).json({ error: err2.message });
+                        res.status(200).json({ message: 'Cliente cadastrado e sinal de TV ativado com sucesso!' });
+                    });
+                });
+            } else {
+                await robot.reativarCliente(row.login_tv);
+                
+                const novaDataVenc = new Date();
+                novaDataVenc.setDate(novaDataVenc.getDate() + 30);
+                db.run("UPDATE assinaturas SET status = 'ativa', data_vencimento = ? WHERE id = ?", [novaDataVenc.toISOString(), row.id], (err2) => {
+                    if (err2) return res.status(500).json({ error: err2.message });
+                    res.status(200).json({ message: 'Cliente reativado por 30 dias no ReceitaNet e no banco local!' });
+                });
+            }
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
