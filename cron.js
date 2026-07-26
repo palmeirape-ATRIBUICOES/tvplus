@@ -4,6 +4,11 @@ const paymentService = require('./services/payment');
 const tvPanelService = require('./services/tvPanel');
 const whatsappService = require('./services/whatsapp');
 
+function capitalizeName(name) {
+    if (!name) return '';
+    return name.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
 /**
  * Função principal para checagem de vencimento, envio de cobranças e suspensões automáticas
  */
@@ -40,11 +45,15 @@ async function verificarAssinaturas() {
                 await helpers.criarPagamento(assinatura.cliente_id, cobranca.txid, valorRenovacao);
 
                 // 4. Envia mensagem via WhatsApp informando sobre o bloqueio e fornecendo o Pix
-                const mensagemBloqueio = `Olá, *${assinatura.nome}*!\n\n` +
-                                         `Notamos que o seu período de acesso de TV expirou e o pagamento de renovação não foi identificado.\n` +
+                const nomeCapitalizado = capitalizeName(assinatura.nome);
+                const mensagemBloqueio = `Olá, *${nomeCapitalizado}*!\n\n` +
+                                         `Notamos que o seu período de acesso ao aplicativo *SIGNALPLAY* expirou e o pagamento de renovação não foi identificado.\n` +
                                          `Como resultado, o seu login *${assinatura.login_tv}* foi suspenso temporariamente.\n\n` +
-                                         `Para reativar seu sinal por mais *30 dias* agora mesmo, pague o Pix de R$ 10,00 abaixo:\n\n` +
-                                         `🔑 *Chave Pix (Copia e Cola):*\n\`${cobranca.copiaCola}\`\n\n` +
+                                         `Para reativar seu sinal por mais *30 dias* agora mesmo, realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
+                                         `🔑 *Chave Pix (Copia e Cola) para renovação:*\n\`${cobranca.copiaCola}\`\n\n` +
+                                         `⚠️ *Aviso de Uso simultâneo:*\n` +
+                                         `• Seu login permite assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
+                                         `• *Evite usar em mais de 3 aparelhos* para não causar bloqueios automáticos ou travamentos na sua assinatura.\n\n` +
                                          `Assim que o Pix for pago, o sistema ativará seu sinal automaticamente em instantes!`;
                 
                 await whatsappService.enviarMensagem(assinatura.telefone, mensagemBloqueio);
@@ -80,11 +89,13 @@ async function verificarAssinaturas() {
             await helpers.criarPagamento(assinatura.cliente_id, cobranca.txid, valorCobranca);
 
             const dataVencStr = new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR');
-            const mensagemCobranca = `Olá, *${assinatura.nome}*!\n\n` +
-                                     `Lembramos que sua assinatura de TV expira no dia *${dataVencStr}*.\n` +
-                                     `Para continuar assistindo sem nenhuma interrupção, realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
-                                     `🔑 *Chave Pix (Copia e Cola):*\n\`${cobranca.copiaCola}\`\n\n` +
-                                     `Após a confirmação, sua assinatura será renovada por mais 30 dias de forma automática!`;
+            const nomeCapitalizado = capitalizeName(assinatura.nome);
+            const dataVencStr = new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR');
+            const mensagemCobranca = `Olá, *${nomeCapitalizado}*!\n\n` +
+                                     `Lembramos que sua assinatura do aplicativo *SIGNALPLAY* expira no dia *${dataVencStr}*.\n` +
+                                     `Para continuar assistindo sem nenhuma interrupção (com acesso em até 3 aparelhos simultâneos), realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
+                                     `🔑 *Chave Pix (Copia e Cola) para renovação:*\n\`${cobranca.copiaCola}\`\n\n` +
+                                     `Após a confirmação do pagamento, sua assinatura será renovada de forma automática!`;
 
             const enviado = await whatsappService.enviarMensagem(assinatura.telefone, mensagemCobranca);
             if (enviado) {

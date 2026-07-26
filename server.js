@@ -38,6 +38,11 @@ const paymentService = require('./services/payment');
 const tvPanelService = require('./services/tvPanel');
 const whatsappService = require('./services/whatsapp');
 
+function capitalizeName(name) {
+    if (!name) return '';
+    return name.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -137,13 +142,19 @@ app.post('/api/cadastro', async (req, res) => {
                 .catch(err => console.error(`[ROBÔ ERROR] Falha ao cadastrar no painel administrativo:`, err.message));
 
             // Envia mensagem via WhatsApp com as credenciais
-            const msgBoasVindas = `Olá, *${cliente.nome}*! Bem-vindo à AURA TV!\n\n` +
-                                  `Seu período de demonstração gratuito de *${durationMinutes} minutos* foi ativado!\n` +
-                                  `Aqui estão seus dados de acesso:\n\n` +
-                                  `🔑 Usuário: *${login}*\n` +
-                                  `🔒 Senha: *${senha}*\n\n` +
-                                  `Seu sinal ficará ativo até: ${new Date(assinatura.data_vencimento).toLocaleTimeString('pt-BR')} do dia ${new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR')}.\n` +
-                                  `Aproveite!`;
+            const nomeCapitalizado = capitalizeName(cliente.nome);
+            const msgBoasVindas = `Olá, *${nomeCapitalizado}*! Bem-vindo à AURA TV!\n\n` +
+                                  `Seu período de demonstração gratuito de *${durationMinutes} minutos* foi ativado!\n\n` +
+                                  `🔑 *Seus dados de acesso:*\n` +
+                                  `• Usuário: *${login}*\n` +
+                                  `• Senha: *${senha}*\n\n` +
+                                  `📱 *Como assistir:*\n` +
+                                  `1. Baixe o aplicativo *SIGNALPLAY* na sua TV ou celular.\n` +
+                                  `2. Entre com o Usuário e Senha acima.\n\n` +
+                                  `⚠️ *Regras de Uso Importantes:*\n` +
+                                  `• Você pode usar este login em *ATÉ 3 aparelhos simultaneamente*.\n` +
+                                  `• *Evite conectar em mais do que 3 aparelhos ao mesmo tempo* para não travar o seu cadastro, gerando lentidões ou travamentos na sua assinatura.\n\n` +
+                                  `Seu sinal de teste ficará ativo até: ${new Date(assinatura.data_vencimento).toLocaleTimeString('pt-BR')} do dia ${new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR')}.`;
             
             await whatsappService.enviarMensagem(cliente.telefone, msgBoasVindas);
 
@@ -534,14 +545,23 @@ async function processarConfirmacaoPagamento(txid) {
             assinatura.receitanet_cliente_id
         );
 
-        // Notifica cliente via WhatsApp
+        // Notifica cliente via WhatsApp com instrução do SIGNALPLAY e limites de dispositivos
+        const nomeCapitalizado = capitalizeName(cliente.nome);
         const vencimentoFormatado = new Date(novaAssinatura.data_vencimento).toLocaleDateString('pt-BR');
-        const msgReativacao = `Olá, *${cliente.nome}*!\n\n` +
+        const msgReativacao = `Olá, *${nomeCapitalizado}*!\n\n` +
                               `Confirmamos o recebimento do seu Pix de R$ ${pagamento.valor.toFixed(2)}!\n` +
-                              `Seu acesso à TV foi renovado por *${meses * 30} dias* com sucesso.\n\n` +
-                              `🔑 Usuário: *${assinatura.login_tv}*\n` +
-                              `📅 Novo Vencimento: *${vencimentoFormatado}*\n\n` +
-                              `Obrigado e aproveite sua TV!`;
+                              `Seu acesso à TV foi ativado e renovado por *${meses * 30} dias* com sucesso.\n\n` +
+                              `🔑 *Seus dados de acesso de TV:*\n` +
+                              `• Usuário: *${assinatura.login_tv}*\n` +
+                              `• Senha: *${assinatura.senha_tv}*\n` +
+                              `📅 Vencimento: *${vencimentoFormatado}*\n\n` +
+                              `📱 *Instruções de Instalação:*\n` +
+                              `1. Baixe o aplicativo *SIGNALPLAY* na sua TV ou dispositivo móvel.\n` +
+                              `2. Conecte usando o Usuário e Senha fornecidos acima.\n\n` +
+                              `⚠️ *Regra de Uso Importante:*\n` +
+                              `• Você pode usar este login em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
+                              `• *Evite conectar em mais do que 3 aparelhos simultaneamente* para não travar o seu cadastro, gerando lentidões e travamentos.\n\n` +
+                              `Obrigado e aproveite sua programação!`;
         
         await whatsappService.enviarMensagem(cliente.telefone, msgReativacao);
 
@@ -673,14 +693,18 @@ app.post('/api/admin/enviar-instrucoes', async (req, res) => {
         db.get('SELECT c.*, a.login_tv, a.senha_tv FROM clientes c JOIN assinaturas a ON c.id = a.cliente_id WHERE c.id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Cliente não localizado.' });
             
-            const msgApp = `Olá, *${row.nome}*!\n\n` +
+            const nomeCapitalizado = capitalizeName(row.nome);
+            const msgApp = `Olá, *${nomeCapitalizado}*!\n\n` +
                            `Aqui estão as instruções para assistir à sua AURA TV:\n\n` +
                            `📱 *Como baixar o aplicativo:*\n` +
-                           `1. Baixe o aplicativo *CDNTV* na Play Store (Android) ou na App Store (iOS).\n` +
-                           `2. Para Smart TVs, procure por *CDNTV* ou use o aplicativo compatível.\n\n` +
-                           `🔑 *Seus dados de acesso:*\n` +
+                           `1. Procure e baixe o aplicativo *SIGNALPLAY* na Play Store (Android), App Store (iOS) ou na loja da sua Smart TV.\n` +
+                           `2. Conecte utilizando as suas credenciais abaixo:\n\n` +
+                           `🔑 *Dados de Acesso:*\n` +
                            `• Usuário: *${row.login_tv}*\n` +
                            `• Senha: *${row.senha_tv}*\n\n` +
+                           `⚠️ *Regra de Uso Importante:*\n` +
+                           `• Você pode usar este login em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
+                           `• *Evite conectar em mais do que 3 aparelhos simultaneamente* para não travar o seu cadastro, gerando lentidões ou travamentos.\n\n` +
                            `Qualquer dúvida, estamos à disposição!`;
             
             await whatsappService.enviarMensagem(row.telefone, msgApp);

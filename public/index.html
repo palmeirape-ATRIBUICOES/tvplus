@@ -240,35 +240,65 @@
                             <div class="success-icon-wrapper">
                                 <i class="fa-solid fa-check"></i>
                             </div>
-                            <h2>Acesso Liberado!</h2>
-                            <p class="success-subtitle">O seu pagamento Pix foi confirmado. Seus dados de acesso de TV já estão prontos!</p>
+                            <h2>Muito Obrigado!</h2>
+                            <p class="success-subtitle">Seu pagamento foi confirmado com sucesso. Suas credenciais e instruções de acesso estão sendo enviadas para o seu WhatsApp cadastrado!</p>
                         </div>
 
                         <div class="success-banner">
                             <img src="assets/couple.jpg" alt="Casal assistindo TV" class="success-banner-img">
                         </div>
 
-                        <div class="credentials-card">
-                            <div class="cred-row">
-                                <span class="cred-label"><i class="fa-regular fa-user"></i> Usuário TV</span>
-                                <div class="cred-value-container">
-                                    <span class="cred-value" id="resLogin">carregando...</span>
-                                    <button class="btn-copy-mini" onclick="copyText('resLogin')"><i class="fa-regular fa-copy"></i></button>
-                                </div>
-                            </div>
-                            <div class="cred-row">
-                                <span class="cred-label"><i class="fa-solid fa-key"></i> Senha de TV</span>
-                                <div class="cred-value-container">
-                                    <span class="cred-value" id="resSenha">carregando...</span>
-                                    <button class="btn-copy-mini" onclick="copyText('resSenha')"><i class="fa-regular fa-copy"></i></button>
-                                </div>
-                            </div>
+                        <!-- Caixa Informativa de Instalação e Ativação em segundo plano -->
+                        <div class="info-alert-card" style="background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.2); padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: left;">
+                            <h4 style="color: #eab308; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-circle-info"></i> O que acontece agora?
+                            </h4>
+                            <p style="font-size: 14px; line-height: 1.5; color: var(--text-muted);">
+                                Nosso sistema está escrevendo seu cadastro e ativando seu sinal no painel de TV em segundo plano neste momento. Enquanto você baixa o aplicativo <strong>SIGNALPLAY</strong> no seu celular ou TV, a ativação será concluída automaticamente.
+                            </p>
                         </div>
 
+                        <!-- Termos de Dispositivos -->
+                        <div class="device-limits-card" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glow); border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: left;">
+                            <h4 style="color: #00ff80; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-tv"></i> Regras de Uso
+                            </h4>
+                            <ul style="font-size: 13px; color: var(--text-muted); padding-left: 18px; margin: 0; line-height: 1.6;">
+                                <li>Você pode usar o aplicativo em <strong>ATÉ 3 aparelhos simultaneamente</strong>.</li>
+                                <li style="color: #ef4444; font-weight: 600;">Evite conectar mais do que 3 aparelhos ao mesmo tempo para evitar bloqueios automáticos, lentidões ou travamentos da sua assinatura.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Opção de Suporte Alternativo caso número esteja errado -->
                         <div class="success-alert">
                             <i class="fa-brands fa-whatsapp whatsapp-alert-icon"></i>
-                            <p>Enviamos as credenciais de acesso e o link de instalação para o seu WhatsApp cadastrado.</p>
+                            <p style="margin-bottom: 12px;">Digitou o número de WhatsApp incorreto ou não recebeu a mensagem automática?</p>
+                            <a id="btnSupportBackup" href="#" target="_blank" class="btn-secondary" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; text-decoration: none; padding: 12px; border-radius: 8px;">
+                                <i class="fa-brands fa-whatsapp" style="color: #00ff80;"></i>
+                                <span>Chamar no WhatsApp e Receber Acesso</span>
+                            </a>
                         </div>
+
+                        <!-- Sanfona Oculta para mostrar credenciais caso queira ver na tela -->
+                        <details style="margin-bottom: 20px; text-align: left;">
+                            <summary style="cursor: pointer; color: var(--text-muted); font-size: 13px; user-select: none;">Ver credenciais de acesso na tela</summary>
+                            <div class="credentials-card" style="margin-top: 10px;">
+                                <div class="cred-row">
+                                    <span class="cred-label"><i class="fa-regular fa-user"></i> Usuário TV</span>
+                                    <div class="cred-value-container">
+                                        <span class="cred-value" id="resLogin">carregando...</span>
+                                        <button class="btn-copy-mini" onclick="copyText('resLogin')"><i class="fa-regular fa-copy"></i></button>
+                                    </div>
+                                </div>
+                                <div class="cred-row">
+                                    <span class="cred-label"><i class="fa-solid fa-key"></i> Senha de TV</span>
+                                    <div class="cred-value-container">
+                                        <span class="cred-value" id="resSenha">carregando...</span>
+                                        <button class="btn-copy-mini" onclick="copyText('resSenha')"><i class="fa-regular fa-copy"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </details>
 
                         <button onclick="resetFlow()" class="btn-primary">
                             <span>Nova Assinatura</span>

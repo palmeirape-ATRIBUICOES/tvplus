@@ -1,6 +1,8 @@
 // Estado do Cliente/Pagamento Atual
 let currentTxid = null;
 let currentClienteId = null;
+let currentClienteNome = '';
+let currentClienteCpf = '';
 let statusInterval = null;
 
 // Validadores de CPF e CNPJ
@@ -124,6 +126,9 @@ async function submeterFormulario(tipoCadastro) {
     const email = document.getElementById('email').value;
     const telefone = document.getElementById('telefone').value;
     const cpfcnpj = document.getElementById('cpfcnpj').value;
+
+    currentClienteNome = nome;
+    currentClienteCpf = cpfcnpj;
 
     try {
         const response = await fetch('/api/cadastro', {
@@ -371,12 +376,29 @@ function pararChecagemStatus() {
     }
 }
 
+function capitalizeName(name) {
+    if (!name) return '';
+    return name.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
 function mostrarSucesso(login, senha) {
     resLogin.textContent = login;
     resSenha.textContent = senha;
     
     // Se o overlay do QR Code estiver ativo, desativa
     qrOverlay.classList.remove('active');
+    
+    // Configura o link de suporte de backup do WhatsApp
+    const nomeCapitalizado = capitalizeName(currentClienteNome || 'Cliente');
+    const supportPhone = '5521964422488';
+    const messageText = `Olá, gostaria de receber minhas credenciais da TV. Meu nome é *${nomeCapitalizado}* e meu CPF é *${currentClienteCpf}*.`;
+    const encodedText = encodeURIComponent(messageText);
+    const backupLink = `https://wa.me/${supportPhone}?text=${encodedText}`;
+    
+    const btnSupport = document.getElementById('btnSupportBackup');
+    if (btnSupport) {
+        btnSupport.href = backupLink;
+    }
     
     // Transiciona para o sucesso (Passo 3)
     if (stepPix.style.display === 'block') {
