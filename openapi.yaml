@@ -1,0 +1,844 @@
+openapi: 3.1.0
+servers:
+  - url: 'https://api.receitanet.net/centralassinante/v1'
+    description: Produção
+info:
+  description: |
+    A Central do Assinante para Acesso aclientes, boletos, planos, liberação em confiança, etc
+  version: 1.3.1
+  title: ReceitaNet - API - Central do Assinante
+  contact:
+    email: contato@receitanet.net
+    name: ReceitaNet
+    url: 'https://www.receitanet.net'
+  license:
+    name: Proprietary
+    url: 'https://www.receitanet.net'
+  x-logo:
+    url: 'https://www.receitanet.net/assets/images/receitanet-banner.png'
+    altText: ReceitaNet
+tags:
+  - name: Erro
+    description: |
+      Erros e Falhas podem ocorrer entre a comunicação e o sistema ReceitaNet. Para mitigar este problema todos os erros retornam o HTTP Status Code como 4xx (caso o problema pode ser resolvida pelo Cliente) ou 5xx (em caso de erro interno do servidor).
+
+      Abaixo segue a lista de alguns erros possíveis:
+      ## not_found
+      Registro não localizado ou não existente.
+      ## contrassenha_invalid
+      Contrassenha informada não é válida para o Cliente.
+      ## contrassenha_required
+      Contrassenha é obrigatória e deve-se rodar a API *Contrassenha* para liberar o acesso aos recursos.
+      ## feature_not_activated
+      Recurso não disponível para essa Empresa. Contate o administrador do sistema liberar o recurso em Central do Assinante / Configurações.
+      ## unauthorizate
+      Autenticação ou Autorização não permitida. Verificar o AccessToken ou informações da autenticação.
+      ## unauthorized_client
+      Autenticação inválida.
+      ## error
+      Erro geral.
+      ## payment_notification_expired_or_not_accepted
+      Notificação de pagamento não liberado por motivo de ter excedido a quantidade de uso mensal, Limite de Boletos em Atraso e Dias Máximo de Atraso configurado no ambiente da empresa no ReceitaNet.
+      ## open_chamados_limit_reached
+      Limite de Chamados abertos. Não é permitido a abertura de novos chamados.
+  - name: Autenticação e Configuração
+    description: Autenticação de Clientes e Configurações da Central do Assinante.
+  - name: Chamados
+    description: Informações de Chamado
+  - name: Clientes
+    description: Informações do Cliente
+  - name: Faturas
+    description: Informações de Faturas
+paths:
+  /token:
+    summary: Login por Login/Senha ou CPF/CNPJ.
+    description: |
+      Verificar a configuracao da empresa e saber quais tipos de autenticacoes esta ativada na Empresa.
+
+      Se idEmpresa não informado somente disponível autenticacao do tipo CPF/CNPJ.
+    post:
+      tags:
+        - Autenticação e Configuração
+      summary: Autenticação
+      operationId: login
+      security: [ ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/LoginAccessToken'
+                  - $ref: '#/components/schemas/LoginMultiplosCadastros'
+                    x-stoplight:
+                      id: cco0qh0mfquax
+        '401':
+          description: Unauthorized
+          headers: { }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: unauthorized_client
+                required:
+                  - error
+      description: |-
+        Realização da Autenticação através de Nome de Usuário/Senha ou CPF/CNPJ do Cliente.
+
+        Na etapa de Autenticação, é possível obter informações de Autenticação ou detalhes de Múltiplos Contratos.
+
+        # Campos
+
+        - client_id e client_secret: Parâmetros fornecidos pela empresa para autorizar o uso da API.
+        - idCliente: Pode ser especificado para autenticar um cliente específico, especialmente útil em casos de múltiplos cadastros.
+        - cpfcnpj: Autenticação baseada no CPF/CNPJ do Cliente.
+        - username e password: Autenticação baseada em Nome de Usuário/Senha do Cliente.
+
+        *Obs.:* É importante verificar a configuração da empresa para saber quais tipos de autenticação estão ativados na Empresa
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  x-stoplight:
+                    id: 6g6o7mcmbxne3
+                  default: password
+                client_id:
+                  type: number
+                  description: client_id recebido na liberacao da API
+                client_secret:
+                  type: string
+                  description: client_secret recebido na ativacao da API
+                idCliente:
+                  type: number
+                  x-stoplight:
+                    id: j1o42anjdtqh6
+                cpfcnpj:
+                  type: string
+                  description: CPF/CNPJ do cliente a logar.
+                username:
+                  type: string
+                  description: 'Login do Cliente, requer informar o parametro password.'
+                password:
+                  type: string
+                  description: 'Senha do cliente, requer usar o parametro username.'
+              required:
+                - grant_type
+                - client_id
+                - client_secret
+            examples:
+              Username/Password Exemplo:
+                value:
+                  grant_type: password
+                  client_id: 5
+                  client_secret: '{{client_secret}}'
+                  username: leandro
+                  password: '123'
+              CPFCNPJ Exemplo:
+                value:
+                  grant_type: password
+                  client_id: 5
+                  client_secret: '{{client_secret}}'
+                  cpfcnpj: '19011747003'
+        description: ''
+      parameters: [ ]
+  /empresa:
+    get:
+      summary: Configuração
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  cancelado:
+                    type: boolean
+                  nome:
+                    type: string
+                  is_login_username:
+                    type: boolean
+                  is_login_cpf:
+                    type: boolean
+                  cpfcnpj_contrassenha:
+                    type: boolean
+                  cpfcnpj_contrassenha_obrigatorio:
+                    type: boolean
+                  banner_logo:
+                    type: string
+                  configs:
+                    type: object
+                    properties:
+                      theme_header_left:
+                        type: string
+                      theme_header_right:
+                        type: string
+                      theme_header_text_color:
+                        type: string
+                      theme_button_historico_pagamentos:
+                        type: string
+                      theme_background:
+                        type: string
+                      theme_bg_visualizar_chamados:
+                        type: string
+                      theme_bg_grafico_consumo:
+                        type: string
+                      theme_login_background:
+                        type: string
+                      theme_login_header_text_color:
+                        type: string
+                      theme_login_header_left:
+                        type: string
+                      theme_login_header_right:
+                        type: string
+                      header_logotipo:
+                        type: string
+                      header_titulo:
+                        type: string
+                      2via_boleto:
+                        type: string
+                      notificacao_pagamento:
+                        type: string
+                      historico_pagamento:
+                        type: string
+                      grafico_consumo:
+                        type: string
+                      planos_cobrancas:
+                        type: string
+                      dados_cadastrais:
+                        type: string
+                      chamados_counts:
+                        type: string
+                      chamados_multiple:
+                        type: string
+                      chamados_resposta:
+                        type: string
+                      materiais:
+                        type: string
+                      contrato:
+                        type: string
+                      consumos_mensal:
+                        type: string
+                      mensagem:
+                        type: string
+                      mensagem_notificacao_pagamento:
+                        type: string
+                      app_web:
+                        type: string
+                      app_android:
+                        type: string
+                      app_ios:
+                        type: string
+                      facebook:
+                        type: string
+                      twitter:
+                        type: string
+                      instagram:
+                        type: string
+                      whatsapp:
+                        type: string
+                required:
+                  - id
+                  - cancelado
+                  - nome
+                  - is_login_username
+                  - is_login_cpf
+                  - cpfcnpj_contrassenha
+                  - cpfcnpj_contrassenha_obrigatorio
+                  - banner_logo
+                  - configs
+      operationId: get-empresa
+      description: |-
+        Obtendo Informações sobre a Configuração da Empresa
+
+        Retorna as informações da Empresa, configuração do tema da Central do Assinante, logotipo da empresa, entre outras configurações.
+      security: [ ]
+      tags:
+        - Autenticação e Configuração
+  /contrassenha:
+    post:
+      summary: Contrassenha
+      operationId: post-contrassenha
+      responses:
+        '200':
+          description: Contrassenha liberada e liberado o usos das APIs.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: string
+                    x-stoplight:
+                      id: wawuxwvjwooo7
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+      x-stoplight:
+        id: 26xjgfouih8qx
+      description: 'Liberar o uso das demais APIs, esse passo é obrigatório se o campo *isContrassenha* na API *Autenticação*.'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contrassenha:
+                  type: string
+                  x-stoplight:
+                    id: wj773jez2g57p
+      tags:
+        - Autenticação e Configuração
+      security:
+        - auth: [ ]
+  /cliente/contrato:
+    get:
+      summary: Pegar Contrato do Cliente
+      tags:
+        - Clientes
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: object
+                properties: { }
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+      operationId: get-contrato
+      description: Baixar o contrato do cliente em PDF.
+      security:
+        - auth: [ ]
+    parameters: [ ]
+  /cliente/grafico-consumo:
+    get:
+      summary: Gráfico de Consumo
+      tags:
+        - Clientes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  daily:
+                    oneOf:
+                      - type: string
+                      - type: 'null'
+                  weekly:
+                    oneOf:
+                      - type: string
+                      - type: 'null'
+                  monthly:
+                    oneOf:
+                      - type: string
+                      - type: 'null'
+                  yearly:
+                    oneOf:
+                      - type: string
+                      - type: 'null'
+      operationId: get-grafico-consumo
+      description: 'Gráfico de Consumo Diário, Semanal, Mensal e Anual. Todos os gráficos são retornados em imagem em base64.'
+      security:
+        - auth: [ ]
+    parameters: [ ]
+  /cliente/notificar-pagamento:
+    get:
+      summary: Notificação de Pagamento
+      tags:
+        - Clientes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  date:
+                    type: string
+                    description: Liberado até a Data de Liberação
+        '403':
+          $ref: '#/components/responses/Error'
+      operationId: get-notificar-pagamento
+      description: Solicita a notificação de pagamento e se permitido será liberado o acesso pela quantidade de dias configurado no sistema.
+      security:
+        - auth: [ ]
+    parameters: [ ]
+  /cliente/resumo:
+    get:
+      summary: Informações Diversas para montar a tela principal
+      tags:
+        - Clientes
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ultimasFaturas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          default: 999999
+                        valor:
+                          type: number
+                          default: 52.94
+                        valor_pago:
+                          oneOf:
+                            - type: number
+                            - type: 'null'
+                          default: null
+                        data_vencimento:
+                          type: string
+                          default: "2024-08-29"
+                        data_pagamento:
+                          oneOf:
+                            - type: string
+                            - type: 'null'
+                          default: null
+                        link_fatura:
+                          type: string
+                          default: "https://b.receitanet.net/00Ae"
+                        link_fatura_pdf:
+                          type: string
+                          default: "https://b.receitanet.net/_/000000"
+                        link_recibo:
+                          type: string
+                          default: "https://link.receitanet.net/debitos/000000"
+                        qrcode:
+                          type: string
+                          default: "00020101....."
+                        qrcode_img:
+                          type: string
+                          default: "data:image/png;base64,..."
+                        linha_digitavel:
+                          type: string
+                          default: "00190.00000..."
+                      required:
+                        - id
+                        - codigo
+                        - data_vencimento
+                        - link_fatura
+                        - link_fatura_pdf
+                        - link_recibo
+                  isFaturaVencida:
+                    type: boolean
+                    default: false
+                  isPromessaLiberado:
+                    type: boolean
+                    default: true
+                  consumoMensalLabels:
+                    type: array
+                    items:
+                      type: string
+                  consumoMensalDown:
+                    type: array
+                    items:
+                      type: number
+                  consumoMensalUp:
+                    type: array
+                    items:
+                      type: number
+                  mensalidades:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        descricao:
+                          type: string
+                        valor:
+                          type: number
+                        quantidade:
+                          type: integer
+                        total:
+                          type: number
+                  materiais:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        descricao:
+                          type: string
+                        quantidade:
+                          type: number
+                  contrato:
+                    type: string
+                  servidor:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        isManutencao:
+                          type: string
+                        manutencaoMensagem:
+                          type: string
+                  dados_cadastrais:
+                    type: object
+                    properties:
+                      nome:
+                        type: string
+                      cpfcnpj:
+                        type: string
+                      inscricao:
+                        type: string
+                      email:
+                        type: string
+                      data_nascimento:
+                        type: string
+                      endereco:
+                        type: string
+                      complemento:
+                        type: string
+                      bairro:
+                        type: string
+                      cidade:
+                        type: string
+                      uf:
+                        type: string
+                      isBloqueado:
+                        type: boolean
+                      data_bloqueio:
+                        oneOf:
+                          - type: string
+                          - type: 'null'
+                required:
+                  - servidor
+        '401':
+          $ref: '#/components/responses/Error'
+      operationId: get-home
+      description: 'Pegar informações de Faturas, Dados cadastrais, Consumo de Trafego, Planos de Cobranças, Itens no Estoque do Cliente, Contrato e Informação do Servidor.'
+      security:
+        - auth: [ ]
+    parameters: [ ]
+  /financeiros/faturas:
+    get:
+      summary: Faturas Pendentes e Pagas
+      tags:
+        - Faturas
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  boletos:
+                    type: array
+                    description: Lista de boletos Pendentes em ordem de data de vencimento.
+                    items:
+                      $ref: '#/components/schemas/FaturaItem'
+                  boletosPagos:
+                    type: array
+                    description: Lista de faturas pagas ordenado pela data de vencimento descendente.
+                    items:
+                      $ref: '#/components/schemas/FaturaItem'
+        '401':
+          $ref: '#/components/responses/Error'
+      operationId: get-faturas
+      description: |-
+        Últimas faturas pendentes e as últimas 20 faturas quitadas.
+
+        Os campos Valor, Valor Pago (se quitado), Data de Vencimento, Data de Pagamento (se quitado), Link do Recibo, Link da Nota Fiscal e Link do Boleto.
+      security:
+        - auth: [ ]
+    parameters: [ ]
+  /chamados:
+    get:
+      summary: Chamados do Cliente
+      tags:
+        - Chamados
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chamados:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        status:
+                          type: integer
+                          description: Status do Chamado Aberto ou Finalizado
+                        protocolo:
+                          type: string
+                        descricao:
+                          type: string
+                        respostas_status:
+                          type: string
+                          description: Verifica se existe mensagens não visualizadas.
+                  is_criar_novo:
+                    type: boolean
+                    description: Verificar se permite abrir novo chamado ao cliente.
+        '403':
+          $ref: '#/components/responses/Error'
+      operationId: get-chamados
+      description: Pega os últimos 3 chamados abertos/fechados para atendimentos de solicitação do Cliente.
+      security:
+        - auth: [ ]
+    post:
+      summary: Criar Chamado
+      operationId: post-chamados
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '403':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+      description: |-
+        Abrir nova Solicitação de Atendimento ao Cliente.
+
+        É possível acompanhar o atendimento na API *Chamados do Cliente* e enviar/receber mensagens do atendimento.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                descricao:
+                  type: string
+                  description: Descrição do motivo da solicitação.
+        description: ''
+      tags:
+        - Chamados
+      security:
+        - auth: [ ]
+  '/chamados/respostas/{chamado}':
+    parameters:
+      - schema:
+          type: string
+        name: chamado
+        in: path
+        required: true
+        description: Identificação do Chamado (campo id da api "Chamados do Cliente")
+    get:
+      summary: Pegar mensagens enviadas/recebidas
+      tags:
+        - Chamados
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    resposta:
+                      type: string
+                      description: Resposta do Cliente/Empresa
+                    datahora:
+                      type: string
+                      description: 'Data Hora do Envio no formato 2000-01-30 15:00:00'
+                    tipo:
+                      type: string
+                      description: |-
+                        Tipo de interação:
+                        1: Enviado pelo Cliente
+                        2: Enviado pela Empresa
+                    atendente:
+                      type: string
+                      description: Nome da Atendente da Empresa
+                  required:
+                    - resposta
+                    - datahora
+                    - tipo
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+      operationId: get-chamados-respostas-chamado
+      description: |-
+        Pega as mensagens de interação da empresa e cliente pelo id do Chamado.
+
+        Novas mensagens é adicionada ao final da lista.
+      security:
+        - auth: [ ]
+    post:
+      summary: Envia mensagem no chamado
+      operationId: post-chamados-respostas-chamado
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+      description: Enviar uma mensagem do Cliente para a Empresa.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resposta:
+                  type: string
+                  description: Mensagem do Cliente para a Empresa.
+      tags:
+        - Chamados
+      security:
+        - auth: [ ]
+components:
+  schemas:
+    FaturaItem:
+      title: FaturaItem
+      type: object
+      description: Item de Fatura
+      properties:
+        id:
+          type: integer
+          default: 999999
+        valor:
+          type: number
+          default: 52.94
+        valor_pago:
+          oneOf:
+            - type: number
+            - type: 'null'
+          default: null
+        data_vencimento:
+          type: string
+          default: "2024-08-29"
+        data_pagamento:
+          oneOf:
+            - type: string
+            - type: 'null'
+          default: null
+        link_fatura:
+          type: string
+          default: "https://b.receitanet.net/00Ae"
+        link_fatura_pdf:
+          type: string
+          default: "https://b.receitanet.net/_/000000"
+        link_recibo:
+          type: string
+          default: "https://link.receitanet.net/debitos/000000"
+        qrcode:
+          type: string
+          default: "00020101....."
+        qrcode_img:
+          type: string
+          default: "data:image/png;base64,..."
+        linha_digitavel:
+          type: string
+          default: "00190.00000..."
+      required:
+        - id
+        - codigo
+        - data_vencimento
+        - link_fatura
+        - link_fatura_pdf
+        - link_recibo
+    LoginAccessToken:
+      title: LoginAccessToken
+      type: object
+      properties:
+        access_token:
+          type: string
+        name:
+          type: string
+          description: Nome do cliente
+        isContrassenha:
+          type: boolean
+      description: |-
+        Informações da Autenticação com AccessToken, Nome do Cliente e se a Contrassenha deve ser usada.
+
+        Se o campo isContrassenha for true o cliente deve informar a contrassenha para liberar o uso das demais APIs.
+    LoginMultiplosCadastros:
+      title: LoginMultiplosCadastros
+      type: object
+      properties:
+        contratos:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: number
+              nome:
+                type: string
+              login:
+                type: string
+              endereco:
+                type: string
+              complemento:
+                type: string
+              cidade:
+                type: string
+              bairro:
+                type: string
+              uf:
+                type: string
+        multiploCadastro:
+          type: boolean
+      description: |-
+        Lista de Multiplos Contratos localizado.
+
+        Localizando o contrato na lista passada use o campo contratos[].id no campo idCliente da api "Autenticação".
+  securitySchemes:
+    auth:
+      type: http
+      scheme: bearer
+      description: ''
+  responses:
+    Error:
+      description: Erro na requisição.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string

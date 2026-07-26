@@ -1,0 +1,686 @@
+openapi: 3.0.3
+info:
+  title: ReceitaNet - ChatBot - API
+  version: 1.0.2
+  description: "API para uso em sistema de Chatbot. A Documentação poderá ser testada com o Token 72bb3421-7ad6-4da0-82ea-fd0317f1e31a"
+  license:
+    name: Private
+    url: "https://www.receitanet.net"
+servers:
+  - url: https://sistema.receitanet.net/api/novo/chatbot
+paths:
+  /empresa:
+    post:
+      operationId: empresa-post
+      summary: retorna informações da empresa
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - chatbot
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmpresaResponse"
+              example:
+                success: true
+                nome: WISP
+                cnpj: 61.355.165/0001-70
+                endereco: UA GUARAVERA
+                numero: "840"
+                bairro: URICICA
+                uf: RJ
+                cep: 22710-040
+                telefone1: "2121212121"
+                telefone2: "2121212121"
+  /clientes:
+    post:
+      operationId: clientes-post
+      summary: busca de clientes usando CPF/CNPJ ou telefone
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: cpfcnpj
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: phone
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "401":
+          description: não autenticado
+        "404":
+          description: cliente não localizado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClienteResponse"
+              example:
+                success: true
+                msg: Contrato Localizado
+                contratos:
+                  idCliente: 36
+                  razaoSocial: Nome Cliente
+                  contratoStatusDisplay: Ativo
+                  contratoValorAberto: 202.94
+                  tecnologia: 1
+  /boletos:
+    post:
+      operationId: boletos-post
+      summary: enviar boleto pendente por email, sms ou whatsapp
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: idCliente
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: contato
+          in: query
+          required: false
+          schema:
+            maxLength: 20
+            type: string
+        - name: destino
+          in: query
+          required: false
+          description: Quando ausente ou vazio, envia para os números do cadastro. Use contato para enviar ao número informado em contato.
+          schema:
+            type: string
+            enum:
+              - cadastro
+              - contato
+            default: cadastro
+        - name: tipo
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - email
+              - sms
+              - whatsapp
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoletoResponse"
+              example:
+                success: true
+                idCliente: 36
+                razaoSocial: NOME CLIENTE
+                cpfCnpj: "0"
+                msg: Fatura enviada com sucesso
+                contato: "18999998888"
+                protocolo: "20181116144220"
+                status: true
+  /verificar-acesso:
+    post:
+      operationId: verificar-acesso-post
+      summary: verificar acesso do cliente
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: idCliente
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: contato
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "401":
+          description: não autenticado
+        "404":
+          description: contrato não localizado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcessoResponse"
+              example:
+                status: 2
+                idCliente: 97
+                razaoSocial: RUTH SILVA PENIDO NETO
+                cpfCnpj: "62937553753"
+                msg: Cliente Offline
+                contato: "18999998888"
+  /notificacao-pagamento:
+    post:
+      operationId: notificacao-pagamento-post
+      summary: notificação de pagamento
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: idCliente
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: contato
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificacaoPagamentoResponse"
+              example:
+                status: 1
+                liberado: true
+                razaoSocial: Nome Cliente
+                cpfCnpj: "00000000000"
+                msg: Liberação via URA
+                contato: "1199999999"
+                protocolo: "20180623085657"
+                liberado_ate: 01/01/2000
+  /abertura-chamado:
+    post:
+      operationId: abertura-chamado-post
+      summary: abertura de chamado
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: idCliente
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: contato
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: ocorrenciatipo
+          in: query
+          required: false
+          description: |
+            Tipo da ocorrência. Valores fora da lista são convertidos para 1.
+            tipo de chamados:
+              1: manutenção
+              2: instalação
+              3: visada
+              4: retirada de equipamento, cancelamento
+              5: financeiro
+              6: outros
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
+              - 6
+        - name: subtipo_id
+          in: query
+          required: false
+          description: ID do cadastro ordem_servico_subtipo. Deve pertencer à empresa autenticada e ao tipo informado em ocorrenciatipo.
+          schema:
+            type: integer
+        - name: motivoos
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AberturaChamadoResponse"
+              example:
+                status: true
+                razaoSocial: Nome Cliente
+                cpfCnpj: "00000000000"
+                contato: "11999999999"
+                protocolo: "20180623085657"
+                idSuporte: "999999"
+  /chamado-gravacao:
+    post:
+      operationId: chamado-gravacao-post
+      summary: envio de gravação de chamado
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: idSuporte
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: urlgravacao
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "401":
+          description: não autenticado
+        "404":
+          description: suporte não localizado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                success: true
+  /chamados:
+    post:
+      operationId: chamados-post
+      summary: lista chamados em aberto
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: idCliente
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chamado"
+  /planos-cobrancas:
+    post:
+      operationId: planos-cobrancas-post
+      summary: lista planos de cobrança
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanoCobranca"
+  /debitos:
+    post:
+      operationId: debitos-post
+      summary: lista débitos
+      parameters:
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: app
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - chatbot
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: integer
+            description: "0=todos, 1=pago, 2=aberto"
+            enum: [ 0, 1, 2 ]
+            example: 2
+        - name: cpfcnpj
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{11}|\d{14}$'
+            example: "61992529345"
+            description: "CPF/CNPJ somente números (sem . / -). Ex: 61992529345 ou 61355165000170"
+        - name: data_inicio
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "20-11-2025"
+          description: "Data inicial (dd-mm-yyyy). Filtra vencimento (dt_venc) a partir desta data (>=)."
+
+        - name: data_fim
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "31-12-2025"
+            description: "Data final (dd-mm-yyyy). Se enviado junto com data_inicio, filtra dt_venc no período."
+
+      responses:
+        "401":
+          description: não autenticado
+        "200":
+          description: sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Debito"
+components:
+  securitySchemes:
+    ChatBotToken:
+      type: apiKey
+      name: token
+      in: query
+    ChatBotApp:
+      type: apiKey
+      name: app
+      in: query
+  schemas:
+    EmpresaResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        nome:
+          type: string
+        cnpj:
+          type: string
+        endereco:
+          type: string
+        numero:
+          type: string
+        complemento:
+          type: string
+          nullable: true
+        bairro:
+          type: string
+        uf:
+          type: string
+        cep:
+          type: string
+        telefone1:
+          type: string
+        telefone2:
+          type: string
+    ClienteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        msg:
+          type: string
+        contratos:
+          type: object
+    BoletoResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        idCliente:
+          type: integer
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+        msg:
+          type: string
+        contato:
+          type: string
+        protocolo:
+          type: string
+        status:
+          type: boolean
+    AcessoResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          enum:
+            - 1
+            - 2
+        idCliente:
+          type: integer
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+        msg:
+          type: string
+        contato:
+          type: string
+    NotificacaoPagamentoResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+        liberado:
+          type: boolean
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+        msg:
+          type: string
+        contato:
+          type: string
+        protocolo:
+          type: string
+        liberado_ate:
+          type: string
+    AberturaChamadoResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+        contato:
+          type: string
+        protocolo:
+          type: string
+        idSuporte:
+          type: string
+    Chamado:
+      type: object
+      properties:
+        idSuporte:
+          type: integer
+        data:
+          type: string
+        hora:
+          type: string
+        tipo:
+          type: integer
+        ocorrenciatipo:
+          type: integer
+        subtipo_id:
+          type: integer
+          nullable: true
+        subtipo:
+          type: string
+          nullable: true
+        descricao:
+          type: string
+        solucao_preenchida:
+          type: boolean
+        solucao:
+          type: string
+          nullable: true
+        protocolo:
+          type: string
+          nullable: true
+    PlanoCobranca:
+      type: object
+      properties:
+        idPlano:
+          type: integer
+        descricao:
+          type: string
+        valor:
+          type: number
+          format: float
+    Debito:
+      type: object
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+        login:
+          type: number
+        telefone1:
+          type: string
+        telefone2:
+          type: string
+        telefone3:
+          type: string
+        boletos:
+          $ref: "#/components/schemas/Debito_boletos"
+    Debito_boletos:
+      type: object
+      properties:
+        vencimento:
+          type: string
+        valor:
+          type: number
+          format: float
+        link:
+          type: string
+        qrcode_pix:
+          type: string
+        barras:
+          type: string
+
+security:
+  - ChatBotToken: []
+    ChatBotApp: []

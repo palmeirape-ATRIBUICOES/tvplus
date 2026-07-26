@@ -1,0 +1,1196 @@
+
+<!doctype html>
+
+<head>
+    <script src="../sis_cobrancas/js/jquery-1.8.3.js"></script>
+    <script src="../sis_cobrancas/js/md5.js" type="text/javascript"></script>
+    <script src="../sis_cobrancas/js/jquery-ui-1.9.2.custom.js"></script>
+    <script src="../sprayMenu/SpryMenuBar.js" type="text/javascript"></script>
+    <script src="../swalert/sweetalert2.js" type="text/javascript"></script>
+    <script src="../sis_cobrancas/js/ispfyjs.js" type="text/javascript"></script>
+    <link href="../sis_cobrancas/css/ui-lightness/jquery-ui-1.9.2.custom.css" rel="stylesheet">
+    <link href="../sprayMenu/SpryMenuBarHorizontal.css" rel="stylesheet" type="text/css" />
+    <link href="../swalert/sweetalert2.css" rel="stylesheet" type="text/css" />
+    <link href="../sis_cobrancas/css/databalloon.css" rel="stylesheet" type="text/css">
+    <link href="/app/vanilla/assets/library/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+    <link href="/app/vanilla/assets/library/fontawesome/css/solid.min.css" rel="stylesheet">
+    <link href="/app/vanilla/assets/library/ispfy/fix-style.css" rel="stylesheet">
+
+    <!-- VUE -->
+    <link type="text/css" rel="stylesheet" href="/app/vue/assets/bootstrap-vue/bootstrap.min.css" />
+    <link type="text/css" rel="stylesheet" href="/app/vue/assets/bootstrap-vue/bootstrap-vue.min.css" />
+    <link type="text/css" rel="stylesheet" href="/app/vue/assets/mixins/ispfy-bs-ui.css" />
+    <script src="/app/vue/assets/vue/vue.min.js"></script>
+    <script src="/app/vue/assets/bootstrap-vue/bootstrap-vue.min.js"></script>
+    <script src="/app/vue/assets/bootstrap-vue/bootstrap-vue-icons.min.js"></script>
+    <script src="/app/vue/assets/mixins/map-tools.js"></script>
+
+    <style type="text/css">
+        body {
+            margin-left: 0px;
+            margin-top: 0px;
+            margin-right: 0px;
+            margin-bottom: 0px;
+            width: 100%;
+            height: 100%;
+            background-color: #172C3D;
+            background-image: url(/app/vanilla/assets/image/background2.png);
+
+        }
+
+        html {
+            width: 100%;
+            height: 100%;
+        }
+
+        /** FIX MENU BOOTSTRAP BOX-SIZING */
+        .top-menu * {
+            box-sizing: unset;
+        }
+
+        .footer {
+            position: absolute;
+            bottom: 10px;
+            width: 98%;
+            display: block;
+        }
+
+        .txt1 {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            background-color: #9CC;
+            border: 1px solid #333;
+        }
+
+        .txt1 {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            background-color: #9CC;
+            border: 1px solid #333;
+        }
+
+        .txt {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            background-color: #9CC;
+            border: 1px solid #333;
+        }
+
+        .tabela {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            border: 0px;
+
+        }
+
+        .txtdis {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 12px;
+            border: 1px solid #333;
+        }
+
+        .font {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 12px;
+        }
+
+        .font10w {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 10px;
+            color: #FFF;
+        }
+
+        .CAPT {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 10px;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .txterr {
+            font-family: Verdana, Geneva, sans-serif;
+            font-size: 12px;
+            background-color: #F66;
+        }
+
+
+        /** FIND CLIENTE */
+        #div-find-cliente {
+            display: none;
+            position: absolute;
+            z-index: 1000;
+            width: fit-content;
+            background-color: #fff;
+            border-radius: 5px;
+            color: #333;
+            padding: 5px;
+            box-sizing: border-box;
+            -webkit-box-shadow: 8px 8px 15px 2px rgba(61, 61, 61, 0.14);
+            -moz-box-shadow: 8px 8px 15px 2px rgba(61, 61, 61, 0.14);
+            box-shadow: 8px 8px 15px 2px rgba(61, 61, 61, 0.14);
+        }
+
+        .div-info-find-cliente {
+            font-weight: bold;
+            padding: 3px;
+            font-size: 14px;
+            width: 133px;
+        }
+
+        .row-find-cliente {
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 5px;
+            min-width: 250px;
+            width: fit-content;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        .row-find-cliente:not(:last-child) {
+            border-bottom: 1px dashed rgba(42, 72, 97, 0.2);
+        }
+
+        .row-find-cliente:hover {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+        }
+
+        .menu-button-icon {
+            width: 23px !important
+        }
+
+        /** CHAT */
+        #chat-window {
+            position: absolute;
+            display: none;
+            bottom: 20px;
+            right: 20px;
+            width: 375px;
+            max-height: 565px;
+            border-radius: 16px;
+            background-color: #fff;
+            z-index: 600;
+            box-shadow: 2px 2px 6px #666;
+        }
+
+        #chat-wrapper {
+            width: 375px;
+            height: 505px;
+            overflow: hidden;
+            overflow: -moz-hidden-unscrollable;
+            border-radius: 15px;
+            display: flex;
+            visibility: hidden;
+        }
+
+        #chat-loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+        }
+
+        #chat-window-button-move {
+            top: -12px;
+            left: -12px;
+            width: 35px;
+            height: 35px;
+            background-color: #fafafa;
+            border-radius: 50%;
+            position: absolute;
+            cursor: grab;
+            border: 2px solid #9F43FF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            z-index: 800;
+            filter: grayscale(.6);
+        }
+
+        #chat-window-button-move img:hover {
+            transform: scale(1.1);
+        }
+
+        #chat-minimized {
+            display: block;
+            height: 60px;
+        }
+
+        #chat-close-confirm {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            z-index: 900;
+            border-radius: 15px;
+            background-color: rgba(255, 255, 255, .9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #chat-minimized-messages {
+            width: 100%;
+            height: 100%;
+            color: red;
+            display: flex;
+            align-items: center;
+            padding-left: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 14px;
+            animation: blinker 2s linear infinite;
+        }
+
+        #chat-minimized-title {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding-left: 25px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-weight: bold;
+            font-size: 16px;
+            color: #43A5ED !important;
+        }
+
+        #chat-window-label-alert {
+            top: 54px;
+            right: 10px;
+            position: absolute;
+            font-size: 13px;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #fff;
+            text-decoration: underline;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #chat-window-label-alert:hover {
+            transform: scale(1.02);
+        }
+
+        .chat-window-button {
+            top: 15px;
+            width: 80px;
+            height: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            position: absolute;
+            cursor: pointer;
+            color: #333;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            font-size: 12px;
+            font-family: Arial, Helvetica, sans-serif;
+            z-index: 1000;
+        }
+
+        .chat-window-button:hover {
+            transform: scale(1.05);
+        }
+
+        .chat-confirm-button {
+            width: 90px;
+            height: 40px;
+            border: none;
+            border-radius: 5px;
+            margin: 5px;
+            cursor: pointer;
+            color: #fff;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+    <script>
+        const __USERNAME = 'thiagotv';
+        const doc = '24566248000182';
+        const trade = '';
+        let audioBeep = null;
+        let isTabVisible = true;
+        let loginIsShowed = false;
+
+        document.addEventListener("visibilitychange", () => (isTabVisible = (document.visibilityState === "visible")));
+
+        window.showRenewLoginWindow = (show) => {
+            if (show) {
+                $('#iframe_relogar').attr("src", `/index.php?renew=yes&username=${__USERNAME}`);
+                $('#div_relogar').fadeIn(500);
+            } else {
+                loginIsShowed = false;
+                $('#div_relogar').fadeOut(500);
+                $('#iframe_relogar').attr("src", "");
+            }
+        }
+
+        window.openChat = () => {
+            audioBeep = new Audio('https://portal.ispfy.com.br/app/chat/notify-sound.mp3');
+            $('#chat-close-confirm').hide();
+            $('#chat-window').show(300);
+            $('#chat-minimized').hide();
+            $('#chat-minimized-messages').hide();
+            $('#chat-window-button-minimize').html('⇩ Minimizar');
+            document.querySelector('#chat-loader').style.display = 'flex';
+            document.querySelector('#chat-wrapper').innerHTML = `
+                <iframe id="frmChat" src="https://portal.ispfy.com.br/app/chat?identitity=${doc}&trade=${trade}&username=${__USERNAME}" scrolling="no" frameborder="0" style="width: 400px; height: 635px;"></iframe>
+            `;
+
+
+
+            window.localStorage.setItem('chat_status', 'open');
+        }
+
+        window.chatClose = (confirmed = false) => {
+            if (confirmed) {
+                window.localStorage.removeItem('chat_status');
+                $('#chat-window').hide(300);
+                $('#frmChat').remove();
+            } else {
+                if ($('#chat-minimized').is(':visible')) {
+                    window.chatMinimize();
+                }
+                $('#chat-close-confirm').css('display', 'flex');
+            }
+        }
+
+        window.chatMinimize = () => {
+            const minimized = $('#chat-minimized').is(':visible');
+
+            if (minimized) {
+
+                $('#chat-wrapper').show();
+                $('#chat-minimized').hide(100);
+                $('#chat-window-button-minimize').html('⇩ Minimizar');
+                $('#chat-window-label-alert').show();
+                $('#chat-bottom').show();
+
+                if ($('#chat-window').offset().top < 10) {
+                    window.chatPosXOffset = 0;
+                    window.chatPosYOffset = 0;
+                    $('#chat-window').css({
+                        'transform': 'translate3d(0px, 0px, 0px'
+                    });
+                }
+
+            } else {
+
+                $('#chat-wrapper').hide(100);
+                $('#chat-minimized').show();
+                $('#chat-minimized-messages').hide();
+                $('#chat-window-label-alert').hide();
+                $('#chat-minimized-title').show();
+                $('#chat-window-button-minimize').html('⇧ Maximizar');
+                $('#chat-bottom').hide();
+
+            }
+        }
+
+        window.addEventListener("message", (m) => {
+
+            if (m.data.event === 'open') {
+                $('#chat-loader').hide();
+                $('#chat-wrapper').css('visibility', 'visible');
+            }
+
+            if (m.data.event === 'new_message') {
+                if ($('#chat-minimized').is(':visible')) {
+                    $('#chat-minimized-messages').show();
+                    $('#chat-minimized-title').hide();
+                    audioBeep.play();
+                }
+            }
+        });
+
+        window.onload = function() {
+            window.attachChatDragEvent();
+
+            if (window.localStorage.getItem('chat_status') === 'open') {
+                window.openChat();
+            }
+        }
+
+        window.attachChatDragEvent = function() {
+            const dragItem = document.querySelector("#chat-window");
+            const dragAnchor = document.querySelector("#chat-window-button-move img");
+            const container = document.querySelector("body");
+            const iframe = document.getElementById('frm_container').contentWindow;
+
+
+            window.chatPosActive = false;
+            window.chatPosCurrentX;
+            window.chatPosCurrentY;
+            window.chatPosInitialX;
+            window.chatPosInitialY;
+            window.chatPosXOffset = 0;
+            window.chatPosYOffset = 0;
+
+
+            iframe.addEventListener("mousemove", drag, false);
+            container.addEventListener("touchstart", dragStart, false);
+            container.addEventListener("touchend", dragEnd, false);
+            container.addEventListener("touchmove", drag, false);
+            container.addEventListener("mousedown", dragStart, false);
+            container.addEventListener("mouseup", dragEnd, false);
+            container.addEventListener("mousemove", drag, false);
+            container.addEventListener("mouseleave", dragEnd, false);
+
+            function dragStart(e) {
+                if (e.type === "touchstart") {
+                    window.chatPosInitialX = e.touches[0].clientX - window.chatPosXOffset;
+                    window.chatPosInitialY = e.touches[0].clientY - window.chatPosYOffset;
+                } else {
+                    window.chatPosInitialX = e.clientX - window.chatPosXOffset;
+                    window.chatPosInitialY = e.clientY - window.chatPosYOffset;
+                }
+
+                if (e.target === dragAnchor) {
+                    window.chatPosActive = true;
+                }
+            }
+
+            function dragEnd(e) {
+                window.chatPosInitialX = window.chatPosCurrentX;
+                window.chatPosInitialY = window.chatPosCurrentY;
+                window.chatPosActive = false;
+            }
+
+            function drag(e) {
+                if (window.chatPosActive) {
+
+                    e.preventDefault();
+
+                    if (e.type === "touchmove") {
+                        window.chatPosCurrentX = e.touches[0].clientX - window.chatPosInitialX;
+                        window.chatPosCurrentY = e.touches[0].clientY - window.chatPosInitialY;
+                    } else {
+                        window.chatPosCurrentX = e.clientX - window.chatPosInitialX;
+                        window.chatPosCurrentY = e.clientY - window.chatPosInitialY;
+                    }
+
+                    window.chatPosXOffset = window.chatPosCurrentX;
+                    window.chatPosYOffset = window.chatPosCurrentY;
+
+                    setTranslate(window.chatPosCurrentX, window.chatPosCurrentY, dragItem);
+                }
+            }
+
+            function setTranslate(xPos, yPos, el) {
+                el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
+            }
+        }
+    </script>
+
+
+    <script>
+        function finishModal(msg = null, reload = null) {
+            if (msg != null)
+                swal({
+                    position: 'top',
+                    type: 'success',
+                    title: 'Pronto!',
+                    text: msg,
+                    timer: 3000,
+                    onClose: function() {
+                        if (reload != null) $('#frm_container').attr("src", $('#frm_container').contents().get(0).location.href);
+                    }
+                });
+
+        }
+
+        function showTimeError(timeSys, timeNtp) {
+
+            var html = '<span class="font" style="font-size:13px;">';
+            html += 'A hora do sistema é fundamental para garantir a integridade dos dados, corrija o problema o mais rapido possível';
+            html += '<br/><br/>';
+            html += '<b style="color:red; font-size:18px;">Possíveis problemas</b><br/>';
+            html += '<div style="color:red; font-size:13px; text-align: left; padding-left: 30px; padding-top: 5px;">';
+            html += '1) O ISPFY precisa navegar na internet, verifique seu roteamento<br />';
+            html += '2) O DNS utilizado no ISPFY precisa funcionar, verifique-o<br />';
+            html += '3) O relégio ' + timeSys + ' está correto? Caso não, corrija no setup <br />';
+            html += '4) Você não está bloqueando a porta UDP/123? Verifique seu firewall<br />';
+            html += '5) Seu IP não está banido do servidor NTP.br? Faça um ping para a.ntp.br<br />';
+            html += '6) Você tem serviço NTP próprio? Se sim, mude para o serviço do NTP.br<br />';
+            html += '</div>';
+            html += '</span><br>';
+
+            swal({
+                type: 'error',
+                width: '600px',
+                title: 'Erro no relógio do sistema',
+                html: html,
+                showCloseButton: false,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showCancelButton: true,
+                reverseButtons: true,
+                confirmButtonText: 'Tentar sincronizar',
+                confirmButtonColor: 'red',
+                cancelButtonText: 'Ver depois',
+                cancelButtonColor: 'gray',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    return new Promise((resolve, reject) => {
+                        $.post("main.php", {
+                            testNtp: true,
+                        }).done(function() {
+                            resolve();
+                        }).fail(function(err) {
+                            reject('Falha na consulta<br>' + err.responseText);
+                        });
+                    });
+                }
+            });
+        }
+
+        function goUrl(url) {
+            swal.close();
+            $('#frm_container').attr('src', url);
+
+        }
+
+        function modalAlertNfe2x() {
+            swal({
+                html: '<iframe id="frm_nfe_alert" sandbox="allow-same-origin allow-scripts allow-forms" src="../nfe2x/alertas.php" style="width: 100%; height: 100%;" frameborder="0"></iframe>',
+                showCloseButton: true,
+                showConfirmButton: false,
+                width: '95%',
+                padding: 10,
+                onOpen: function() {
+                    $(".swal2-container").css('background-color', 'rgba(0, 0, 0, 0.9)');
+                    $(".swal2-close").css('border-radius', '5px');
+                    $(".swal2-close").css({
+                        'background-color': '#f0f0f0',
+                        'top:': '0px',
+                        'right': '0px'
+                    });
+                    $(".swal2-close").blur();
+                    $("div[role='dialog']").css('background-color', '#f0f0f0');
+                    $("div[role='dialog']").css('height', '70%');
+                    $('#frm_nfe_alert').css('height', ($("div[role='dialog']").css('height').replace('px', '') - 60) + 'px');
+
+
+                }
+            })
+        }
+
+        function showConfigWizard() {
+            swal({
+                html: '<iframe style="width: 100%; height:425px;" src="/home/home_wiz.php" frameborder="0"></iframe>',
+                showCloseButton: true,
+                showConfirmButton: false,
+                allowEscapeKey: false,
+                allowOutsideClick: false,
+                width: '700px',
+                padding: 10
+            })
+        }
+
+        function alertMessage() {
+
+            swal({
+                width: '900px',
+                title: 'AVISO IMPORTANTE',
+                html: `
+                        <div style="width: 100%; height: 350px; text-align: left; overflow: auto;">
+                                                    <div>
+                    `,
+                confirmButtonColor: 'red',
+                confirmButtonText: 'Entendi',
+            });
+
+        }
+
+        function showBtnAlertNfe2X() {
+            $("#btn_nfe_alert").show();
+            $("#btn_nfe_alert").css("opacity", "0.4");
+            setInterval(function() {
+                if (Math.round($("#btn_nfe_alert").css("opacity") * 100) / 100 == 0.2) {
+                    $("#btn_nfe_alert").css("opacity", "1");
+                } else {
+                    $("#btn_nfe_alert").css("opacity", "0.2");
+                }
+            }, 500);
+        }
+
+        const debounce = function(func, wait, immediate) {
+            let timeout;
+            return function() {
+                var context = this,
+                    args = arguments;
+                var later = function() {
+                    timeout = null;
+                    if (!immediate) func.apply(context, args);
+                };
+                var callNow = immediate && !timeout;
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+                if (callNow) func.apply(context, args);
+            };
+        };
+
+        $(function() {
+
+            
+            
+            $("#txt-find-cliente").on('blur', function() {
+                setTimeout(() => {
+                    $("#div-find-cliente").hide();
+                    $("#div-find-cliente").html('');
+                }, 200);
+            })
+
+            $("#txt-find-cliente").on('keyup', function(e) {
+                    if ($("#txt-find-cliente").val().trim()) {
+                        $("#div-find-cliente").html('<div class="div-info-find-cliente">Carregando...<div>').show();
+                    } else {
+                        $("#txt-find-cliente").val('');
+                        $("#div-find-cliente").hide();
+                    }
+                })
+                .on('keyup', debounce(function() {
+                    const txtFindCli = $("#txt-find-cliente");
+                    const divFindClient = $("#div-find-cliente");
+
+                    if (!$("#txt-find-cliente").val().trim()) {
+                        return;
+                    }
+
+                    $.get("main.php", {
+                        getCliByNome: $(txtFindCli).val()
+                    }).done(function(response) {
+                        $("#div-find-cliente").html('');
+
+                        const data = JSON.parse(response) || [];
+                        if (!data.length) {
+                            $(divFindClient).html('<div class="div-info-find-cliente">Nada encontrado<div>');
+                        }
+
+                        data.forEach(row => {
+                            $(divFindClient).append(`
+                            <div class="row-find-cliente" data-id="${row.id}">
+                                <div><b>${row.nome}</b></div>
+                                <div>${row.doc}</div>
+                                <div style="font-size: 9px;">${row.tenant_title || 'SEM CONTRATO'}</div>
+                                <div style="font-size: 9px;">${row.cidade}</div>
+                            </div>
+                        `);
+                        });
+
+                        $('.row-find-cliente').on('mousedown', function() {
+                            const id = $(this).attr('data-id');
+                            window.open(`/sis_cobrancas/detalhes.php?cliente=${id}`, 'frm_container').focus();
+                        });
+
+                        $(divFindClient).css({
+                            'top': '32px',
+                            'left': '0px'
+                        });
+                        $(divFindClient).show();
+                    });
+                }, 500));
+
+        });
+
+
+
+        /** VUE MODULES */
+        window.vue = new Vue({
+            el: "#app",
+            methods: {
+                findInMaps(latitude, longitude, onConfirmCallback = null, searchAddress = null, showCenterMarker = true, markers = [], lines = []) {
+                    this.$mapTools.findInMaps(latitude, longitude, onConfirmCallback, searchAddress, showCenterMarker, markers, lines);
+                }
+            },
+            // mounted() {
+            //     setTimeout(() => {
+            //         this.findInMaps(null, null, () => {}, "Abadia, Go");
+            //     }, 1000);
+            // }
+        });
+    </script>
+
+</head>
+
+<body>
+
+    <!-- SUPORTE -->
+    <div id="chat-window">
+        <div id="chat-window-button-move">
+            <img width="30" src="/iconmenu/drag-icon.png" draggable="false" ondragstart="event.preventDefault();" />
+        </div>
+        <div id="chat-close-confirm">
+            <div>
+                <div style="font-size: 14px; font-family: Arial, Helvetica, sans-serif;">
+                    Deseja realmente fechar o atendimento?
+                </div>
+                <div style="display: flex; height: 80px; justify-content: center; align-items: center;">
+                    <button class="chat-confirm-button" style="background-color: #999;" onclick="$('#chat-close-confirm').hide(100)">
+                        <span style="font-size: 20px;">↺</span>
+                        <span>Voltar</span>
+                    </button>
+                    <button class="chat-confirm-button" style="background-color: red;" onclick="window.chatClose(true)">
+                        <span style="font-size: 20px;">⊗</span>
+                        <span>Fechar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="chat-window-button-close" class="chat-window-button" style="right: 10px" onclick="chatClose()">
+            <span style="font-size: 20px; color: red;">⊗</span>
+            <span style="margin-left: 5px; color: red;">Fechar</span>
+        </div>
+        <div id="chat-window-label-alert" onclick="document.getElementById('frmChat').src += '';">Recarregue o chat clicando aqui em caso de falha </div>
+        <div id="chat-window-button-minimize" class="chat-window-button" style="right: 100px; color: green;" onclick="chatMinimize()"> ⇩ Minimizar</div>
+        <div id="chat-wrapper" onscroll="this.scrollTo(0,0)">
+            <!-- -->
+        </div>
+        <div id="chat-minimized">
+            <div id="chat-minimized-messages">
+                <img src="/iconmenu/alert-icon-2.png" width="25px" /> Nova mensagem...
+            </div>
+            <div id="chat-minimized-title">
+                <img src="/iconmenu/support-chat.png" width="20px" style="" /> Atendimento
+            </div>
+        </div>
+        <div id="chat-loader">
+            <img width="40" src="/iconmenu/loader.gif" />
+            <span style="margin-left: 5px; user-select: none;">Carregando...</span>
+        </div>
+        <div id="chat-bottom" style="height: 30px; display: flex; font-size: 12px; font-family: Arial, Verdana;  user-select: none; margin-top: 10px;">
+            <div style="display: flex; align-items: center; margin-left: 10px;">
+                <img src="/iconmenu/whatsapp-mini.png" style="width: 20px; " />
+                <a href="https://wa.me/558008001560" target="_blank" style="cursor: pointer; color: #0089ff;">Whatsapp</a>
+            </div>
+            <div style="display: flex; align-items: center; margin-left: 10px;">
+                <img src="/iconmenu/telegram-mini.png" style="width: 20px; " />
+                <a href="https://telegram.me/ispfy_suporte_bot" target="_blank" style="cursor: pointer; color: #0089ff;">Telegram</a>
+            </div>
+            <div style="display: flex; align-items: center; margin-left: 10px;">
+                <img src="/iconmenu/email-mini.png" style="width: 20px; " />
+                <a href="mailto:suporte@ispfy.com.br" target="_blank" style="cursor: pointer; color: #0089ff;">E-mail</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- TELA DE RELOGIN -->
+    <div id="div_relogar" style="display: none; position:absolute; top:0px; left:0px; width: 100%; height: 100%; z-index: 100000; overflow: hidden;">
+        <iframe id="iframe_relogar" style="width: 100%; height: 100%;" allowtransparency="true" scrolling="no" frameborder="0"></iframe>
+    </div>
+
+    <!-- MENU -->
+    <div class="top-menu" style="position:fixed; top: 0px; left: 0px; min-width: 10px; max-width: 870px; z-index: 1000; -webkit-box-shadow: 9px 9px 7px -4px rgba(61,61,61,0.11); -moz-box-shadow: 9px 9px 7px -4px rgba(61,61,61,0.11); box-shadow: 9px 9px 7px -4px rgba(61,61,61,0.11);">
+        <table border="0" cellpadding="0" cellspacing="0" style="top:0px; left:0px; border-bottom-right-radius:8px; background-color: #FFF; ">
+            <tr class="tabela">
+
+                <!---- HOME ------>
+                <td width="20" align="center" valign="middle">
+                    <ul class="MenuBarHorizontal">
+                        <li>
+                            <a target="frm_container" href="home.php" class="MenuBarItemSubmenu" style="width: 20px; user-select: none; text-align: center;">
+                                <i class="fa-solid fa-house" style=" font-size: 16px"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </td>
+
+                <!---- ATENDIMENTO ------>
+                                    <td width="125" align="center" valign="middle">
+                        <ul id="MenuBar1" class="MenuBarHorizontal" style="margin-left:2px;margin-right:2px; width: 125px;">
+                            <li style="width: 125px;">
+                                <a target="frm_container" href="../chamado/chamados_listar.php" style="user-select: none;">
+                                    <i class="fa-solid fa-clipboard-list" style="font-size: 16px; margin-right: 4px;"></i>ATENDIMENTOS
+                                </a>
+                            </li>
+                        </ul>
+                    </td>
+                
+                <!---- CLIENTES ------>
+                                    <td width="110" align="center" valign="middle">
+                        <ul id="MenuBar2" class="MenuBarHorizontal" style="margin-left:2px; margin-right:2px; width:110px;">
+                            <li style="width:110px;">
+                                <a target="frm_container" class="MenuBarItemSubmenu" onclick="event.stopPropagation()" style="user-select: none;">
+                                    <i class="fa-solid fa-user-group" style="font-size: 16px; margin-right: 4px;"></i>CLIENTE
+                                    <i class="fa-solid fa-angle-down" style="font-size: 14px; font-weight: bold;"></i>
+                                </a>
+                                <ul id="ul-cliente">
+
+                                    <!---- BUSCA ------>
+                                                                            <li>
+                                            <input id="txt-find-cliente" autocomplete="off" aria-autocomplete="none" type="text" style="height: 24px; width: 95%; border: 1px solid #aaa; border-radius: 5px; font-size: 13px;" placeholder="Pesquisa rápida..." />
+                                            <div id="div-find-cliente">
+                                                Carregando...
+                                            </div>
+                                        </li>
+                                    
+                                    <!---- CONSULTAR ------>
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/customer/main-finder/" style="font-size: 11px;">
+                                                <i class="menu-button-icon fa-solid fa-magnifying-glass" style="font-size: 16px"></i>CONSULTAR
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- CADAST. NORMAL ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../instalacao/instalacao_cadastrar.php">
+                                                <i class="menu-button-icon fa-solid fa-user-plus" style="font-size: 16px"></i>CADAST. NORMAL
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- CADAST. RÁPIDO ------>
+                                                                            <li>
+                                            <a href="../instalacao/easycad.php" target="frm_container">
+                                                <i class="menu-button-icon fa-solid fa-user-check" style="font-size: 16px"></i>CADAST. RÁPIDO
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- MAPA ------>
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/maps/">
+                                                <i class="menu-button-icon fa-solid fa-map-location-dot" style="font-size: 16px"></i>MAPA GERAL
+                                            </a>
+                                        </li>
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                    </td>
+                
+                <!---- REVISÃO ------>
+                                    <td width="110" align="center" valign="middle">
+                        <ul id="MenuBar3" class="MenuBarHorizontal" style="margin-left:2px; margin-right:2px; width:110px;">
+                            <li style="width:110px;">
+                                <a target="frm_container" class="MenuBarItemSubmenu" onclick="event.stopPropagation()" style="user-select: none;">
+                                    <i class="fa-solid fa-heart-circle-check" style="font-size: 16px; margin-right: 4px;"></i>REVISÃO
+                                    <i class="fa-solid fa-angle-down" style="font-size: 14px; font-weight: bold;"></i>
+                                </a>
+                                <ul>
+
+                                    <!---- TÉCNICA ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../analise/tecnica.php">
+                                                <i class="menu-button-icon fa-solid fa-wrench" style="font-size: 16px"></i>TÉCNICA
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- FINANCEIRA ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../analise/financeira.php">
+                                                <i class="menu-button-icon fa-solid fa-money-bills" style="font-size: 14px"></i>FINANCEIRA
+                                            </a>
+                                        </li>
+                                                                    </ul>
+                            </li>
+                        </ul>
+                    </td>
+                
+                <!---- FERRAMENTAS ------>
+                                    <td width="150" align="center" valign="middle">
+                        <ul id="MenuBar4" class="MenuBarHorizontal" style="margin-left:2px;margin-right:2px;">
+                            <li>
+                                <a class="MenuBarItemSubmenu" onclick="event.stopPropagation()" style="user-select: none;">
+                                    <i class="fa-solid fa-screwdriver-wrench" style="font-size: 16px; margin-right: 4px;"></i>
+                                    FERRAMENTAS
+                                    <i class="fa-solid fa-angle-down" style="font-size: 14px; font-weight: bold;"></i>
+                                </a>
+                                <ul>
+
+                                    <!---- DICI ------>
+                                    
+                                    <!---- ARQUIVOS ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../arquivos/arquivos.php">
+                                                <i class="menu-button-icon fa-solid fa-folder-open" style="font-size: 16px; "></i>ARQUIVOS
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- APURACAO NFE-21/22 ------>
+                                    
+                                    <!---------- BUSCA IPv4/IPv6 ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/tools/network/cgnat/finder/">
+                                                <i class="menu-button-icon fa-solid fa-magnifying-glass-plus" style="font-size: 16px;"></i>BUSCA IPv4/IPv6
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- BUSCAR O.S. ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../chamado/chamado_procurar.php">
+                                                <i class="menu-button-icon fa-solid fa-magnifying-glass-arrow-right" style="font-size: 16px;"></i>BUSCAR O.S.
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- CNAB BANCARIOS ------>
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vanilla/modulos/cobranca/cnab" style="font-size: 11px;">
+                                                <i class="menu-button-icon fa-solid fa-landmark" style="font-size: 16px;"></i>CNAB BANCÁRIO
+                                            </a>
+                                        </li>
+                                    
+
+                                    <!---- CONCENTRADORES ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../torres/dev/radius.php">
+                                                <i class="menu-button-icon fa-solid fa-server" style="font-size: 16px; "></i>CONCENTRADORES
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- CONTATOS ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../favorecidos/contatos.php">
+                                                <i class="menu-button-icon fa-solid fa-address-book" style="font-size: 16px;"></i>CONTATOS
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- FTTB ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="../fttb/consultar.php">
+                                                <i class="menu-button-icon fa-solid fa-network-wired" style="font-size: 14px;"></i>FTTBs
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- GEOFIBER ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="../geofiber/consultar.php">
+                                                <i class="menu-button-icon fa-solid fa-circle-nodes" style="font-size: 16px;"></i>GEOFIBER
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- POP ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="../torres/pop/consultar.php">
+                                                <i class="menu-button-icon fa-solid fa-tower-cell" style="font-size: 16px; "></i>POPs
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- PROVISIONAMENTO ------>
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/provision/manager/">
+                                                <i class="menu-button-icon fa-solid fa-download" style="font-size: 16px; "></i>PROVISIONAMENTO
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- RASTREAMENTO ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/tracking/">
+                                                <i class="menu-button-icon fa-solid fa-car-on" style="font-size: 16px; "></i>RASTREAMENTO
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- STATUS CLIENTES ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/points/registrations?framed_window=1">
+                                                <i class="menu-button-icon fa-solid fa-house-signal" style="font-size: 16px;"></i>STATUS CLIENTES
+                                            </a>
+                                        </li>
+                                    
+                                    <!---- TAREFAS ------>
+                                                                            <li>
+                                            <a target="frm_container" href="../tarefas/listar.php">
+                                                <i class="menu-button-icon fa-solid fa-list-check" style="font-size: 16px;"></i>TAREFAS
+                                            </a>
+                                        </li>
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                    </td>
+                
+                <!---- GERENCIA ------>
+                                    <td width="115px" align="center" valign="middle">
+                        <ul id="MenuBar5" class="MenuBarHorizontal" style="margin-left:2px;margin-right:2px; width: 115px;">
+                            <li style=" width: 115px;">
+                                <a target="frm_container" class="MenuBarItemSubmenu" onclick="event.stopPropagation()" style="user-select: none;">
+                                    <i class="fa-solid fa-user-shield" style="font-size: 16px; margin-right: 4px;"></i>GERÊNCIA
+                                    <i class="fa-solid fa-angle-down" style="font-size: 14px; font-weight: bold;"></i>
+                                </a>
+                                <ul>
+
+                                    <!---- AUDITORIA ------>
+                                    
+                                    <!---------- GERADOR COBRANÇAS ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="../contratos/semcobranca.php" class="MenuBarItemSubmenu">
+                                                <i class="menu-button-icon fas fa-retweet" style="font-size: 16px; "></i>GERADOR COBRANÇ.
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- RECEBIVEIS ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/manager/bills">
+                                                <i class="menu-button-icon fa-solid fa-money-bills" style="font-size: 14px; "></i>RECEBÍVEIS
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- CONTRATOS COBRANCA ----------->
+                                    
+                                    <!---------- DESPESAS ----------->
+                                    
+                                    <!---------- DEVEDORES ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="../contratos/risco.php" class="MenuBarItemSubmenu">
+                                                <i class="menu-button-icon fa-solid fa-thumbs-down" style="font-size: 16px; "></i>DEVEDORES
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- ESTOQUE ----------->
+                                    
+                                    <!---------- CAIXA MOVIMENTO----------->
+                                    
+                                    <!---------- CAD. PESSOAS ----------->
+                                    
+                                    <!---------- Notas Fiscais ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/manager/nfe">
+                                                <i class="menu-button-icon fa-solid fa-receipt" style="font-size: 16px; "></i>NOTAS FISCAIS
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- RELATORIOS ----------->
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                    </td>
+                
+                <!---- SISTEMA ------>
+                                    <td width="110" align="center" valign="middle">
+                        <ul id="MenuBar6" class="MenuBarHorizontal" style="margin-left:2px; margin-right:2px; width: 100px;">
+                            <li style=" width: 100px;">
+                                <a target="frm_container" class="MenuBarItemSubmenu" onclick="event.stopPropagation()" style="user-select: none;">
+                                    <i class="fa-solid fa-gear" style="font-size: 16px; margin-right: 4px;"></i>SISTEMA
+                                    <i class="fa-solid fa-angle-down" style="font-size: 14px; font-weight: bold;"></i>
+                                </a>
+                                <ul>
+
+                                    <!---------- BACKUP  ----------->
+                                    
+                                    <!---------- INTEG. SVA ----------->
+                                    
+                                    <!---------- LOGS SISTEMA ----------->
+                                    
+                                    <!---------- MENSAGENS ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/system/messaging/">
+                                                <i class="menu-button-icon fa-solid fa-envelope" style="font-size: 16px; "></i>MENSAGENS
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- PARAMETROS ----------->
+                                                                            <li>
+                                            <a target="frm_container" href="/app/vue/modules/system/params/">
+                                                <i class="menu-button-icon fa-solid fa-gear" style="font-size: 16px; "></i>PARÂMETROS
+                                            </a>
+                                        </li>
+                                    
+                                    <!---------- RECURSOS ----------->
+                                    
+                                    <!---------- USUARIOS ----------->
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                    </td>
+                
+                <!---- WIZARD ------>
+                <td width="30" align="center" valign="middle" height="20" id="btn_home_wiz" data-balloon="Wizard de confgurações básicas" data-balloon-pos="right" style="display:none;">
+                    <ul class="MenuBarHorizontal" style="width: 30px;">
+                        <li>
+                            <a class="MenuBarItemSubmenu" style="width: 30px; padding: 0px; height: 28px; text-align: center;" onclick="showConfigWizard()">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="margin: 4px; font-size: 16px"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </td>
+
+                <!---- NFE ------>
+                <td width="30" align="center" valign="middle" height="20" id="btn_nfe_alert" data-balloon="Existem notas não lançadas" data-balloon-pos="right" style="display:none;">
+                    <ul class="MenuBarHorizontal" style="margin-left:2px; margin-right:2px; width: 30px;">
+                        <li>
+                            <a class="MenuBarItemSubmenu" style="width: 30px; padding: 0px;  text-align: center;" onclick="modalAlertNfe2x();">
+                                <i class="fa-solid fa-bell" style="margin: 4px; font-size: 16px"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </td>
+
+                <td width="10" align="center" valign="middle">&nbsp;</td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- TELA QUE INDICA CARREGAMENTO -->
+    <div id="div_load_frame" style=" display: none; top:0px; left:0px; width: 100%; height: 100%; background-color: rgba(0,0,0,0.90); position: absolute; z-index: 900;">
+        <div style="width: 400px; height: 100px; top: 150px; left: 50%; margin-left: -200px; margin-top: -55px; position: relative; text-align: center;color: #fff; font-size: 18px;" class="font"><br><br><br>
+            Carregando...
+        </div>
+    </div>
+
+    <!-- FRAME PRINCIPAL -->
+    <div style="position:fixed; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 5;">
+        <iframe name="frm_container" id="frm_container" src="home.php" style="width: 100%; height: 100%;" frameborder="0"></iframe>
+    </div>
+
+</body>
+
+<script>
+    //VERIFICA SESSAO
+    setInterval(function() {
+        if (!loginIsShowed && isTabVisible) {
+            $.get("main.php", {
+                is_logged: true
+            }).done(function(resultado) {
+                var resultado = JSON.parse(resultado);
+                if (resultado === false) {
+                    window.showRenewLoginWindow(true);
+                    loginIsShowed = true;
+                }
+            });
+        }
+    }, 30000);
+</script>
+
+<script type="text/javascript">
+    var MenuBar1 = new Spry.Widget.MenuBar("MenuBar1");
+    var MenuBar2 = new Spry.Widget.MenuBar("MenuBar2");
+    var MenuBar3 = new Spry.Widget.MenuBar("MenuBar3");
+    var MenuBar4 = new Spry.Widget.MenuBar("MenuBar4");
+    var MenuBar5 = new Spry.Widget.MenuBar("MenuBar5");
+    var MenuBar6 = new Spry.Widget.MenuBar("MenuBar6");
+
+
+
+    var frameIsLoaded = null;
+    document.getElementById('frm_container').onload = function() {
+        frameIsLoaded = true;
+        $('#div_load_frame').hide();
+
+
+        this.contentWindow.onbeforeunload = function() {
+            frameIsLoaded = false;
+            setTimeout(function() {
+                if (!frameIsLoaded)
+                    $('#div_load_frame').show();
+            }, 300);
+        };
+
+    };
+
+
+    </script>

@@ -1,0 +1,243 @@
+
+<!DOCTYPE html>
+<script>
+
+    function novo_contrato(cliente){
+        parent.novo_contrato(cliente);
+
+    }
+
+    function imprimirDocumento(idContract){
+        top.ispfySwFrame(`/app/vue/modules/customer/contracts/print?mode=contract&id=${idContract}`, '1000px', '500px', 'Impressão de documentos');
+    }
+
+    function ticketDetails(idTicket){
+        top.ispfySwFrame(`/chamado/chamado_procurar_detalhes.php?id=${idTicket}`, '800px', '500px', 'Atendimento ' + idTicket);
+    }
+</script>
+<link href="../css/databalloon.css" rel="stylesheet" type="text/css">
+<style type="text/css">
+    body {
+        font-family: Verdana, Geneva, sans-serif;
+    }
+    .CAPT14 {	font-family: Verdana, Geneva, sans-serif;
+    	font-size: 14px;
+    	color:#000;
+    	font-weight:bold;
+    }
+    .font {
+    	font-family: Verdana, Geneva, sans-serif;
+    	font-size: 12px;
+    	font-style:italic;
+    }
+    .font2 {
+    	font-family: Verdana, Geneva, sans-serif;
+    	font-size: 12px;
+
+    	font-weight:bold;
+    }
+    .txtCAP {	font-family: Arial, Helvetica, sans-serif;
+    	font-size: 12px;
+    	background-color: #CCC;
+    	border: 1px solid #333;
+    }
+    body {
+    	margin-left: 0px;
+    	margin-top: 0px;
+    	margin-right: 0px;
+    	margin-bottom: 0px;
+    }
+    .txtroud {	
+        font-family: Arial, Helvetica, sans-serif;
+    	font-size: 12px;
+    	color: #007bff;
+    	border: 1px solid #007bff;
+    	height:23px;
+    	padding-left:2px;
+    	border-radius:5px;
+    	border-width:1px;
+    }
+    .font1 {font-family: Verdana, Geneva, sans-serif;
+    	font-size: 12px;
+    }
+    .txt {font-family: Arial, Helvetica, sans-serif;
+    	font-size: 12px;
+    	background-color: #9CC;
+    	border: 1px solid #333;
+    }
+    .opDisabled {
+        -webkit-filter: grayscale(100%);
+        -moz-filter: grayscale(100%);
+        -ms-filter: grayscale(100%);
+        -o-filter: grayscale(100%);
+    	filter: grayscale(100%);
+    	opacity: 0.7;
+        filter: alpha(opacity=40);
+    	cursor: default;
+    }
+    .opDisabled:hover {
+        background-color: initial !important;
+    }
+    
+    .row-contract {
+        border-radius: 8px; 
+        border: 1px solid #eee;
+        background-color: #F4F4F4;
+        padding-bottom: 20px;
+        margin-bottom:5px; 
+    }
+    .row-contract:hover {
+        background-color: #eff4f9;
+    }
+    .btn-novo-contrato {
+        background-color: #ddd;
+        border-style:solid; 
+        margin-right:10px; 
+        cursor: pointer; 
+        border-radius:10px; 
+        font-size: 14px;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+    .btn-novo-contrato:hover {
+        background-color: #99CCCC;
+    }
+
+    
+    .button-filter {
+        height: 25px; 
+        border-radius:5px; 
+        text-align:center; 
+        width:100px; 
+        font-size:12px;
+        cursor:pointer;
+        background-color: #007bff; 
+        color: #fff;
+        border: none;
+    }
+
+    .button-filter:hover {
+        background-color: #0069d9;
+        border-color: #0062cc;
+    }
+
+    .imgCinza1 {   
+		-webkit-filter: grayscale(100%);
+		-moz-filter: grayscale(100%);
+		-ms-filter: grayscale(100%);
+		-o-filter: grayscale(100%);
+		filter: grayscale(100%);
+		opacity: 0.4;
+		filter: alpha(opacity=40);
+    }
+
+    .dropdown-disabled {   
+		-webkit-filter: grayscale(100%);
+		-moz-filter: grayscale(100%);
+		-ms-filter: grayscale(100%);
+		-o-filter: grayscale(100%);
+		filter: grayscale(100%);
+		opacity: 0.4;
+		filter: alpha(opacity=40);
+        pointer-events: none;
+        background-color: #b2dbdb !important;
+
+    }
+    
+
+    .dropdown {
+        right: 0px;
+        position: absolute;
+        margin: 0px;
+		margin-right: 20px;
+        user-select: none;
+        z-index: 1000;
+    }
+	.dropbtn {
+		color: #333;
+		padding-top: 4px;
+		padding-bottom: 4px;
+		font-size: 14px;
+		border: none;
+		cursor: pointer;
+		background-color: #b2dbdb;
+		border-bottom-left-radius: 8px;
+		border-bottom-right-radius: 8px;
+	}
+	.dropdown-content {
+        text-align: left;
+        top: 33px;
+        right: 0px;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+		display: none;
+		position: absolute;
+		background-color: #f9f9f9;
+		min-width: 140px;
+		z-index: 10000;
+		border-radius: 8px;
+		overflow: hidden;
+		padding: 0;
+        box-shadow: 0px 5px 11px -2px rgba(0, 0, 0, 0.4), 0px 4px 12px -7px rgba(0, 0, 0, 0.4);
+	}
+	.dropdown-content a {
+		color: black;
+		padding: 3px 4px;
+		text-decoration: none;
+		display: block;
+	}
+	.dropdown-content img {
+		vertical-align: middle;
+		height: 16px;
+	}
+	.dropbtn img {
+		vertical-align:middle;
+	}
+	.dropdown span {
+		vertical-align: middle;
+		padding-left: 5px;
+	}
+	.dropdown-content a:hover {
+		background-color: #99CCCC;
+	}
+	.dropdown:hover .dropdown-content {
+		display: block;
+	}
+	.dropdown:hover .dropbtn {
+		background-color: #99CCCC;
+	}
+</style>
+
+            <form method="post" id="frm" style="padding-bottom: 10px;">
+                <table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" style="margin-top:5px;  margin-bottom:5px;">
+                <tr class="font1">
+                    <td height="17" colspan="2">&nbsp;</td>
+                    <td width="406" rowspan="3">&nbsp;</td>
+                    <td width="195" rowspan="3" align="right">
+                        <table  onClick="novo_contrato(2234);" class="btn-novo-contrato" style="" width="150" border="0" align="right" cellpadding="0" cellspacing="0" >
+                            <tbody>
+                                <tr>
+                                <td width="27%" height="29" align="center"><img src="../../iconmenu/add.png" height="20" /></td>
+                                <td width="73%">Novo contrato</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                <tr class="font1">
+                    <td height="17" colspan="2">&nbsp;
+                    
+                    <select name="ativo" class="txtroud" id="ativo" style="cursor:pointer; width: 200px; height:25px; border-radius:5px;  cursor:pointer; " onChange="document.getElementById('frm').submit();">
+                        <option value="s" selected >ATIVOS</option>
+                        <option value="n" >RESCINDIDOS</option>
+                        </select>
+                     &nbsp;&nbsp;&nbsp;  </td>
+                </tr>
+                <tr>
+                    <td width="189" height="5"></td>
+                    <td width="343" height="5"></td>
+                </tr>
+                </table>
+                            <div style="padding: 100px; text-align: center; font-family: Arial, Helvetica, sans-serif;">
+                <h2>Nenhum contrato encontrado</h2>
+            </div>
+            </form>

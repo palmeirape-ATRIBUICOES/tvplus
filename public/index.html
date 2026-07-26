@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraTV - Entretenimento Ilimitado</title>
+    <meta name="description" content="Assista a milhares de canais, filmes e séries em ultra HD. Ativação instantânea via Pix por apenas R$ 10,00.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Fundo com luzes dinâmicas de gradiente -->
+    <div class="bg-glow-1"></div>
+    <div class="bg-glow-2"></div>
+
+    <header class="navbar">
+        <div class="logo">
+            <i class="fa-solid fa-play logo-icon"></i>
+            <span>AURA<span>TV</span></span>
+        </div>
+        <div class="nav-actions">
+            <button class="btn-nav-cta" onclick="scrollToCheckout()"><i class="fa-solid fa-bolt"></i> Assinar Agora</button>
+        </div>
+    </header>
+
+    <main class="main-layout">
+        <!-- 1. SEÇÃO HERO -->
+        <section class="hero-section">
+            <div class="hero-content-wrapper">
+                <span class="live-badge-glow"><i class="fa-solid fa-circle blink-dot"></i> SINAL DIGITAL ATIVO • ULTRA HD</span>
+                <h1 class="hero-title">A melhor TV por assinatura, sem burocracia e <span class="gradient-text">ativação imediata</span>.</h1>
+                <p class="hero-subtitle">Tenha acesso a mais de 80.000 conteúdos (todos os canais fechados, filmes e séries) por apenas R$ 10,00/mês. Pague com Pix e receba seus dados de acesso imediatamente no seu WhatsApp.</p>
+                
+                <div class="hero-actions">
+                    <button class="btn-primary btn-hero-cta" onclick="scrollToCheckout()">
+                        <span>QUERO MEU ACESSO AGORA</span>
+                        <i class="fa-solid fa-bolt"></i>
+                    </button>
+                    <div class="hero-guarantees">
+                        <span><i class="fa-solid fa-circle-check"></i> Liberação imediata</span>
+                        <span><i class="fa-solid fa-circle-check"></i> Sem fidelidade</span>
+                    </div>
+                </div>
+
+                <!-- Showcase de Imagem Premium -->
+                <div class="hero-showcase">
+                    <img src="assets/family.jpg" alt="Família assistindo TV de alta qualidade" class="showcase-img">
+                    <div class="showcase-badge"><i class="fa-solid fa-play"></i> DEMONSTRAÇÃO DO SINAL</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. SEÇÃO COMO FUNCIONA (Explicação Completa) -->
+        <section class="how-it-works-section" id="howItWorks">
+            <div class="section-header">
+                <span class="section-tag">SIMPLES E RÁPIDO</span>
+                <h2>Como funciona a ativação?</h2>
+                <p>Veja como é fácil ter acesso à melhor plataforma de entretenimento em apenas 3 passos:</p>
+            </div>
+
+            <div class="steps-grid">
+                <div class="step-card-explain">
+                    <div class="step-num">01</div>
+                    <h3>Faça o Cadastro</h3>
+                    <p>Preencha seu nome, e-mail e número do WhatsApp no nosso formulário seguro logo abaixo.</p>
+                </div>
+                <div class="step-card-explain">
+                    <div class="step-num">02</div>
+                    <h3>Pague o Pix de R$ 10</h3>
+                    <p>Faça o pagamento do Pix dinâmico de R$ 10,00 gerado de forma 100% segura por QR Code ou Copia e Cola.</p>
+                </div>
+                <div class="step-card-explain">
+                    <div class="step-num">03</div>
+                    <h3>Receba no WhatsApp</h3>
+                    <p>Nosso robô inteligente confirma o Pix e envia na hora seu usuário e senha de TV direto no seu WhatsApp!</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. SEÇÃO BENEFÍCIOS -->
+        <section class="benefits-section">
+            <div class="section-header">
+                <span class="section-tag">CONTEÚDO COMPLETO</span>
+                <h2>O que você vai assistir?</h2>
+                <p>Nossa plataforma reúne a maior variedade de conteúdos em um só lugar.</p>
+            </div>
+
+            <div class="benefits-grid">
+                <div class="benefit-card">
+                    <i class="fa-solid fa-trophy benefit-icon"></i>
+                    <h3>Futebol & Esportes Ao Vivo</h3>
+                    <p>Todos os campeonatos nacionais e internacionais de futebol, lutas e esportes radicais em tempo real.</p>
+                </div>
+                <div class="benefit-card">
+                    <i class="fa-solid fa-film benefit-icon"></i>
+                    <h3>Filmes & Séries Atualizados</h3>
+                    <p>Milhares de filmes de cinema, lançamentos mundiais e as séries mais famosas de todas as plataformas de streaming.</p>
+                </div>
+                <div class="benefit-card">
+                    <i class="fa-solid fa-child benefit-icon"></i>
+                    <h3>Desenhos & Kids</h3>
+                    <p>Canais infantis dedicados e educativos para todas as idades, com segurança e diversão.</p>
+                </div>
+                <div class="benefit-card">
+                    <i class="fa-solid fa-tv benefit-icon"></i>
+                    <h3>Canais de TV Aberta & Fechada</h3>
+                    <p>Noticiários, documentários, novelas e programas de auditório transmitidos com estabilidade digital.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. SEÇÃO DE CHECKOUT -->
+        <section class="checkout-section-block" id="checkoutSection">
+            <div class="checkout-container-wrapper">
+                <div class="checkout-text-side">
+                    <h2>Pronto para começar?</h2>
+                    <p>Insira seus dados ao lado e faça o pagamento Pix de apenas R$ 10,00 para liberar o sinal do ISPFY imediatamente.</p>
+                    
+                    <ul class="checkout-bullets">
+                        <li><i class="fa-solid fa-circle-check"></i> Sem multa de cancelamento</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Acesso em múltiplos dispositivos</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Lembrete automático de renovação de 30 dias</li>
+                        <li><i class="fa-solid fa-circle-check"></i> Suporte humanizado caso precise de ajuda</li>
+                    </ul>
+                </div>
+
+                <div class="checkout-card" id="checkoutCard">
+                    <!-- PASSO 1: Formulário de Registro -->
+                    <div class="step-container active" id="stepForm">
+                        <div class="card-header">
+                            <h2>Faça sua Assinatura</h2>
+                            <p>Preencha os dados e ative seu teste grátis</p>
+                        </div>
+                        
+                        <form id="cadastroForm" class="checkout-form">
+                            <div class="input-group">
+                                <label for="nome"><i class="fa-regular fa-user"></i> Nome Completo</label>
+                                <input type="text" id="nome" placeholder="Digite seu nome" required autocomplete="name">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="cpfcnpj"><i class="fa-regular fa-id-card"></i> CPF ou CNPJ (apenas números)</label>
+                                <input type="text" id="cpfcnpj" placeholder="Digite seu CPF/CNPJ" required autocomplete="off">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="email"><i class="fa-regular fa-envelope"></i> E-mail</label>
+                                <input type="email" id="email" placeholder="exemplo@email.com" required autocomplete="email">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="telefone"><i class="fa-brands fa-whatsapp"></i> WhatsApp (com DDD)</label>
+                                <input type="tel" id="telefone" placeholder="(11) 99999-9999" required autocomplete="tel">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="cep"><i class="fa-solid fa-map-location-dot"></i> CEP (apenas números)</label>
+                                <input type="text" id="cep" placeholder="00000-000" required autocomplete="off">
+                            </div>
+
+                            <button type="submit" class="btn-primary" id="btnSubmitCadastro">
+                                <span>Ativar Teste Grátis (4 Horas)</span>
+                                <i class="fa-solid fa-bolt"></i>
+                            </button>
+                        </form>
+                        
+                        <div class="card-footer">
+                            <p><i class="fa-solid fa-shield-halved"></i> Seus dados estão 100% seguros.</p>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 2: Pagamento Pix -->
+                    <div class="step-container" id="stepPix">
+                        <div class="card-header">
+                            <h2>Ativação / Renovação de Sinal</h2>
+                            <p>Escolha o período e efetue o pagamento Pix para liberar o sinal</p>
+                        </div>
+
+                        <div class="pix-info-container">
+                            <div class="input-group" style="margin-bottom: 15px;">
+                                <label for="mesesSelect" style="color: #ccc; font-size: 13px; font-weight: 600; text-transform: uppercase;"><i class="fa-regular fa-calendar-days"></i> Período de Assinatura</label>
+                                <select id="mesesSelect" style="width:100%; height:42px; border-radius:8px; background:rgba(255,255,255,0.06); color:#fff; border:1px solid rgba(255,255,255,0.15); padding:0 10px; font-family:'Outfit', sans-serif; font-size:15px; outline:none; cursor:pointer;">
+                                    <option value="1" style="background:#111; color:#fff;">1 Mês - R$ 10,00</option>
+                                    <option value="2" style="background:#111; color:#fff;">2 Meses - R$ 20,00</option>
+                                    <option value="3" style="background:#111; color:#fff;">3 Meses - R$ 30,00</option>
+                                    <option value="6" style="background:#111; color:#fff;">6 Meses - R$ 60,00</option>
+                                    <option value="12" style="background:#111; color:#fff;">12 Meses - R$ 120,00</option>
+                                </select>
+                            </div>
+
+                            <button id="btnGerarNovoPix" class="btn-primary" style="margin-bottom: 20px; font-size: 14px; height: 38px; width: 100%;">
+                                <span>Gerar QR Code de Pagamento</span>
+                                <i class="fa-solid fa-qrcode"></i>
+                            </button>
+
+                            <div class="valor-tag" style="display:none;" id="valorTagContainer">Valor: <span id="pixValorDisplay">R$ 10,00</span></div>
+                            
+                            <div class="qr-code-wrapper" style="display:none;" id="qrCodeWrapper">
+                                <img id="pixQrCode" src="" alt="QR Code Pix">
+                                <div class="qr-code-overlay" id="qrOverlay">
+                                    <div class="spinner"></div>
+                                </div>
+                            </div>
+
+                            <p class="pix-instructions" style="display:none;" id="pixInstructionsText">Leia o QR Code com o aplicativo do seu banco ou utilize o Pix Copia e Cola abaixo.</p>
+
+                            <div class="copia-cola-container" style="display:none;" id="copiaColaContainer">
+                                <input type="text" id="pixCopiaCola" readonly>
+                                <button id="btnCopiarPix" class="btn-copy">
+                                    <i class="fa-regular fa-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="status-indicator" style="display:none;" id="statusIndicatorContainer">
+                            <div class="pulse-loader"></div>
+                            <span>Aguardando confirmação de pagamento...</span>
+                        </div>
+
+                        <!-- Sandbox para testadores rápidos -->
+                        <div class="sandbox-area" style="display:none;" id="sandboxAreaContainer">
+                            <button id="btnSimularPix" class="btn-secondary">
+                                <i class="fa-solid fa-circle-check"></i> [Modo Teste] Simular Aprovação
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PASSO 3: Sucesso e Acesso Liberado -->
+                    <div class="step-container" id="stepSuccess">
+                        <div class="success-header">
+                            <div class="success-icon-wrapper">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                            <h2>Acesso Liberado!</h2>
+                            <p class="success-subtitle">O seu pagamento Pix foi confirmado. Seus dados de acesso de TV já estão prontos!</p>
+                        </div>
+
+                        <div class="success-banner">
+                            <img src="assets/couple.jpg" alt="Casal assistindo TV" class="success-banner-img">
+                        </div>
+
+                        <div class="credentials-card">
+                            <div class="cred-row">
+                                <span class="cred-label"><i class="fa-regular fa-user"></i> Usuário TV</span>
+                                <div class="cred-value-container">
+                                    <span class="cred-value" id="resLogin">carregando...</span>
+                                    <button class="btn-copy-mini" onclick="copyText('resLogin')"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div class="cred-row">
+                                <span class="cred-label"><i class="fa-solid fa-key"></i> Senha de TV</span>
+                                <div class="cred-value-container">
+                                    <span class="cred-value" id="resSenha">carregando...</span>
+                                    <button class="btn-copy-mini" onclick="copyText('resSenha')"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="success-alert">
+                            <i class="fa-brands fa-whatsapp whatsapp-alert-icon"></i>
+                            <p>Enviamos as credenciais de acesso e o link de instalação para o seu WhatsApp cadastrado.</p>
+                        </div>
+
+                        <button onclick="resetFlow()" class="btn-primary">
+                            <span>Nova Assinatura</span>
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Área Administrativa de Testes Rápida e Oculta -->
+    <footer class="footer">
+        <p>&copy; 2026 AuraTV. Todos os direitos reservados.</p>
+        <button id="btnOpenAdmin" class="btn-admin-trigger">Painel de Testes do Desenvolvedor</button>
+    </footer>
+
+    <!-- Modal Painel de Testes para Validar Fluxo Completo de 30 dias e Bloqueio -->
+    <div class="admin-modal" id="adminModal">
+        <div class="admin-modal-content">
+            <div class="admin-modal-header">
+                <h3>Painel de Testes & Simulações</h3>
+                <button id="btnCloseAdmin" class="btn-close-modal">&times;</button>
+            </div>
+            <div class="admin-modal-body">
+                <p>Use estas ferramentas para simular a passagem de tempo, testar os avisos de vencimento (WhatsApp) e o bloqueio automático no ISPFY.</p>
+                
+                <div class="admin-action-card">
+                    <h4>1. Rodar Cron de Vencimentos</h4>
+                    <p>Verifica no banco se há contas a expirar em até 3 dias (para enviar Pix de renovação) ou contas já vencidas (para efetuar bloqueio no ISPFY).</p>
+                    <button id="btnTriggerCron" class="btn-admin-action">
+                        <i class="fa-solid fa-clock"></i> Executar Checagem de Assinaturas (Cron)
+                    </button>
+                </div>
+
+                <div class="admin-action-card">
+                    <h4>2. Forçar Assinatura Expirando (3 dias antes)</h4>
+                    <p>Muda a data de vencimento do último cliente cadastrado para daqui a 2 dias, permitindo testar o lembrete preventivo no WhatsApp.</p>
+                    <button id="btnForceExpiring" class="btn-admin-action btn-yellow">
+                        <i class="fa-solid fa-hourglass-half"></i> Forçar Vencimento Próximo
+                    </button>
+                </div>
+
+                <div class="admin-action-card">
+                    <h4>3. Forçar Assinatura Vencida</h4>
+                    <p>Muda a data de vencimento do último cliente para ontem, permitindo testar o bloqueio no ISPFY e alerta de suspensão no WhatsApp.</p>
+                    <button id="btnForceExpired" class="btn-admin-action btn-red">
+                        <i class="fa-solid fa-user-slash"></i> Forçar Expiração Total (Vencido)
+                    </button>
+                </div>
+                
+                <div id="adminOutput" class="admin-log-output">Aguardando comando...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts do Frontend -->
+    <script src="app.js"></script>
+</body>
+</html>

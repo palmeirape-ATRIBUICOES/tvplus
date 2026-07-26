@@ -1,0 +1,913 @@
+openapi: 3.0.3
+
+servers:
+  - url: https://sistema.receitanet.net/api/novo/ura
+
+info:
+  version: 1.2.0
+  title: "ReceitaNet - API - URA"
+  description: "API para uso em sistema de URA. Todas as requisições devem enviar app e token no corpo da requisição."
+  contact:
+    name: "Leandro"
+    url: "https://sistema.receitanet.net/api/novo/ura"
+    email: "leandro@receitanet.net"
+  license:
+    name: Private
+    url: "https://www.receitanet.net"
+  x-logo:
+    url: "https://www.receitanet.net/assets/images/receitanet-banner.png"
+    backgroundColor: "#FFFFFF"
+    altText: ReceitaNet
+
+tags:
+  - name: Clientes
+    description: "Consulta de cliente, faturas, acesso e promessa de pagamento."
+  - name: OrdemServico
+    description: "Abertura, consulta e atualização de chamados/O.S."
+
+paths:
+  /clientes:
+    post:
+      operationId: clientes-post
+      summary: "Buscar clientes"
+      description: "Busca clientes por CPF/CNPJ, telefone ou contrato. Quando mais de um filtro é enviado, a API usa esta prioridade: cpfcnpj, phone e contrato."
+      tags:
+        - Clientes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  properties:
+                    cpfcnpj:
+                      type: string
+                      nullable: true
+                      description: "CPF ou CNPJ. A API remove caracteres não numéricos antes da busca."
+                      example: "19182374929"
+                    phone:
+                      type: string
+                      nullable: true
+                      description: "Telefone. A API remove caracteres não numéricos antes da busca."
+                      example: "(21)96712-2381"
+                    contrato:
+                      type: integer
+                      nullable: true
+                      description: "ID do cliente/contrato."
+                      example: 15678
+              anyOf:
+                - required: [cpfcnpj]
+                - required: [phone]
+                - required: [contrato]
+            examples:
+              porContrato:
+                summary: "Busca por contrato"
+                value:
+                  app: ura
+                  token: bf74b674-5db3-11e8-a8f2-df2ab0e10f5c
+                  contrato: 15678
+              porTelefone:
+                summary: "Busca por telefone"
+                value:
+                  app: ura
+                  token: bf74b674-5db3-11e8-a8f2-df2ab0e10f5c
+                  phone: "21967122381"
+      responses:
+        "200":
+          description: "Contrato localizado. O campo contratos pode ser um objeto ou uma lista, dependendo da busca."
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, msg, contratos]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  msg:
+                    type: string
+                    enum: ["Contrato Localizado", "Contratos Localizado"]
+                  contratos:
+                    oneOf:
+                      - $ref: "#/components/schemas/Cliente"
+                      - type: array
+                        items:
+                          $ref: "#/components/schemas/Cliente"
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Cliente não localizado."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMsg"
+              example:
+                success: false
+                msg: "Cliente não localizado."
+
+  /boletos:
+    post:
+      operationId: boletos-post
+      summary: "Enviar boleto"
+      description: "Envia o primeiro boleto pendente do contrato por email, SMS ou WhatsApp, conforme provedores e modelos configurados."
+      tags:
+        - Clientes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  required: [contrato, tipo]
+                  properties:
+                    contrato:
+                      type: integer
+                      example: 15678
+                    tipo:
+                      type: string
+                      enum: [email, sms, whatsapp]
+                      example: whatsapp
+                    destino:
+                      type: string
+                      enum: [cadastro, contato]
+                      default: cadastro
+                      description: "Quando ausente ou vazio, envia para os contatos do cadastro. Use contato para enviar ao número informado em uracontato; suportado apenas para sms e whatsapp."
+                    uracontato:
+                      type: string
+                      nullable: true
+                      description: "Contato informado pela URA para retorno/log. Quando destino=contato, também é usado como número de envio para sms/whatsapp."
+                      example: "18999998888"
+      responses:
+        "200":
+          description: "Solicitação de envio registrada."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoletoResponse"
+              example:
+                success: true
+                idCliente: 15678
+                razaoSocial: "Cliente Exemplo"
+                cpfCnpj: "19182374929"
+                msg: "Fatura enviada com sucesso"
+                uracontato: "18999998888"
+                protocolo: "20260630134500"
+                status: true
+                contratoId: 15678
+        "400":
+          description: "Boleto inexistente, contato inválido, configuração ausente, provedor inválido, tipo inválido ou erro de envio."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMsg"
+              examples:
+                boletoNaoLocalizado:
+                  value:
+                    success: false
+                    msg: "Nenhum boleto pendente localizado"
+                tipoInvalido:
+                  value:
+                    success: false
+                    msg: 'O Parametro tipo somente suporte os valores "email", "sms" e "whatsapp". Foi informado "push".'
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Parâmetro obrigatório ausente ou contrato não localizado."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMsg"
+              examples:
+                contratoObrigatorio:
+                  value:
+                    success: false
+                    msg: 'Parâmetro obrigatório "contrato" não informado. Verifique.'
+                tipoObrigatorio:
+                  value:
+                    success: false
+                    msg: 'Parâmetro obrigatório "tipo" não informado. Verifique.'
+                contratoNaoLocalizado:
+                  value:
+                    success: false
+                    msg: "Contrato não localizado. Verifique."
+
+  /verificar-acesso:
+    post:
+      operationId: verificar-acesso-post
+      summary: "Verificar acesso"
+      description: "Verifica se o cliente está online no servidor. Em falha de conexão com o servidor, a API responde como offline com success false e HTTP 200."
+      tags:
+        - Clientes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  required: [contrato]
+                  properties:
+                    contrato:
+                      type: integer
+                      example: 15678
+                    uracontato:
+                      type: string
+                      nullable: true
+                      example: "18999998888"
+      responses:
+        "200":
+          description: "Resultado da verificação. status 1 significa online; status 2 significa offline."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificarAcessoResponse"
+              examples:
+                online:
+                  value:
+                    success: true
+                    idCliente: 15678
+                    razaoSocial: "Cliente Exemplo"
+                    cpfCnpj: "19182374929"
+                    msg: "Cliente Online"
+                    uracontato: "18999998888"
+                    status: 1
+                    contratoId: 15678
+                offline:
+                  value:
+                    success: true
+                    idCliente: 15678
+                    razaoSocial: "Cliente Exemplo"
+                    cpfCnpj: "19182374929"
+                    msg: "Cliente Offline"
+                    uracontato: "18999998888"
+                    status: 2
+                    contratoId: 15678
+        "400":
+          description: "Cliente localizado sem empresa vinculada."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorErro"
+              example:
+                erro: "Cliente sem empresa"
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Contrato, cliente-servidor ou servidor não localizado."
+
+  /notificacao-pagamento:
+    post:
+      operationId: notificacao-pagamento-post
+      summary: "Registrar promessa de pagamento"
+      description: "Tenta liberar o contrato por promessa de pagamento. Restrições de negócio retornam HTTP 200 com success true, liberado false e status 2 ou 0."
+      tags:
+        - Clientes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  required: [contrato]
+                  properties:
+                    contrato:
+                      type: integer
+                      example: 15678
+                    uracontato:
+                      type: string
+                      nullable: true
+                      example: "18999998888"
+      responses:
+        "200":
+          description: "Resultado da tentativa de liberação."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificacaoPagamentoResponse"
+              examples:
+                liberado:
+                  value:
+                    success: true
+                    idCliente: 15678
+                    liberado: true
+                    razaoSocial: "Cliente Exemplo"
+                    cpfCnpj: "19182374929"
+                    msg: "Liberação via URA"
+                    uracontato: "18999998888"
+                    protocolo: "20260630134500"
+                    status: 1
+                    contratoId: 15678
+                naoLiberado:
+                  value:
+                    success: true
+                    idCliente: 15678
+                    liberado: false
+                    razaoSocial: "Cliente Exemplo"
+                    cpfCnpj: "19182374929"
+                    msg: "Erro na liberação do Cliente"
+                    uracontato: "18999998888"
+                    protocolo: "20260630134500"
+                    status: 0
+                    contratoId: 15678
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Cliente não localizado."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorMsg"
+              example:
+                success: false
+                msg: "Cliente não localizado."
+
+  /abertura-chamado:
+    post:
+      operationId: abertura-chamado-post
+      summary: "Abrir chamado"
+      description: "Cria um chamado/O.S. para o contrato. O protocolo é gerado como timestamp no formato YmdHis e não é o número da O.S.; idSuporte é o SUP_CODIGO."
+      tags:
+        - OrdemServico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  required: [contrato, motivoos]
+                  properties:
+                    contrato:
+                      type: integer
+                      example: 15678
+                    uracontato:
+                      type: string
+                      nullable: true
+                      example: "18999998888"
+                    motivoos:
+                      type: string
+                      description: "Descrição do chamado. A API adiciona protocolo e contato ao final da descrição."
+                      example: "Cliente relata falta de conexão."
+                    ocorrenciatipo:
+                      type: integer
+                      description: |
+                        Tipo da ocorrência. Valores fora da lista são convertidos para 1.
+                        tipo de chamados:
+                          1: manutenção
+                          2: instalação
+                          3: visada
+                          4: retirada de equipamento, cancelamento
+                          5: financeiro
+                          6: outros
+                      enum: [1, 2, 3, 4, 5, 6]
+                      default: 1
+                      example: 1
+                    subtipo_id:
+                      type: integer
+                      nullable: true
+                      description: "ID do cadastro ordem_servico_subtipo. Deve pertencer à empresa autenticada e ao tipo informado em ocorrenciatipo."
+                      example: 10
+      responses:
+        "200":
+          description: "Chamado criado."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AberturaChamadoResponse"
+              example:
+                success: true
+                idCliente: 15678
+                idSuporte: 12345
+                razaoSocial: "Cliente Exemplo"
+                cpfCnpj: "19182374929"
+                uracontato: "18999998888"
+                protocolo: "20260630134500"
+                status: true
+                contratoId: 15678
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Contrato não localizado."
+
+  /chamados:
+    post:
+      operationId: chamados-post
+      summary: "Listar chamados abertos"
+      description: "Lista chamados/O.S. abertos de um cliente. O campo numero é o SUP_NUMERO, ou seja, o número visível da O.S.; idSuporte é o SUP_CODIGO usado por chamado-gravacao."
+      tags:
+        - OrdemServico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  required: [idCliente]
+                  properties:
+                    idCliente:
+                      type: integer
+                      description: "ID retornado em /clientes como idCliente/contratoId."
+                      example: 15678
+      responses:
+        "200":
+          description: "Lista de chamados abertos. Retorna array vazio quando não há chamados."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChamadoAberto"
+              example:
+                - idSuporte: 12345
+                  numero: 6789
+                  data: "2026-06-30"
+                  hora: "13:45:00"
+                  tipo: 1
+                  descricao: "Cliente relata falta de conexão."
+                  existeChamadoPendenteIntegracao: 1
+                  protocolo: 20260630134500
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Cliente não localizado ou erro na consulta."
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorMessage"
+                  - $ref: "#/components/schemas/ErrorStatus"
+              examples:
+                clienteNaoLocalizado:
+                  value:
+                    success: false
+                    message: "Cliente não localizado."
+                erroConsulta:
+                  value:
+                    success: false
+                    status: false
+
+  /chamado-gravacao:
+    post:
+      operationId: chamado-gravacao-post
+      summary: "Adicionar gravação ao chamado"
+      description: "Salva a URL da gravação no chamado. Opcionalmente adiciona o ramal na descrição e finaliza o chamado quando is_finalizar é verdadeiro."
+      tags:
+        - OrdemServico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/AutenticacaoRequest"
+                - type: object
+                  required: [idSuporte, urlgravacao]
+                  properties:
+                    idSuporte:
+                      type: integer
+                      description: "SUP_CODIGO retornado na abertura ou na listagem de chamados."
+                      example: 12345
+                    urlgravacao:
+                      type: string
+                      format: uri
+                      example: "https://example.com/gravacoes/atendimento.mp3"
+                    ramal:
+                      type: string
+                      nullable: true
+                      example: "101"
+                    is_finalizar:
+                      type: boolean
+                      nullable: true
+                      example: true
+                    motivo:
+                      type: string
+                      nullable: true
+                      description: "Descrição/solução gravada no fechamento quando is_finalizar for verdadeiro. Também aceita motivoos ou solucao como aliases. Se omitido, usa 'Finalizado pela URA'."
+                      example: "Cliente confirmou normalização do acesso."
+                    solucao:
+                      type: string
+                      nullable: true
+                      description: "Alias de motivo. Use para preencher a solução do fechamento quando is_finalizar for verdadeiro."
+                      example: "Cliente confirmou normalização do acesso."
+      responses:
+        "200":
+          description: "Gravação salva."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GravacaoChamadoResponse"
+              example:
+                success: true
+                status: true
+        "401":
+          $ref: "#/components/responses/NotAuthenticated"
+        "404":
+          description: "Chamado não localizado ou erro ao salvar gravação."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorStatus"
+              example:
+                success: false
+                status: false
+
+components:
+  responses:
+    NotAuthenticated:
+      description: "Autenticação incorreta. A URA exige app e token válidos no corpo da requisição."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/NotAuthenticated"
+          example:
+            success: false
+            message: "Permissão negada."
+
+  schemas:
+    AutenticacaoRequest:
+      type: object
+      required: [app, token]
+      properties:
+        app:
+          type: string
+          description: "Tipo da integração cadastrado em sistema_integracoes."
+          example: ura
+        token:
+          type: string
+          description: "Hash/token da integração."
+          example: bf74b674-5db3-11e8-a8f2-df2ab0e10f5c
+
+    Cliente:
+      type: object
+      required:
+        - idCliente
+        - razaoSocial
+        - contratoStatusDisplay
+        - isPromessaPagamento
+        - contratoValorAberto
+        - faturasEmAberto
+        - cpfCnpj
+        - contratoStatus
+        - existeChamado
+        - existeChamadoPendenteIntegracao
+        - contratoId
+        - isEmail
+        - isSMS
+        - isWhatsApp
+        - isChamados
+        - tecnologia
+        - servidor
+      properties:
+        idCliente:
+          type: integer
+          example: 15678
+        razaoSocial:
+          type: string
+          example: "Cliente Exemplo"
+        contratoStatusDisplay:
+          type: string
+          enum: ["Ativo", "Suspenso"]
+        isPromessaPagamento:
+          type: boolean
+          description: "Indica se a opção de promessa de pagamento está disponível conforme limite mensal configurado."
+        contratoValorAberto:
+          type: number
+          format: float
+          description: "Valor do primeiro boleto pendente retornado."
+          example: 149.9
+        faturasEmAberto:
+          type: array
+          description: "Até 3 faturas pendentes, ordenadas por vencimento."
+          items:
+            $ref: "#/components/schemas/Fatura"
+        cpfCnpj:
+          type: string
+          nullable: true
+          example: "19182374929"
+        contratoStatus:
+          type: integer
+          description: "1 ativo, 3 bloqueado, 4 cancelado."
+          enum: [1, 3, 4]
+        existeChamado:
+          type: integer
+          description: "1 quando existe chamado pendente; 0 quando não existe."
+          enum: [0, 1]
+        existeChamadoPendenteIntegracao:
+          type: integer
+          description: "1 quando existe chamado pendente criado por integração/API; 0 quando não existe."
+          enum: [0, 1]
+        contratoId:
+          type: integer
+          example: 15678
+        isEmail:
+          type: boolean
+        isSMS:
+          type: boolean
+        isWhatsApp:
+          type: boolean
+        isChamados:
+          type: object
+          description: "Flags por tipo de chamado pendente."
+          required: ["1", "2", "4", "5"]
+          properties:
+            "1":
+              type: integer
+              enum: [0, 1]
+            "2":
+              type: integer
+              enum: [0, 1]
+            "4":
+              type: integer
+              enum: [0, 1]
+            "5":
+              type: integer
+              enum: [0, 1]
+        tecnologia:
+          oneOf:
+            - type: integer
+            - type: string
+        servidor:
+          type: object
+          required: [isManutencao, mensagemManutencao]
+          properties:
+            isManutencao:
+              type: boolean
+            mensagemManutencao:
+              oneOf:
+                - type: string
+                - type: boolean
+
+    Fatura:
+      type: object
+      required: [valor, vencimento]
+      properties:
+        valor:
+          type: number
+          format: float
+          example: 149.9
+        vencimento:
+          type: string
+          format: date
+          example: "2026-06-30"
+
+    BoletoResponse:
+      type: object
+      required: [success, idCliente, razaoSocial, cpfCnpj, msg, uracontato, protocolo, status, contratoId]
+      properties:
+        success:
+          type: boolean
+          example: true
+        idCliente:
+          type: integer
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+          nullable: true
+        msg:
+          type: string
+          example: "Fatura enviada com sucesso"
+        uracontato:
+          type: string
+          nullable: true
+        protocolo:
+          type: string
+          description: "Timestamp de atendimento no formato YmdHis."
+          example: "20260630134500"
+        status:
+          type: boolean
+        contratoId:
+          type: integer
+
+    VerificarAcessoResponse:
+      type: object
+      required: [success, idCliente, razaoSocial, cpfCnpj, msg, uracontato, status, contratoId]
+      properties:
+        success:
+          type: boolean
+          description: "Pode ser false em falha de comunicação com o servidor, mantendo HTTP 200."
+        idCliente:
+          type: integer
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+          nullable: true
+        msg:
+          type: string
+          enum: ["Cliente Online", "Cliente Offline"]
+        uracontato:
+          type: string
+          nullable: true
+        status:
+          type: integer
+          enum: [1, 2]
+        contratoId:
+          type: integer
+
+    NotificacaoPagamentoResponse:
+      type: object
+      required: [success, idCliente, liberado, razaoSocial, cpfCnpj, msg, uracontato, protocolo, status, contratoId]
+      properties:
+        success:
+          type: boolean
+          example: true
+        idCliente:
+          type: integer
+        liberado:
+          type: boolean
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+          nullable: true
+        msg:
+          type: string
+          description: "Mensagem de sucesso, restrição de negócio ou erro de liberação."
+        uracontato:
+          type: string
+          nullable: true
+        protocolo:
+          type: string
+          description: "Timestamp de atendimento no formato YmdHis."
+          example: "20260630134500"
+        status:
+          type: integer
+          description: "1 liberado, 2 não liberável por regra de negócio, 0 erro de liberação/sincronização."
+          enum: [0, 1, 2]
+        contratoId:
+          type: integer
+
+    AberturaChamadoResponse:
+      type: object
+      required: [success, idCliente, idSuporte, razaoSocial, cpfCnpj, uracontato, protocolo, status, contratoId]
+      properties:
+        success:
+          type: boolean
+          example: true
+        idCliente:
+          type: integer
+        idSuporte:
+          type: integer
+          description: "SUP_CODIGO do chamado criado."
+        razaoSocial:
+          type: string
+        cpfCnpj:
+          type: string
+          nullable: true
+        uracontato:
+          type: string
+          nullable: true
+        protocolo:
+          type: string
+          description: "Timestamp de atendimento no formato YmdHis."
+          example: "20260630134500"
+        status:
+          type: boolean
+        contratoId:
+          type: integer
+
+    ChamadoAberto:
+      type: object
+      required: [idSuporte, numero, data, hora, tipo, descricao, existeChamadoPendenteIntegracao]
+      properties:
+        idSuporte:
+          type: integer
+          description: "SUP_CODIGO do chamado/O.S."
+        numero:
+          type: integer
+          description: "SUP_NUMERO, número visível do chamado/O.S."
+        data:
+          type: string
+          format: date
+          description: "Data de previsão do chamado."
+        hora:
+          type: string
+          example: "13:45:00"
+          description: "Hora de previsão do chamado."
+        tipo:
+          type: integer
+          description: |
+            tipo de chamados:
+              1: manutenção
+              2: instalação
+              3: visada
+              4: retirada de equipamento, cancelamento
+              5: financeiro
+              6: outros
+          enum: [1, 2, 3, 4, 5, 6]
+        ocorrenciatipo:
+          type: integer
+          description: "Alias de tipo da ocorrência/chamado."
+          enum: [1, 2, 3, 4, 5, 6]
+        subtipo_id:
+          type: integer
+          nullable: true
+          description: "ID do cadastro ordem_servico_subtipo vinculado ao chamado."
+        subtipo:
+          type: string
+          nullable: true
+          description: "Descrição do subtipo vinculado ao chamado."
+        descricao:
+          type: string
+        solucao_preenchida:
+          type: boolean
+          description: "Indica se SOL_DESCRICAO está preenchido."
+        solucao:
+          type: string
+          nullable: true
+          description: "Conteúdo de SOL_DESCRICAO quando preenchido."
+        existeChamadoPendenteIntegracao:
+          type: integer
+          description: "1 quando este chamado aberto foi criado por integração/API; 0 quando veio de outro fluxo."
+          enum: [0, 1]
+        protocolo:
+          type: integer
+          nullable: true
+          description: "SUP_PROTOCOLO quando preenchido."
+
+    GravacaoChamadoResponse:
+      type: object
+      required: [success, status]
+      properties:
+        success:
+          type: boolean
+          example: true
+        status:
+          type: boolean
+          example: true
+
+    NotAuthenticated:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Permissão negada."
+
+    ErrorMsg:
+      type: object
+      required: [success, msg]
+      properties:
+        success:
+          type: boolean
+          example: false
+        msg:
+          type: string
+
+    ErrorMessage:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+
+    ErrorStatus:
+      type: object
+      required: [success, status]
+      properties:
+        success:
+          type: boolean
+          example: false
+        status:
+          type: boolean
+          example: false
+
+    ErrorErro:
+      type: object
+      required: [erro]
+      properties:
+        erro:
+          type: string
+
+  securitySchemes:
+    UraApp:
+      type: apiKey
+      name: app
+      in: query
+      description: "Tipo da integração. A API também aceita este campo no corpo JSON."
+    UraToken:
+      type: apiKey
+      name: token
+      in: query
+      description: "Token/hash da integração. A API também aceita este campo no corpo JSON."
+
+security:
+  - UraApp: []
+    UraToken: []

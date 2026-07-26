@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: tv-pix-platform
+    env: docker
+    port: 3000
+    plan: starter # Starter plan é altamente recomendado para suportar builds Docker e volume persistente
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: DATABASE_PATH
+        value: "/data/database.sqlite"
+      - key: NODE_ENV
+        value: "production"
+      
+      # Estas variáveis devem ser preenchidas no painel do Render (ou virão vazias para sincronização manual)
+      - key: RECEITANET_ADMIN_USER
+        sync: false
+      - key: RECEITANET_ADMIN_PASS
+        sync: false
+      - key: RECEITANET_CRM_URL
+        value: "https://sistema.receitanet.net/novo/crm/formulario/3431"
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_API_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: MOCK_TV
+        value: "false" # Desativa mocks para rodar em produção
+      - key: MOCK_PAYMENT
+        value: "false"
+      - key: MOCK_WHATSAPP
+        value: "false"
