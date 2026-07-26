@@ -21,12 +21,18 @@ class ReceitanetRobotService {
 
         console.log(`[RECEITANET-ROBOT] Iniciando automação oculta para cadastrar e ativar TV de: ${cliente.nome}`);
         
-        const browser = await puppeteer.launch({
+        const launchOptions = {
             headless: true, // Sempre oculto em segundo plano
             slowMo: 60,     // Atraso sutil para cliques humanos e garantir processamento da página
             defaultViewport: null,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        };
+
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        const browser = await puppeteer.launch(launchOptions);
 
         const page = await browser.newPage();
         
@@ -165,11 +171,17 @@ class ReceitanetRobotService {
 
         console.log(`[RECEITANET-ROBOT] Iniciando bloqueio do login: ${login}`);
         
-        const browser = await puppeteer.launch({
+        const launchOptions = {
             headless: true,
             slowMo: 60,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        };
+
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        const browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
 
         try {
@@ -233,11 +245,17 @@ class ReceitanetRobotService {
 
         console.log(`[RECEITANET-ROBOT] Iniciando reativação do login: ${login}`);
         
-        const browser = await puppeteer.launch({
+        const launchOptions = {
             headless: true,
             slowMo: 60,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        };
+
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        }
+
+        const browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
 
         try {
