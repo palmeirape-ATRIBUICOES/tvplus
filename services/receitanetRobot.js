@@ -307,6 +307,8 @@ class ReceitanetRobotService {
             await browser.close();
             throw error;
         }
+    }
+
     /**
      * Efetua a rescisão contratual (cancelado chip) e exclui o cliente do ReceitaNet
      * @param {string} login - Login original do cliente
