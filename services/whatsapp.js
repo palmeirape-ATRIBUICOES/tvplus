@@ -33,18 +33,32 @@ class WhatsappService {
         try {
             console.log(`[WHATSAPP REAL] Enviando mensagem de WhatsApp para +${foneDestinatario}...`);
             
-            // Exemplo genérico de chamada compatível com Evolution API / Z-API.
-            // Ajuste a URL do endpoint e o formato do payload conforme seu provedor.
-            const response = await axios.post(`${API_URL}/message/sendText`, {
-                number: foneDestinatario,
-                text: mensagem
-            }, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': API_TOKEN, // Usado na Evolution API. Altere para 'Authorization: Bearer' se Z-API/outros
-                    'Authorization': `Bearer ${API_TOKEN}` // Alternativa de autenticação padrão
-                }
-            });
+            let response;
+            if (API_URL && API_URL.includes('z-api.io')) {
+                // Suporte nativo Z-API (https://api.z-api.io/instances/ID/token/TOKEN/send-text)
+                console.log(`[WHATSAPP REAL] Utilizando formato e cabeçalhos do Z-API...`);
+                response = await axios.post(API_URL, {
+                    phone: foneDestinatario,
+                    message: mensagem
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Client-Token': API_TOKEN
+                    }
+                });
+            } else {
+                // Suporte genérico (Evolution API, etc.)
+                response = await axios.post(`${API_URL}/message/sendText`, {
+                    number: foneDestinatario,
+                    text: mensagem
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': API_TOKEN,
+                        'Authorization': `Bearer ${API_TOKEN}`
+                    }
+                });
+            }
 
             if (response.status === 200 || response.status === 201) {
                 console.log(`[WHATSAPP REAL] Mensagem enviada com sucesso para +${foneDestinatario}.`);
@@ -56,6 +70,9 @@ class WhatsappService {
 
         } catch (error) {
             console.error(`[WHATSAPP REAL ERROR] Erro ao enviar mensagem no WhatsApp para +${foneDestinatario}:`, error.message);
+            if (error.response && error.response.data) {
+                console.error(`[WHATSAPP REAL ERROR] Resposta do provedor:`, JSON.stringify(error.response.data));
+            }
             return false;
         }
     }
