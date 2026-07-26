@@ -24,9 +24,9 @@ services:
         value: "https://sistema.receitanet.net/novo/crm/formulario/3431"
       - key: MERCADOPAGO_ACCESS_TOKEN
         sync: false
-      - key: WHATSAPP_API_TOKEN
+      - key: WHATSAPP_API_URL
         sync: false
-      - key: WHATSAPP_PHONE_NUMBER_ID
+      - key: WHATSAPP_API_TOKEN
         sync: false
       - key: MOCK_TV
         value: "false" # Desativa mocks para rodar em produção
