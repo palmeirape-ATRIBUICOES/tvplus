@@ -14,7 +14,7 @@ process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception thrown:', err);
 });
 
-const { initDb, helpers } = require('./database');
+const { initDb, helpers, db } = require('./database');
 const paymentService = require('./services/payment');
 const tvPanelService = require('./services/tvPanel');
 const whatsappService = require('./services/whatsapp');
@@ -40,15 +40,17 @@ initDb().then(() => {
 });
 
 /**
- * ROTA: Cadastro do cliente e liberação do trial de 4 horas
+ * ROTA: Cadastro do cliente e liberação de teste ou compra direta Pix
  * POST /api/cadastro
  */
 app.post('/api/cadastro', async (req, res) => {
-    const { nome, email, telefone, cpfcnpj, cep, endereco, numero, complemento, bairro, cidade, uf } = req.body;
+    const { nome, email, telefone, cpfcnpj, cep, endereco, numero, complemento, bairro, cidade, uf, tipoCadastro } = req.body;
 
     if (!nome || !email || !telefone || !cpfcnpj) {
         return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (nome, email, telefone, cpf/cnpj).' });
     }
+
+    const isTrial = tipoCadastro !== 'buy';
 
     try {
         // 1. Cadastra ou recupera o cliente no banco local com os dados do ReceitaNet
@@ -69,12 +71,12 @@ app.post('/api/cadastro', async (req, res) => {
             });
         }
 
-        // Se já existe uma assinatura suspensa/expirada, não liberamos outro trial!
+        // Se já existe uma assinatura suspensa/expirada, não liberamos outro teste
         if (assinatura && (assinatura.status === 'suspensa' || assinatura.status === 'vencida')) {
             return res.status(200).json({
                 status: 'suspensa',
                 cliente_id: cliente.id,
-                message: 'Seu período de teste gratuito de 4 horas já expirou. Escolha um plano de renovação para reativar seu acesso.'
+                message: 'Seu período de teste gratuito já expirou. Escolha um plano de renovação para reativar seu acesso.'
             });
         }
 
@@ -91,34 +93,68 @@ app.post('/api/cadastro', async (req, res) => {
         const login = crmResult.login;
         const senha = crmResult.senha;
 
-        // 4. Ativa localmente no SQLite por 4 Horas (Trial)
-        assinatura = await helpers.ativarAssinatura(cliente.id, login, senha, 4, crmResult.receitanet_lead_id, null);
-        console.log(`[CADASTRO] Assinatura trial de 4 horas criada para o cliente ${cliente.nome}. Expira em: ${assinatura.data_vencimento}`);
+        if (isTrial) {
+            // FLUXO A: Teste Gratuito (Duração configurada em minutos)
+            const durationMinutes = parseInt(process.env.TRIAL_DURATION_MINUTES) || 5;
+            const durationHours = durationMinutes / 60;
 
-        // 5. Executa a ativação física no painel administrativo do ReceitaNet via Robô Puppeteer (RPA) em segundo plano
-        const robot = require('./services/receitanetRobot');
-        robot.cadastrarEAtivarTV(cliente, login, senha)
-            .then(() => console.log(`[ROBÔ] Ativação concluída no painel para: ${cliente.nome}`))
-            .catch(err => console.error(`[ROBÔ ERROR] Falha ao cadastrar no painel administrativo:`, err.message));
+            // Ativa localmente no SQLite por X minutos (Trial)
+            assinatura = await helpers.ativarAssinatura(cliente.id, login, senha, durationHours, crmResult.receitanet_lead_id, null);
+            console.log(`[CADASTRO] Assinatura trial de ${durationMinutes} minutos criada para ${cliente.nome}. Expira em: ${assinatura.data_vencimento}`);
 
-        // 6. Envia mensagem via WhatsApp informando as credenciais de teste
-        const msgBoasVindas = `Olá, *${cliente.nome}*! Bem-vindo à AURA TV!\n\n` +
-                              `Seu período de demonstração gratuito de *4 horas* foi ativado!\n` +
-                              `Aqui estão seus dados de acesso:\n\n` +
-                              `🔑 Usuário: *${login}*\n` +
-                              `🔒 Senha: *${senha}*\n\n` +
-                              `Seu sinal ficará ativo até: ${new Date(assinatura.data_vencimento).toLocaleTimeString('pt-BR')} do dia ${new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR')}.\n` +
-                              `Aproveite!`;
-        
-        await whatsappService.enviarMensagem(cliente.telefone, msgBoasVindas);
+            // Executa a ativação física no painel do ReceitaNet via Robô Puppeteer em segundo plano
+            const robot = require('./services/receitanetRobot');
+            robot.cadastrarEAtivarTV(cliente, login, senha)
+                .then(() => console.log(`[ROBÔ] Ativação concluída no painel para: ${cliente.nome}`))
+                .catch(err => console.error(`[ROBÔ ERROR] Falha ao cadastrar no painel administrativo:`, err.message));
 
-        res.status(200).json({
-            status: 'ativa',
-            message: 'Seu período de teste de 4 horas foi ativado com sucesso!',
-            login,
-            senha,
-            vencimento: assinatura.data_vencimento
-        });
+            // Envia mensagem via WhatsApp com as credenciais
+            const msgBoasVindas = `Olá, *${cliente.nome}*! Bem-vindo à AURA TV!\n\n` +
+                                  `Seu período de demonstração gratuito de *${durationMinutes} minutos* foi ativado!\n` +
+                                  `Aqui estão seus dados de acesso:\n\n` +
+                                  `🔑 Usuário: *${login}*\n` +
+                                  `🔒 Senha: *${senha}*\n\n` +
+                                  `Seu sinal ficará ativo até: ${new Date(assinatura.data_vencimento).toLocaleTimeString('pt-BR')} do dia ${new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR')}.\n` +
+                                  `Aproveite!`;
+            
+            await whatsappService.enviarMensagem(cliente.telefone, msgBoasVindas);
+
+            res.status(200).json({
+                status: 'ativa',
+                message: `Seu período de teste de ${durationMinutes} minutos foi ativado com sucesso!`,
+                login,
+                senha,
+                vencimento: assinatura.data_vencimento
+            });
+        } else {
+            // FLUXO B: Compra Direta Pix
+            console.log(`[CADASTRO] Gravando credenciais pendentes para o cliente ${cliente.nome}...`);
+            await new Promise((resolve, reject) => {
+                db.run(
+                    'UPDATE assinaturas SET login_tv = ?, senha_tv = ?, status = ?, receitanet_lead_id = ? WHERE cliente_id = ?',
+                    [login, senha, 'pendente', crmResult.receitanet_lead_id, cliente.id],
+                    (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    }
+                );
+            });
+
+            // Gera a cobrança Pix Mercado Pago de R$ 10,00 (1 Mês)
+            console.log(`[CADASTRO] Gerando Pix de R$ 10,00 para compra direta...`);
+            const txid = `tx_${Date.now()}`;
+            const charge = await paymentService.criarCobrancaPix(txid, 10.00, cliente.nome, cliente.cpfcnpj);
+            await helpers.criarPagamento(cliente.id, txid, 10.00);
+
+            res.status(200).json({
+                status: 'pendente',
+                cliente_id: cliente.id,
+                message: 'Cadastro realizado! Efetue o pagamento Pix de R$ 10,00 para liberar o seu acesso.',
+                pixQrCode: charge.qrCodeBase64,
+                pixCopiaCola: charge.copiaCola,
+                txid: txid
+            });
+        }
 
     } catch (error) {
         console.error('Erro na rota de cadastro:', error);

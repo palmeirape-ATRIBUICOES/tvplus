@@ -34,3 +34,5 @@ services:
         value: "false"
       - key: MOCK_WHATSAPP
         value: "false"
+      - key: TRIAL_DURATION_MINUTES
+        value: "5"

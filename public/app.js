@@ -17,7 +17,8 @@ const checkoutCard = document.getElementById('checkoutCard');
 
 // Formulário de Cadastro
 const cadastroForm = document.getElementById('cadastroForm');
-const btnSubmitCadastro = document.getElementById('btnSubmitCadastro');
+const btnSubmitTrial = document.getElementById('btnSubmitTrial');
+const btnSubmitBuy = document.getElementById('btnSubmitBuy');
 
 // Pix e Renovação
 const mesesSelect = document.getElementById('mesesSelect');
@@ -53,25 +54,32 @@ const adminOutput = document.getElementById('adminOutput');
    Fluxo Principal de Vendas & Checkout
    ======================================================== */
 
-// 1. Ação de Submeter Cadastro (Gera Teste Grátis de 4 Horas)
-cadastroForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+// Função centralizada para submeter o formulário
+async function submeterFormulario(tipoCadastro) {
+    // Desabilitar botões
+    btnSubmitTrial.disabled = true;
+    btnSubmitBuy.disabled = true;
     
-    // Desabilitar botão e mostrar loading
-    btnSubmitCadastro.disabled = true;
-    btnSubmitCadastro.innerHTML = `<span>Ativando teste grátis...</span> <i class="fa-solid fa-spinner fa-spin"></i>`;
-    
+    const originalTrialHtml = btnSubmitTrial.innerHTML;
+    const originalBuyHtml = btnSubmitBuy.innerHTML;
+
+    if (tipoCadastro === 'trial') {
+        btnSubmitTrial.innerHTML = `<span>Ativando...</span> <i class="fa-solid fa-spinner fa-spin"></i>`;
+    } else {
+        btnSubmitBuy.innerHTML = `<span>Gerando Pix...</span> <i class="fa-solid fa-spinner fa-spin"></i>`;
+    }
+
     const nome = document.getElementById('nome').value;
     const email = document.getElementById('email').value;
     const telefone = document.getElementById('telefone').value;
     const cpfcnpj = document.getElementById('cpfcnpj').value;
     const cep = document.getElementById('cep').value;
-    
+
     try {
         const response = await fetch('/api/cadastro', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, email, telefone, cpfcnpj, cep })
+            body: JSON.stringify({ nome, email, telefone, cpfcnpj, cep, tipoCadastro })
         });
         
         const data = await response.json();
@@ -86,13 +94,40 @@ cadastroForm.addEventListener('submit', async (e) => {
             return;
         }
         
-        // Se o teste já expirou, precisamos de pagamento
-        if (data.status === 'suspensa') {
+        // Se for compra direta Pix ou teste expirado, precisamos de pagamento
+        if (data.status === 'pendente' || data.status === 'suspensa') {
             currentClienteId = data.cliente_id;
-            alert(data.message);
+            if (data.message && data.status === 'suspensa') {
+                alert(data.message);
+            }
             
-            // Prepara a tela de Pix escondendo as informações de pagamento até gerar o Pix
+            // Prepara a tela de Pix
             resetPixUI();
+
+            // Se veio os dados do Pix diretamente (Fluxo Compra Direta)
+            if (data.pixQrCode && data.pixCopiaCola) {
+                currentTxid = data.txid;
+                pixValorDisplay.textContent = `R$ 10,00`;
+                
+                if (data.pixQrCode.startsWith('data:image')) {
+                    pixQrCode.src = data.pixQrCode;
+                } else {
+                    pixQrCode.src = `data:image/png;base64,${data.pixQrCode}`;
+                }
+                
+                pixCopiaCola.value = data.pixCopiaCola;
+                
+                // Exibe os containers do Pix
+                valorTagContainer.style.display = 'block';
+                qrCodeWrapper.style.display = 'block';
+                pixInstructionsText.style.display = 'block';
+                copiaColaContainer.style.display = 'flex';
+                statusIndicatorContainer.style.display = 'block';
+                sandboxAreaContainer.style.display = 'block';
+                
+                // Inicia pooling de confirmação
+                iniciarChecagemStatus(currentTxid);
+            }
             
             // Transiciona para o passo do Pix
             switchStep(stepForm, stepPix);
@@ -100,8 +135,23 @@ cadastroForm.addEventListener('submit', async (e) => {
         
     } catch (error) {
         alert(`Erro: ${error.message}`);
-        btnSubmitCadastro.disabled = false;
-        btnSubmitCadastro.innerHTML = `<span>Ativar Teste Grátis (4 Horas)</span> <i class="fa-solid fa-bolt"></i>`;
+        btnSubmitTrial.disabled = false;
+        btnSubmitBuy.disabled = false;
+        btnSubmitTrial.innerHTML = originalTrialHtml;
+        btnSubmitBuy.innerHTML = originalBuyHtml;
+    }
+}
+
+// Vincula os cliques com a validação manual do formulário HTML5
+btnSubmitTrial.addEventListener('click', () => {
+    if (cadastroForm.reportValidity()) {
+        submeterFormulario('trial');
+    }
+});
+
+btnSubmitBuy.addEventListener('click', () => {
+    if (cadastroForm.reportValidity()) {
+        submeterFormulario('buy');
     }
 });
 
