@@ -523,6 +523,93 @@ async function processarConfirmacaoPagamento(txid) {
     return null;
 }
 
+/**
+ * ENDPOINTS ADMINISTRATIVOS DO PAINEL DE CONTROLE (Dashboard Admin)
+ */
+app.get('/api/admin/clientes', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                c.id as cliente_id, c.nome, c.email, c.telefone, c.cpfcnpj, c.cep,
+                a.id as assinatura_id, a.login_tv, a.senha_tv, a.status as assinatura_status, a.data_vencimento, a.receitanet_lead_id
+            FROM clientes c
+            LEFT JOIN assinaturas a ON c.id = a.cliente_id
+            ORDER BY c.id DESC
+        `;
+        db.all(query, [], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(200).json(rows);
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/suspender', async (req, res) => {
+    const { cliente_id } = req.body;
+    try {
+        db.get('SELECT * FROM assinaturas WHERE cliente_id = ?', [cliente_id], async (err, row) => {
+            if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
+            
+            const robot = require('./services/receitanetRobot');
+            await robot.bloquearCliente(row.login_tv);
+            
+            db.run("UPDATE assinaturas SET status = 'suspensa' WHERE id = ?", [row.id], (err2) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+                res.status(200).json({ message: 'Cliente suspenso com sucesso no ReceitaNet e no banco local!' });
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/reativar', async (req, res) => {
+    const { cliente_id } = req.body;
+    try {
+        db.get('SELECT * FROM assinaturas WHERE cliente_id = ?', [cliente_id], async (err, row) => {
+            if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
+            
+            const robot = require('./services/receitanetRobot');
+            await robot.reativarCliente(row.login_tv);
+            
+            const novaDataVenc = new Date();
+            novaDataVenc.setDate(novaDataVenc.getDate() + 30);
+            
+            db.run("UPDATE assinaturas SET status = 'ativa', data_vencimento = ? WHERE id = ?", [novaDataVenc.toISOString(), row.id], (err2) => {
+                if (err2) return res.status(500).json({ error: err2.message });
+                res.status(200).json({ message: 'Cliente reativado por 30 dias no ReceitaNet e no banco local!' });
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/enviar-instrucoes', async (req, res) => {
+    const { cliente_id } = req.body;
+    try {
+        db.get('SELECT c.*, a.login_tv, a.senha_tv FROM clientes c JOIN assinaturas a ON c.id = a.cliente_id WHERE c.id = ?', [cliente_id], async (err, row) => {
+            if (err || !row) return res.status(404).json({ error: 'Cliente não localizado.' });
+            
+            const msgApp = `Olá, *${row.nome}*!\n\n` +
+                           `Aqui estão as instruções para assistir à sua AURA TV:\n\n` +
+                           `📱 *Como baixar o aplicativo:*\n` +
+                           `1. Baixe o aplicativo *CDNTV* na Play Store (Android) ou na App Store (iOS).\n` +
+                           `2. Para Smart TVs, procure por *CDNTV* ou use o aplicativo compatível.\n\n` +
+                           `🔑 *Seus dados de acesso:*\n` +
+                           `• Usuário: *${row.login_tv}*\n` +
+                           `• Senha: *${row.senha_tv}*\n\n` +
+                           `Qualquer dúvida, estamos à disposição!`;
+            
+            await whatsappService.enviarMensagem(row.telefone, msgApp);
+            res.status(200).json({ message: 'Instruções enviadas com sucesso no WhatsApp!' });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Inicia o servidor Express
 app.listen(PORT, () => {
     console.log(`Servidor rodando com sucesso na porta ${PORT}`);
