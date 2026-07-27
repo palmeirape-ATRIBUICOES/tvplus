@@ -386,7 +386,8 @@ const handleSvaAuth = async (req, res) => {
 
     // Tratamento universal para garantir que o símbolo @ seja reconhecido em qualquer aplicativo/navegador
     userClean = userClean.replace(/[\s\+%20]+tvplus/gi, '@tvplus');
-    userClean = userClean.replace(/%40/gi, '@').trim();
+    userClean = userClean.replace(/%40/gi, '@');
+    userClean = userClean.replace(/@tvplus@tvplus/gi, '@tvplus').trim();
 
     let passClean = rawPass.toString().trim();
     try {
@@ -395,7 +396,7 @@ const handleSvaAuth = async (req, res) => {
     passClean = passClean.trim();
 
     const userWithDomain = userClean.includes('@') ? userClean : `${userClean}@tvplus`;
-    const userWithoutDomain = userClean.replace(/@.*$/, '').replace(/[\s\+].*$/, '');
+    const userWithoutDomain = userClean.replace(/@.*$/, '').replace(/[\s\+].*$/, '').trim();
     const userLikePattern = `%${userWithoutDomain}%`;
 
     console.log(`[SVA AUTH] Login normalizado: User='${userClean}' (Com Domínio: '${userWithDomain}', Sem Domínio: '${userWithoutDomain}'), Pass='${passClean}'`);
