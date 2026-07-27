@@ -383,7 +383,10 @@ const handleSvaAuth = async (req, res) => {
     try {
         userClean = decodeURIComponent(userClean);
     } catch (e) {}
-    userClean = userClean.replace(/%40/g, '@').trim();
+
+    // Tratamento universal para garantir que o símbolo @ seja reconhecido em qualquer aplicativo/navegador
+    userClean = userClean.replace(/[\s\+%20]+tvplus/gi, '@tvplus');
+    userClean = userClean.replace(/%40/gi, '@').trim();
 
     let passClean = rawPass.toString().trim();
     try {
@@ -392,9 +395,10 @@ const handleSvaAuth = async (req, res) => {
     passClean = passClean.trim();
 
     const userWithDomain = userClean.includes('@') ? userClean : `${userClean}@tvplus`;
-    const userWithoutDomain = userClean.replace(/@.*$/, '');
+    const userWithoutDomain = userClean.replace(/@.*$/, '').replace(/[\s\+].*$/, '');
+    const userLikePattern = `%${userWithoutDomain}%`;
 
-    console.log(`[SVA AUTH] Login decodificado: User='${userClean}' (Com Domínio: '${userWithDomain}', Sem Domínio: '${userWithoutDomain}'), Pass='${passClean}'`);
+    console.log(`[SVA AUTH] Login normalizado: User='${userClean}' (Com Domínio: '${userWithDomain}', Sem Domínio: '${userWithoutDomain}'), Pass='${passClean}'`);
 
     try {
         const dbClient = require('./database').db;
@@ -425,13 +429,13 @@ const handleSvaAuth = async (req, res) => {
         const dispositivo = req.headers['user-agent'] || 'SignalPlay App';
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-        // 1. Busca em assinaturas pagas (Suporta variações de login com ou sem @tvplus)
+        // 1. Busca em assinaturas pagas (Suporta todas as variações de login com ou sem @tvplus)
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
                 `SELECT * FROM assinaturas 
-                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?) 
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ? OR LOWER(TRIM(login_tv)) LIKE ?) 
                    AND (TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?)`,
-                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, passClean, passClean],
+                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, userLikePattern, passClean, passClean],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -443,7 +447,7 @@ const handleSvaAuth = async (req, res) => {
             const vencimento = new Date(assinatura.data_vencimento);
             if (assinatura.status === 'ativa' && vencimento > agora) {
                 console.log(`[SVA AUTH OK] Acesso autorizado para cliente pago: ${assinatura.login_tv} (Expira em: ${assinatura.data_vencimento})`);
-                await helpers.registrarPingSessao(assinatura.login_tv, dispositivo, ip, 'Canais digitais e Filmes HD');
+                await helpers.registrarPingSessao(userWithDomain, dispositivo, ip, 'Canais digitais e Filmes HD');
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
             } else {
                 console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${assinatura.login_tv}`);
@@ -481,9 +485,9 @@ const handleSvaAuth = async (req, res) => {
         const teste = await new Promise((resolve, reject) => {
             dbClient.get(
                 `SELECT * FROM testes 
-                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?) 
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ? OR LOWER(TRIM(login_tv)) LIKE ?) 
                    AND (TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?)`,
-                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, passClean, passClean],
+                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, userLikePattern, passClean, passClean],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
