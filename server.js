@@ -580,24 +580,31 @@ async function processarConfirmacaoPagamento(txid) {
             assinatura.receitanet_cliente_id
         );
 
-        // Notifica o cliente via WhatsApp com a mensagem de painel renovado com sucesso!
+        // Notifica o cliente via WhatsApp com a mensagem de ativação / renovação concluída e os links oficiais!
         const nomeCapitalizado = capitalizeName(cliente.nome);
         const vencimentoFormatado = new Date(novaAssinatura.data_vencimento).toLocaleDateString('pt-BR');
         const msgReativacao = `Olá, *${nomeCapitalizado}*!\n\n` +
                               `Confirmamos o recebimento do seu Pix de R$ ${pagamento.valor.toFixed(2)}! 🥳\n` +
-                              `Seu acesso ao aplicativo *SIGNALPLAY* foi ativado e renovado por *${meses * 30} dias* com sucesso.\n\n` +
+                              `Seu acesso ao aplicativo *SIGNALPLAY* foi ativado por *${meses * 30} dias* com sucesso.\n\n` +
                               `🔑 *Seus dados de acesso de TV:*\n` +
                               `• Usuário: *${loginLimpo}*\n` +
                               `• Senha: *${assinatura.senha_tv}*\n` +
-                              `📅 Novo Vencimento: *${vencimentoFormatado}*\n\n` +
-                              `📱 *Instruções de Login:*\n` +
-                              `1. Abra o aplicativo *SIGNALPLAY* na sua TV, TV Box ou Celular.\n` +
-                              `2. Insira o Usuário e Senha fornecidos acima.\n\n` +
+                              `📅 Data de Vencimento: *${vencimentoFormatado}*\n\n` +
+                              `📱 *Links e Passo a Passo para Instalar o SIGNALPLAY:*\n\n` +
+                              `🍏 *Para iPhone / iPad / Apple TV (iOS):*\n` +
+                              `https://apps.apple.com/br/app/signalplay/id6749374183\n\n` +
+                              `🤖 *Para Android (Celular, Smart TV, TV Box & Firestick):*\n` +
+                              `https://play.google.com/store/apps/details?id=br.com.signalplay.tv.mobile&hl=pt_BR\n\n` +
+                              `💻 *Assistir no Computador / PC (Navegador):*\n` +
+                              `https://tv.signalplay.com.br/login\n\n` +
+                              `📋 *Como Acessar:*\n` +
+                              `1. Abra a loja do seu aparelho ou acesse o link acima.\n` +
+                              `2. Instale o app e insira o seu Usuário e Senha informados acima.\n\n` +
                               `⚠️ *Regra de Uso Importante:*\n` +
-                              `• Você pode assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n\n` +
-                              `Obrigado e aproveite sua programação!`;
+                              `• Você pode assistir em *ATÉ 3 aparelhos simultaneamente*.\n\n` +
+                              `Se precisar de suporte, basta responder esta mensagem! Aproveite sua programação! 📺✨`;
         
-        console.log(`[CONFIRMAÇÃO WA] Enviando mensagem de renovação concluída via WhatsApp para ${cliente.telefone}...`);
+        console.log(`[CONFIRMAÇÃO WA] Enviando mensagem de ativação/renovação concluída via WhatsApp para ${cliente.telefone}...`);
         await whatsappService.enviarMensagem(cliente.telefone, msgReativacao);
 
         return { login_tv: loginLimpo, senha_tv: assinatura.senha_tv };

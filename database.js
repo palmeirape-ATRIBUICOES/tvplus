@@ -82,8 +82,21 @@ function initDb() {
                 )
             `, (err) => { 
                 if (err) return reject(err);
-                console.log('Tabelas do banco de dados verificadas/criadas com sucesso.');
-                resolve();
+
+                // Tabela de Atendimento do Bot de IA / Humano
+                db.run(`
+                    CREATE TABLE IF NOT EXISTS conversas_bot (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        telefone TEXT UNIQUE NOT NULL,
+                        modo TEXT DEFAULT 'IA',
+                        historico TEXT DEFAULT '[]',
+                        ultima_interacao DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                `, (errBot) => {
+                    if (errBot) return reject(errBot);
+                    console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot) verificadas/criadas com sucesso.');
+                    resolve();
+                });
             });
         });
     });
@@ -122,9 +135,20 @@ const dbHelpers = {
     // Conversas do Bot IA / Humano
     async obterEstadoBot(telefone) {
         let fone = telefone.replace(/\D/g, '');
-        let row = await dbGet('SELECT * FROM conversas_bot WHERE telefone = ?', [fone]);
+        // Garante que a tabela conversas_bot exista no SQLite
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS conversas_bot (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefone TEXT UNIQUE NOT NULL,
+                modo TEXT DEFAULT 'IA',
+                historico TEXT DEFAULT '[]',
+                ultima_interacao DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `).catch(() => {});
+
+        let row = await dbGet('SELECT * FROM conversas_bot WHERE telefone = ?', [fone]).catch(() => null);
         if (!row) {
-            await dbRun('INSERT INTO conversas_bot (telefone, modo) VALUES (?, ?)', [fone, 'IA']);
+            await dbRun('INSERT INTO conversas_bot (telefone, modo) VALUES (?, ?)', [fone, 'IA']).catch(() => {});
             row = { telefone: fone, modo: 'IA', historico: '[]' };
         }
         return row;
@@ -132,6 +156,16 @@ const dbHelpers = {
 
     async definirModoBot(telefone, modo) {
         let fone = telefone.replace(/\D/g, '');
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS conversas_bot (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefone TEXT UNIQUE NOT NULL,
+                modo TEXT DEFAULT 'IA',
+                historico TEXT DEFAULT '[]',
+                ultima_interacao DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `).catch(() => {});
+
         await dbRun(`
             INSERT INTO conversas_bot (telefone, modo, ultima_interacao)
             VALUES (?, ?, CURRENT_TIMESTAMP)
@@ -143,11 +177,21 @@ const dbHelpers = {
         let fone = telefone.replace(/\D/g, '');
         await dbRun(`
             UPDATE conversas_bot SET historico = ?, ultima_interacao = CURRENT_TIMESTAMP WHERE telefone = ?
-        `, [JSON.stringify(historicoJson), fone]);
+        `, [JSON.stringify(historicoJson), fone]).catch(() => {});
     },
 
     async listarConversasBot() {
-        return await dbAll('SELECT * FROM conversas_bot ORDER BY ultima_interacao DESC');
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS conversas_bot (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefone TEXT UNIQUE NOT NULL,
+                modo TEXT DEFAULT 'IA',
+                historico TEXT DEFAULT '[]',
+                ultima_interacao DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `).catch(() => {});
+
+        return await dbAll('SELECT * FROM conversas_bot ORDER BY ultima_interacao DESC').catch(() => []);
     },
 
     // Clientes
