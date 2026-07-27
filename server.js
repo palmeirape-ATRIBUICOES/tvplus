@@ -371,9 +371,10 @@ app.post('/api/webhook/pix', async (req, res) => {
 });
 
 // Armazena em memória as últimas 50 tentativas de login do aplicativo com diagnóstico completo
-const svaDebugLogs = [];
+var svaDebugLogs = [];
 
-function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senhaCadastrada = null) {
+function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senhaCadastrada) {
+    if (!svaDebugLogs) svaDebugLogs = [];
     const entry = {
         id: Date.now(),
         timestamp: new Date().toISOString(),
@@ -381,7 +382,7 @@ function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senh
         senhaEnviada,
         status,
         detalhes,
-        senhaCadastrada
+        senhaCadastrada: senhaCadastrada || null
     };
     svaDebugLogs.unshift(entry);
     if (svaDebugLogs.length > 50) svaDebugLogs.pop();
