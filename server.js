@@ -555,9 +555,8 @@ const handleSvaAuth = async (req, res) => {
         const teste = await new Promise((resolve, reject) => {
             dbClient.get(
                 `SELECT * FROM testes 
-                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ? OR LOWER(TRIM(login_tv)) LIKE ?) 
-                   AND (TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?)`,
-                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, userLikePattern, passClean, passClean],
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ? OR LOWER(TRIM(login_tv)) LIKE ?)`,
+                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, userLikePattern],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -567,14 +566,23 @@ const handleSvaAuth = async (req, res) => {
 
         if (teste) {
             const expiracaoTeste = new Date(teste.data_expiracao);
-            if (teste.status === 'ativo' && expiracaoTeste > agora) {
+            const passMatches = (
+                teste.senha_tv == passClean || 
+                teste.senha_tv == passOnlyDigits || 
+                teste.senha_tv == passPadded
+            );
+
+            if (teste.status === 'ativo' && expiracaoTeste > agora && passMatches) {
                 console.log(`[SVA AUTH OK] Acesso autorizado para TESTE GRÁTIS: ${teste.login_tv} (Validade até: ${teste.data_expiracao})`);
                 await helpers.registrarPingSessao(teste.login_tv, dispositivo, ip, 'Teste Grátis 3 Horas');
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso (Teste Grátis de 3 Horas)." });
             } else {
-                console.log(`[SVA AUTH BLOCKED] Teste grátis expirado: ${teste.login_tv}`);
+                console.log(`[SVA AUTH KICKED] Teste grátis expirado ou inativo: ${teste.login_tv}`);
+                registrarLogDebugSva(userClean, passClean, 'TESTE_EXPIRADO', 'Teste grátis de 3 horas expirado.', teste.senha_tv);
                 
-                // Gera Pix de R$ 10,00 para o cliente de teste assinar na hora direto na TV
+                // Força o encerramento da sessão da TV no banco
+                dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ?", [`%${userWithoutDomain}%`]);
+
                 let pixData = null;
                 try {
                     const cobranca = await paymentService.gerarCobrancaPix(10.00, {
@@ -594,8 +602,8 @@ const handleSvaAuth = async (req, res) => {
 
                 return res.status(200).json({ 
                     success: false, 
-                    status: "blocked", 
-                    msg: "Seu teste grátis de 3 horas expirou! Assine agora por R$ 10,00/mês pagando o Pix abaixo para liberar o sinal instantaneamente!",
+                    status: "kicked", 
+                    msg: "Seu teste grátis de 3 horas expirou! O sinal foi desligado. Assine agora por R$ 10,00/mês pagando o Pix abaixo para continuar assistindo!",
                     valor: "10.00",
                     pix_copia_e_cola: pixData ? pixData.copiaCola : null,
                     pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
@@ -603,7 +611,23 @@ const handleSvaAuth = async (req, res) => {
             }
         }
 
-        // 3. Se a conta não existe localmente ainda (ex: cadastrada direto no ERP como ellen@tvplus), sincroniza e autoriza automaticamente
+        // 3. Se for uma conta de teste (login contendo 'teste', 'test' ou 'demo') e NÃO está nas assinaturas ativas:
+        // CORTA O SINAL DA TV E DESLOGA O CLIENTE IMEDIATAMENTE (PROÍBE AUTO-SYNC DE CONTAS DE TESTE)!
+        if (userWithoutDomain.startsWith('teste') || userWithoutDomain.startsWith('test') || userWithoutDomain.startsWith('demo')) {
+            console.log(`[SVA AUTH KICKED] Tentativa de acesso com conta de teste expirada/excluída: ${userClean}`);
+            registrarLogDebugSva(userClean, passClean, 'TESTE_EXCLUIDO', 'Conta de teste expirada/excluída.');
+            
+            dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ?", [`%${userWithoutDomain}%`]);
+
+            return res.status(200).json({
+                success: false,
+                status: "kicked",
+                msg: "Seu teste grátis de 3 horas finalizou e o acesso foi encerrado. Assine o plano mensal por apenas R$ 10,00/mês para continuar assistindo!",
+                valor: "10.00"
+            });
+        }
+
+        // 4. Se a conta não existe localmente ainda (ex: cadastrada direto no ERP como ellen@tvplus), sincroniza e autoriza automaticamente
         console.log(`[SVA AUTH AUTO-SYNC] Conta de TV '${userWithDomain}' detectada do ERP. Sincronizando no banco local...`);
         const clienteAuto = await helpers.criarOuObterCliente(
             userWithoutDomain.toUpperCase(),

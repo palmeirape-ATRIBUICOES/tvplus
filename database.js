@@ -320,9 +320,23 @@ const dbHelpers = {
     },
 
     async marcarTesteExpirado(id) {
+        const teste = await dbGet('SELECT * FROM testes WHERE id = ?', [id]).catch(() => null);
         await dbRun(`
             UPDATE testes SET status = 'excluido', aviso_expiracao_enviado = 1 WHERE id = ?
         `, [id]).catch(() => {});
+
+        if (teste && teste.login_tv) {
+            const loginSemDominio = teste.login_tv.replace(/@.*$/, '');
+            await dbRun(`
+                INSERT INTO sessoes_ativas (login_tv, status, ultimo_ping)
+                VALUES (?, 'DERRUBADO', CURRENT_TIMESTAMP)
+                ON CONFLICT(login_tv) DO UPDATE SET status = 'DERRUBADO'
+            `, [teste.login_tv]).catch(() => {});
+
+            await dbRun(`
+                UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ? OR REPLACE(login_tv, '@tvplus', '') = ?
+            `, [`%${loginSemDominio}%`, loginSemDominio]).catch(() => {});
+        }
     },
 
     // Telemetria & Monitor de Conexões em Tempo Real
