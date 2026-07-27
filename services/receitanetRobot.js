@@ -200,6 +200,9 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente em: ${editUrl}`);
             await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
+            // Clica na aba Servidor para revelar o campo cli_login
+            await this.abrirAbaServidor(page);
+
             const path = require('path');
             console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (ficha carregada)...`);
             await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_edit_loaded.png'), fullPage: true });
@@ -208,13 +211,14 @@ class ReceitanetRobotService {
             const formStatus = await page.evaluate(() => {
                 const nomeInput = document.querySelector('input[name="cli_nome"]');
                 const cpfInput = document.querySelector('input[name="cli_cgc"]');
+                const loginInput = document.querySelector('input[name="cli_login"]');
                 return {
                     nome: nomeInput ? nomeInput.value : null,
                     cpf: cpfInput ? cpfInput.value : null,
-                    outerHTML: nomeInput ? nomeInput.outerHTML : null
+                    loginAtual: loginInput ? loginInput.value : null
                 };
             });
-            console.log(`[RECEITANET-ROBOT DIAGNOSE] Ficha carregada: Nome='${formStatus.nome}', CPF='${formStatus.cpf}'`);
+            console.log(`[RECEITANET-ROBOT DIAGNOSE] Ficha carregada (Aba Servidor): Nome='${formStatus.nome}', CPF='${formStatus.cpf}', LoginAtual='${formStatus.loginAtual}'`);
 
             // Altera o campo cli_login adicionando "suspenso" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -237,21 +241,14 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (pós-gravação)...`);
             await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_after_save.png'), fullPage: true });
 
-            // Diagnóstico de página pós-salvamento
-            const afterSaveStatus = await page.evaluate(() => {
-                return {
-                    url: window.location.href,
-                    text: document.body.innerText.substring(0, 800)
-                };
-            });
-            console.log(`[RECEITANET-ROBOT DIAGNOSE] Pós-salvamento URL: ${afterSaveStatus.url}`);
-            console.log(`[RECEITANET-ROBOT DIAGNOSE] Pós-salvamento Texto:\n${afterSaveStatus.text}\n=== FIM DO TEXTO ===`);
-
             // --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando alteração diretamente no ERP para '${nuevoLogin}'...`);
-            const verifyUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${nuevoLogin}`;
+            const verifyUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
             await page.goto(verifyUrl, { waitUntil: 'networkidle2' });
             
+            // Clica na aba Servidor para verificar o valor alterado
+            await this.abrirAbaServidor(page);
+
             const verifyResult = await page.evaluate(() => {
                 const loginInput = document.querySelector('input[name="cli_login"]');
                 const nomeInput = document.querySelector('input[name="cli_nome"]');
@@ -263,7 +260,7 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado no ERP: Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
             
             if (verifyResult.login !== nuevoLogin) {
-                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a alteração! Esperado login '${nuevoLogin}', mas o ERP retornou '${verifyResult.login}'.`);
+                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a alteração! Esperado login '${nuevoLogin}', mas no ERP consta '${verifyResult.login}'.`);
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} bloqueado com sucesso (renomeado para ${nuevoLogin})!`);
@@ -318,7 +315,9 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente suspenso em: ${editUrl}`);
             await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
-            // Restaura o campo cli_login para o original diretamente pelo DOM (100% imune a problemas de teclado headless)
+            // Clica na aba Servidor para revelar o campo cli_login
+            await this.abrirAbaServidor(page);
+
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             await page.evaluate((loginOriginal) => {
                 const input = document.querySelector('input[name="cli_login"]');
@@ -339,6 +338,9 @@ class ReceitanetRobotService {
             const verifyUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
             await page.goto(verifyUrl, { waitUntil: 'networkidle2' });
             
+            // Clica na aba Servidor para verificar o valor restaurado
+            await this.abrirAbaServidor(page);
+
             const verifyResult = await page.evaluate(() => {
                 const loginInput = document.querySelector('input[name="cli_login"]');
                 const nomeInput = document.querySelector('input[name="cli_nome"]');
@@ -350,7 +352,7 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado no ERP pós-reativação: Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
             
             if (verifyResult.login !== login) {
-                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a reativação! Esperado login '${login}', mas o ERP retornou '${verifyResult.login}'.`);
+                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a reativação! Esperado login '${login}', mas no ERP consta '${verifyResult.login}'.`);
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} reativado com sucesso!`);
@@ -364,6 +366,24 @@ class ReceitanetRobotService {
             await browser.close();
             throw error;
         }
+    }
+
+    /**
+     * Clica na aba 'Servidor' do formulário de cliente para exibir os campos de credenciais SVA/TV (cli_login)
+     */
+    async abrirAbaServidor(page) {
+        console.log(`[RECEITANET-ROBOT] Ativando aba 'Servidor' no formulário...`);
+        await page.evaluate(() => {
+            const elements = Array.from(document.querySelectorAll('a, button, li, span, h4'));
+            const tabServidor = elements.find(el => {
+                const txt = el.textContent.trim();
+                return txt === 'Servidor' || txt === 'Autenticação' || txt === 'Dados Servidor';
+            });
+            if (tabServidor) {
+                tabServidor.click();
+            }
+        });
+        await new Promise(r => setTimeout(r, 1500));
     }
 
     /**
