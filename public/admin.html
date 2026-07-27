@@ -876,13 +876,14 @@
         // Carrega a tabela de Testes Grátis de 3 Horas
         async function carregarTestes() {
             const tbody = document.getElementById('testesTableBody');
+            if (!tbody) return;
             try {
                 const res = await fetch('/api/admin/testes');
                 const testes = await res.json();
                 
                 tbody.innerHTML = '';
-                if (!testes || testes.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhum teste grátis emitido ainda.</td></tr>';
+                if (!Array.isArray(testes) || testes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Nenhum teste grátis emitido no momento.</td></tr>';
                     return;
                 }
 
@@ -893,19 +894,20 @@
 
                     // Telefone
                     const tdTel = document.createElement('td');
-                    tdTel.innerHTML = `<i class="fa-brands fa-whatsapp" style="color:#22c55e;"></i> +${t.telefone}`;
+                    const telStr = (t.telefone || '').toString();
+                    tdTel.innerHTML = `<i class="fa-brands fa-whatsapp" style="color:#22c55e;"></i> +${telStr}`;
                     tr.appendChild(tdTel);
 
                     // Login TV
                     const tdLogin = document.createElement('td');
                     tdLogin.style.fontWeight = '700';
                     tdLogin.style.color = '#60efff';
-                    tdLogin.textContent = t.login_tv;
+                    tdLogin.textContent = t.login_tv || '-';
                     tr.appendChild(tdLogin);
 
                     // Senha TV
                     const tdSenha = document.createElement('td');
-                    tdSenha.textContent = t.senha_tv;
+                    tdSenha.textContent = t.senha_tv || '-';
                     tr.appendChild(tdSenha);
 
                     // Data Criação
@@ -920,7 +922,7 @@
 
                     // Status
                     const tdStatus = document.createElement('td');
-                    const expData = new Date(t.data_expiracao);
+                    const expData = t.data_expiracao ? new Date(t.data_expiracao) : new Date(0);
                     if (t.status === 'ativo' && expData > agora) {
                         const minsRestantes = Math.round((expData - agora) / (1000 * 60));
                         tdStatus.innerHTML = `<span class="badge badge-ativa"><i class="fa-solid fa-clock"></i> Ativo (${minsRestantes}m restantes)</span>`;
@@ -933,6 +935,7 @@
                     const tdAcao = document.createElement('td');
                     if (t.status === 'ativo' && expData > agora) {
                         const btnExcluir = document.createElement('button');
+                        btnExcluir.type = 'button';
                         btnExcluir.className = 'btn-danger btn-table';
                         btnExcluir.innerHTML = `<i class="fa-solid fa-ban"></i> Expirar Agora`;
                         btnExcluir.onclick = () => excluirTeste(t.id);
@@ -945,7 +948,8 @@
                     tbody.appendChild(tr);
                 });
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Erro ao carregar testes: ${e.message}</td></tr>`;
+                console.error("Erro ao carregar testes:", e);
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:20px;">Erro ao carregar testes: ${e.message}</td></tr>`;
             }
         }
 
@@ -981,13 +985,14 @@
         // Carrega a tabela de Sessões Ativas & Telemetria em Tempo Real
         async function carregarSessoes() {
             const tbody = document.getElementById('sessoesTableBody');
+            if (!tbody) return;
             try {
                 const res = await fetch('/api/admin/sessoes');
                 const sessoes = await res.json();
                 
                 tbody.innerHTML = '';
-                if (!sessoes || sessoes.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhuma conexão de streaming detectada no momento.</td></tr>';
+                if (!Array.isArray(sessoes) || sessoes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Nenhuma conexão de streaming detectada no momento.</td></tr>';
                     return;
                 }
 
@@ -1000,12 +1005,12 @@
                     const tdLogin = document.createElement('td');
                     tdLogin.style.fontWeight = '700';
                     tdLogin.style.color = '#60efff';
-                    tdLogin.textContent = s.login_tv;
+                    tdLogin.textContent = s.login_tv || '-';
                     tr.appendChild(tdLogin);
 
                     // Status (ONLINE / DERRUBADO / OFFLINE)
                     const tdStatus = document.createElement('td');
-                    const pingData = new Date(s.ultimo_ping);
+                    const pingData = s.ultimo_ping ? new Date(s.ultimo_ping) : new Date(0);
                     const diffSegundos = Math.round((agora - pingData) / 1000);
 
                     if (s.status === 'DERRUBADO') {
@@ -1022,12 +1027,13 @@
                     tdCanal.innerHTML = `<i class="fa-solid fa-play" style="color:#22c55e;"></i> ${s.canal_atual || 'Sinal ao Vivo'}`;
                     tr.appendChild(tdCanal);
 
-                    // Dispositivo / App
+                    // Dispositivo / App (Tratamento seguro contra valores nulos)
                     const tdDisp = document.createElement('td');
                     tdDisp.style.fontSize = '12px';
-                    const dispNome = s.dispositivo.includes('iPhone') ? '🍏 iPhone (iOS)' :
-                                     s.dispositivo.includes('Android') ? '🤖 Android (TV/Celular)' :
-                                     s.dispositivo.includes('Mozilla') ? '💻 PC / Navegador Web' : s.dispositivo;
+                    const rawDisp = (s.dispositivo || 'SignalPlay App').toString();
+                    const dispNome = rawDisp.includes('iPhone') || rawDisp.includes('iOS') || rawDisp.includes('CFNetwork') ? '🍏 iPhone / iPad (iOS)' :
+                                     rawDisp.includes('Android') || rawDisp.includes('okhttp') || rawDisp.includes('Dalvik') ? '🤖 Android (TV Box / Mobile)' :
+                                     rawDisp.includes('Mozilla') || rawDisp.includes('Chrome') || rawDisp.includes('Safari') ? '💻 PC / Navegador Web' : rawDisp;
                     tdDisp.textContent = dispNome;
                     tr.appendChild(tdDisp);
 
@@ -1046,6 +1052,7 @@
                     const tdAcao = document.createElement('td');
                     if (s.status !== 'DERRUBADO' && diffSegundos < 120) {
                         const btnKick = document.createElement('button');
+                        btnKick.type = 'button';
                         btnKick.className = 'btn-danger btn-table';
                         btnKick.innerHTML = `<i class="fa-solid fa-bolt"></i> ⚡ Derrubar Conexão`;
                         btnKick.onclick = () => derrubarSessao(s.login_tv);
@@ -1058,7 +1065,8 @@
                     tbody.appendChild(tr);
                 });
             } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Erro ao carregar conexões: ${e.message}</td></tr>`;
+                console.error("Erro ao carregar sessões:", e);
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:20px;">Erro ao carregar conexões: ${e.message}</td></tr>`;
             }
         }
 
