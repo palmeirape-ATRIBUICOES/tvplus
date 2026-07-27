@@ -18,11 +18,12 @@
     --neon-green: #00FF87;  /* Re-mapped to Neon Mint */
 }
 
-/* Reset Geral */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* Reset Geral & Prevenção de Transbordo Lateral */
+html {
+    scroll-behavior: smooth;
+    overflow-x: hidden !important;
+    width: 100%;
+    max-width: 100vw;
 }
 
 body {
@@ -30,36 +31,44 @@ body {
     color: var(--text-primary);
     font-family: 'Outfit', sans-serif;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: hidden !important;
+    width: 100%;
+    max-width: 100vw;
     position: relative;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
 
-/* Luzes Dinâmicas de Fundo (Glow Effect) */
+/* Luzes Dinâmicas de Fundo (Glow Effect - Conter dentro da tela) */
 .bg-glow-1 {
     position: absolute;
-    top: -10%;
-    left: -10%;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(255, 51, 102, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+    top: -5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    max-width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255, 51, 102, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
     z-index: -1;
     pointer-events: none;
     filter: blur(80px);
+    overflow: hidden;
 }
 
 .bg-glow-2 {
     position: absolute;
-    bottom: 10%;
-    right: -10%;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(138, 43, 226, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+    bottom: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    max-width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(138, 43, 226, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
     z-index: -1;
     pointer-events: none;
     filter: blur(80px);
+    overflow: hidden;
 }
 
 html {
