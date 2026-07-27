@@ -52,22 +52,14 @@ class ReceitanetRobotService {
                 await page.type('input[name="cli_email"]', emailValor);
             } catch (e) {}
 
-            // Seleciona o plano CDNTV / TV no formulário principal de cadastro
-            console.log(`[RECEITANET-ROBOT] Selecionando o plano de TV no formulário do ERP...`);
+            // Habilita módulo de mensalidades (men_codigo = 1) e ativa boleto/acesso (cli_boleto = S)
+            console.log(`[RECEITANET-ROBOT] Configurando mensalidade e ativação no formulário principal...`);
             await page.evaluate(() => {
-                const selectPlano = document.querySelector('select[name="plano"]');
-                if (selectPlano) {
-                    const opt = Array.from(selectPlano.options).find(o => 
-                        o.text.toUpperCase().includes('CDNTV') || 
-                        o.text.toUpperCase().includes('TV') || 
-                        o.text.toUpperCase().includes('PADRÃO') ||
-                        o.value === '2'
-                    );
-                    if (opt) {
-                        selectPlano.value = opt.value;
-                        selectPlano.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                }
+                const selectMen = document.querySelector('select[name="men_codigo"]');
+                if (selectMen) { selectMen.value = '1'; selectMen.dispatchEvent(new Event('change', { bubbles: true })); }
+                
+                const selectBol = document.querySelector('select[name="cli_boleto"]');
+                if (selectBol) { selectBol.value = 'S'; selectBol.dispatchEvent(new Event('change', { bubbles: true })); }
             });
 
             await Promise.all([
@@ -80,43 +72,40 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} criado com sucesso no ERP! Navegando diretamente para a URL de planos para vincular o plano CDNTV...`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} criado com sucesso no ERP! Navegando diretamente para a URL de planos para vincular o plano CDNTV (pla_codigo 29)...`);
 
             try {
                 const planoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
                 await page.goto(planoUrl, { waitUntil: 'networkidle2' });
                 await page.waitForSelector('select[name="pla_codigo"], select', { timeout: 10000 });
 
-                console.log(`[RECEITANET-ROBOT] Selecionando o plano 'CDNTV' no ERP...`);
+                console.log(`[RECEITANET-ROBOT] Selecionando o plano 'CDNTV' (código 29) no ERP...`);
                 await page.evaluate(() => {
-                    const selects = Array.from(document.querySelectorAll('select'));
-                    for (const select of selects) {
-                        const opt = Array.from(select.options).find(o => 
-                            o.text.toUpperCase().includes('CDNTV') || 
-                            o.value === '29' ||
-                            o.text.toUpperCase().includes('TV PLUS') || 
-                            o.text.toUpperCase().includes('TV')
-                        );
+                    const selectPlano = document.querySelector('select[name="pla_codigo"]') || document.querySelector('select');
+                    if (selectPlano) {
+                        const opt = Array.from(selectPlano.options).find(o => o.value === '29' || o.text.toUpperCase().includes('CDNTV'));
                         if (opt) {
-                            select.value = opt.value;
-                            select.dispatchEvent(new Event('change', { bubbles: true }));
-                            break;
+                            selectPlano.value = opt.value;
+                            selectPlano.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                     }
                 });
 
-                console.log(`[RECEITANET-ROBOT] Clicando no botão 'Incluir' para gravar o plano CDNTV no ERP...`);
+                console.log(`[RECEITANET-ROBOT] Clicando no botão 'Gravar/Incluir' para ativar o plano CDNTV no ERP...`);
                 await Promise.all([
                     page.evaluate(() => {
-                        const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn'));
-                        const btnIncluir = buttons.find(b => b.textContent.trim().includes('Incluir') || b.value?.includes('Incluir') || b.name === 'cadastrar');
-                        if (btnIncluir) btnIncluir.click();
-                        else document.querySelector('form')?.submit();
+                        const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"]');
+                        if (btn) btn.click();
+                        else {
+                            const btn2 = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn')).find(b => b.textContent.includes('Gravar') || b.textContent.includes('Incluir'));
+                            if (btn2) btn2.click();
+                            else document.querySelector('form')?.submit();
+                        }
                     }),
                     page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
                 ]);
 
-                console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV vinculado com sucesso para ${loginTv}!`);
+                console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV vinculado com sucesso no ERP para ${loginTv}!`);
             } catch (ePlano) {
                 console.error(`[RECEITANET-ROBOT WARNING] Erro ao vincular plano CDNTV:`, ePlano.message);
             }
