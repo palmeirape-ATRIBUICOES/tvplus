@@ -1094,3 +1094,178 @@ html {
     display: block;
     filter: brightness(0.9) contrast(1.05);
 }
+
+/* ==========================================================================
+   SEÇÃO GUIA DE DOWNLOAD SIGNALPLAY & OTIMIZAÇÕES MOBILE 100%
+   ========================================================================== */
+.download-guide-section {
+    padding: 60px 8%;
+    position: relative;
+    z-index: 2;
+}
+
+.download-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    margin-top: 40px;
+}
+
+.download-card {
+    background: rgba(20, 15, 35, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 30px 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    backdrop-filter: blur(15px);
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.download-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(255, 51, 102, 0.4);
+    box-shadow: 0 15px 35px rgba(138, 43, 226, 0.25);
+}
+
+.app-icon-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.android-badge {
+    background: linear-gradient(135deg, #00e676, #00b0ff);
+    color: #0b0e14;
+}
+
+.ios-badge {
+    background: linear-gradient(135deg, #ffffff, #888888);
+    color: #000000;
+}
+
+.web-badge {
+    background: linear-gradient(135deg, #9333ea, #3b82f6);
+    color: #ffffff;
+}
+
+.download-card h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: #ffffff;
+}
+
+.download-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 25px;
+    flex-grow: 1;
+}
+
+.btn-download {
+    width: 100%;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-android {
+    background: linear-gradient(135deg, #00c853, #009688);
+    color: #ffffff;
+}
+
+.btn-android:hover {
+    box-shadow: 0 6px 20px rgba(0, 200, 83, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-ios {
+    background: linear-gradient(135deg, #333333, #111111);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-ios:hover {
+    background: linear-gradient(135deg, #444444, #222222);
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.btn-web {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #ffffff;
+}
+
+.btn-web:hover {
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    transform: translateY(-2px);
+}
+
+/* MEDIAS ADAPTATIVAS PARA MOBILE 100% RESPONSIVO */
+@media (max-width: 768px) {
+    .navbar {
+        padding: 15px 5%;
+    }
+    
+    .download-guide-section {
+        padding: 40px 5%;
+    }
+
+    .download-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .hero-title {
+        font-size: 28px !important;
+        line-height: 1.25 !important;
+    }
+
+    .hero-subtitle {
+        font-size: 15px !important;
+    }
+
+    .btn-hero-cta {
+        width: 100% !important;
+        height: 54px !important;
+        font-size: 16px !important;
+    }
+
+    .hero-guarantees {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    .steps-grid, .benefits-grid {
+        grid-template-columns: 1fr !important;
+        gap: 15px !important;
+    }
+
+    .checkout-container-wrapper {
+        padding: 0 !important;
+    }
+
+    .checkout-card {
+        padding: 20px 15px !important;
+    }
+}

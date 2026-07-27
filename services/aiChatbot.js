@@ -68,12 +68,15 @@ class AiChatbotService {
                          `• Permite assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
                          `• Sem fidelidade, cancele ou renove quando quiser.\n\n` +
                          `Deseja realizar o teste grátis ou já quer assinar por Pix?`;
-        } else if (texto.includes('instalar') || texto.includes('baixar') || texto.includes('app') || texto.includes('aplicativo') || texto.includes('tv') || texto.includes('tv box') || texto.includes('firestick')) {
-            respostaIA = `📱 *Como baixar o aplicativo SIGNALPLAY:*\n\n` +
-                         `1. Abra a loja de aplicativos da sua Smart TV, TV Box ou celular Android/iOS.\n` +
-                         `2. Pesquise por *SIGNALPLAY* e faça o download.\n` +
-                         `3. Abra o app e insira o seu Usuário e Senha fornecidos no cadastro.\n\n` +
-                         `Se precisar de ajuda para instalar na sua TV específica, digite *falar com atendente* para um suporte guiado!`;
+        } else if (texto.includes('instalar') || texto.includes('baixar') || texto.includes('app') || texto.includes('aplicativo') || texto.includes('tv') || texto.includes('link') || texto.includes('firestick')) {
+            respostaIA = `📱 *Links Oficiais de Download do SIGNALPLAY:*\n\n` +
+                         `🍏 *Para iPhone / iPad / Apple TV (iOS):*\n` +
+                         `https://apps.apple.com/br/app/signalplay/id6749374183\n\n` +
+                         `🤖 *Para Android (Celular, Smart TV, TV Box & Firestick):*\n` +
+                         `https://play.google.com/store/apps/details?id=br.com.signalplay.tv.mobile&hl=pt_BR\n\n` +
+                         `💻 *Assistir no Computador / PC:* \n` +
+                         `https://tv.signalplay.com.br/login\n\n` +
+                         `Basta abrir o aplicativo no seu dispositivo e inserir seu Usuário e Senha para assistir em *até 3 telas ao mesmo tempo*!`;
         } else if (texto.includes('teste') || texto.includes('testar') || texto.includes('gratis') || texto.includes('gratuito')) {
             respostaIA = `🎁 *Teste Grátis do SIGNALPLAY:*\n\n` +
                          `Você pode fazer um teste grátis agora mesmo de *4 horas* diretamente pelo nosso site:\n` +
