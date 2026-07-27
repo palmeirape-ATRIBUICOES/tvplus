@@ -469,21 +469,56 @@ class ReceitanetRobotService {
         console.log(`[RECEITANET-ROBOT] Termos de busca priorizados:`, termosBusca);
         
         try {
-            console.log(`[RECEITANET-ROBOT] Buscando cliente '${login}' na listagem de clientes...`);
-            await page.goto('https://sistema.receitanet.net/clientes.php', { waitUntil: 'networkidle2', timeout: 20000 });
+            console.log(`[RECEITANET-ROBOT] Buscando cliente '${login}' na nova listagem de clientes (/novo/clientes)...`);
+            await page.goto('https://sistema.receitanet.net/novo/clientes', { waitUntil: 'networkidle2', timeout: 20000 });
             
-            // Aguarda o input de busca da tabela e filtra
-            console.log(`[RECEITANET-ROBOT] Filtrando a tabela pelo login...`);
-            const tableSearch = await page.waitForSelector('input[type="search"], .dataTables_filter input, input[name="busca"], #pesquisa', { timeout: 8000 }).catch(() => null);
-            if (tableSearch) {
-                await tableSearch.click();
-                await page.evaluate((el) => { el.value = ''; }, tableSearch);
-                // Aguarda a tabela realizar o filtro via AJAX (usamos o termo de busca prioritário: CPF ou Login)
-                const termoTabela = termosBusca[0];
-                console.log(`[RECEITANET-ROBOT] Filtrando a tabela por: ${termoTabela}`);
-                await tableSearch.type(termoTabela);
-                await new Promise(r => setTimeout(r, 4000));
+            // Aguarda a página carregar
+            await page.waitForSelector('input', { timeout: 10000 });
+            
+            // Procura e preenche o campo de busca de login específico na página
+            console.log(`[RECEITANET-ROBOT] Localizando campo de filtro de LOGIN...`);
+            const filterSuccess = await page.evaluate((targetLogin) => {
+                const inputs = Array.from(document.querySelectorAll('input'));
+                
+                // Busca por input que contenha login no ID, Name ou Placeholder
+                let loginInput = inputs.find(i => {
+                    const id = (i.id || '').toLowerCase();
+                    const name = (i.name || '').toLowerCase();
+                    const placeholder = (i.placeholder || '').toLowerCase();
+                    return id.includes('login') || name.includes('login') || placeholder.includes('login');
+                });
+                
+                // Fallback para campos de filtro gerais
+                if (!loginInput) {
+                    loginInput = inputs.find(i => {
+                        const placeholder = (i.placeholder || '').toLowerCase();
+                        const name = (i.name || '').toLowerCase();
+                        return placeholder.includes('buscar') || placeholder.includes('filtrar') || placeholder.includes('pesquisar') || name.includes('busca') || name.includes('filtro');
+                    });
+                }
+                
+                if (loginInput) {
+                    loginInput.value = targetLogin;
+                    loginInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    loginInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    return true;
+                }
+                return false;
+            }, login);
+
+            if (!filterSuccess) {
+                console.log(`[RECEITANET-ROBOT WARNING] Campo específico de busca não localizado por atributos. Tentando digitação direta no primeiro input visível...`);
+                const firstInput = await page.$('input[type="text"], input:not([type="hidden"])');
+                if (firstInput) {
+                    await firstInput.click();
+                    await page.evaluate(el => el.value = '', firstInput);
+                    await firstInput.type(login);
+                }
             }
+            
+            // Aguarda a tabela filtrar via AJAX
+            console.log(`[RECEITANET-ROBOT] Aguardando filtragem da listagem...`);
+            await new Promise(r => setTimeout(r, 4000));
             
             // Clica no link com o login correspondente na tabela (suporta td, span e a)
             console.log(`[RECEITANET-ROBOT] Clicando no registro do cliente na tabela...`);
@@ -508,7 +543,7 @@ class ReceitanetRobotService {
             loadedFicha = true;
             console.log(`[RECEITANET-ROBOT] Ficha carregada via listagem de clientes: ${page.url()}`);
         } catch (tblErr) {
-            console.log(`[RECEITANET-ROBOT WARNING] Falha ao achar pela listagem (${tblErr.message}). Tentando busca global por autocomplete...`);
+            console.log(`[RECEITANET-ROBOT WARNING] Falha ao achar pela listagem (/novo/clientes): ${tblErr.message}. Tentando busca global por autocomplete...`);
         }
         
         if (!loadedFicha) {
