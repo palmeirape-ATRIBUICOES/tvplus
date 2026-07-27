@@ -440,17 +440,27 @@ const handleSvaAuth = async (req, res) => {
         }
 
         // 0.1 Checa se o Administrador DISPAROU O PIX QR CODE PARA A TELA DA TV DESTE CLIENTE
-        const pixForcado = await helpers.obterPixForcado(userWithDomain) || await helpers.obterPixForcado(userWithoutDomain);
+        let pixForcado = null;
+        try {
+            pixForcado = await helpers.obterPixForcado(userWithDomain) || await helpers.obterPixForcado(userWithoutDomain) || await helpers.obterPixForcado(userClean);
+        } catch (pErr) {
+            console.error('[SVA AUTH PIX CHECK ERROR]:', pErr.message);
+        }
+
         if (pixForcado) {
             console.log(`[SVA AUTH PIX FORÇADO] 📺 Exibindo Pix QR Code disparado pelo Administrador na tela da TV do usuário: ${userClean}`);
             registrarLogDebugSva(userClean, passClean, 'PIX_TV_FORCADO', 'Pix QR Code forçado na tela da TV.');
+            
+            const copiaCola = typeof pixForcado === 'object' ? (pixForcado.copiaCola || pixForcado.copia_e_cola || '') : pixForcado;
+            const qrCodeUrl = typeof pixForcado === 'object' ? (pixForcado.qrCodeUrl || pixForcado.qr_code_url || '') : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(copiaCola)}`;
+
             return res.status(200).json({
                 success: false,
                 status: "blocked",
                 msg: "SOLICITAÇÃO DE PAGAMENTO NA TV: Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
                 valor: "10.00",
-                pix_copia_e_cola: pixForcado.copiaCola,
-                pix_qr_code_url: pixForcado.qrCodeUrl
+                pix_copia_e_cola: copiaCola,
+                pix_qr_code_url: qrCodeUrl
             });
         }
 
