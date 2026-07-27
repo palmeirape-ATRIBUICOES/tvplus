@@ -288,7 +288,11 @@ class ReceitanetRobotService {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando exclusão e rescisão completa do login: ${login}`);
+        const rawLogin = (login || '').toString().trim().toLowerCase();
+        const loginSemDominio = rawLogin.replace(/@.*$/, '').replace(/[\s\+].*$/, '').trim();
+        const loginComDominio = rawLogin.includes('@') ? rawLogin : `${rawLogin}@tvplus`;
+
+        console.log(`[RECEITANET-ROBOT] Iniciando varredura e exclusão infalível do teste no ERP para: '${rawLogin}' (Variações: '${loginSemDominio}', '${loginComDominio}')...`);
         
         const launchOptions = {
             headless: true,
@@ -318,43 +322,73 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            const rescisaoUrl = `https://sistema.receitanet.net/clientes_rescisao.php?login=${encodeURIComponent(login)}`;
-            console.log(`[RECEITANET-ROBOT] Abrindo URL direta de rescisão do teste no ERP: ${rescisaoUrl}...`);
-            await page.goto(rescisaoUrl, { waitUntil: 'networkidle2' });
+            const variacoesLogin = [
+                loginSemDominio,
+                loginComDominio,
+                `${loginSemDominio}suspenso`,
+                `${loginSemDominio}@tvplussuspenso`
+            ];
 
-            const hasSelect = await page.waitForSelector('select[name="cancelamento_motivo"]', { timeout: 10000 }).then(() => true).catch(() => false);
-            if (!hasSelect) {
-                console.log(`[RECEITANET-ROBOT] O login '${login}' não necessita de rescisão ou já foi excluído do ERP.`);
-                await browser.close();
-                return true;
-            }
+            let excluidoComSucesso = false;
 
-            console.log(`[RECEITANET-ROBOT] Selecionando motivo 'Cancelado Chip' para a conta de teste ${login}...`);
-            await page.evaluate(() => {
-                const selectMotivo = document.querySelector('select[name="cancelamento_motivo"]');
-                if (selectMotivo) {
-                    const opt = Array.from(selectMotivo.options).find(o => o.text.toLowerCase().includes('chip') || o.value === '13');
-                    if (opt) {
-                        selectMotivo.value = opt.value;
-                        selectMotivo.dispatchEvent(new Event('change', { bubbles: true }));
+            for (const targetLogin of variacoesLogin) {
+                if (!targetLogin) continue;
+
+                // 1. Tenta Rescisão Direta por URL
+                const rescisaoUrl = `https://sistema.receitanet.net/clientes_rescisao.php?login=${encodeURIComponent(targetLogin)}`;
+                console.log(`[RECEITANET-ROBOT] Verificando rescisão no ERP para: ${targetLogin}...`);
+                await page.goto(rescisaoUrl, { waitUntil: 'networkidle2' });
+
+                const hasSelect = await page.waitForSelector('select[name="cancelamento_motivo"]', { timeout: 4000 }).then(() => true).catch(() => false);
+                if (hasSelect) {
+                    console.log(`[RECEITANET-ROBOT] Ficha de rescisão localizada no ERP para '${targetLogin}'! Efetuando baixa definitiva...`);
+                    await page.evaluate(() => {
+                        const selectMotivo = document.querySelector('select[name="cancelamento_motivo"]');
+                        if (selectMotivo) {
+                            const opt = Array.from(selectMotivo.options).find(o => o.text.toLowerCase().includes('chip') || o.value === '13');
+                            if (opt) {
+                                selectMotivo.value = opt.value;
+                                selectMotivo.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    });
+
+                    await Promise.all([
+                        page.evaluate(() => {
+                            const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn'));
+                            const btnGravar = buttons.find(b => b.textContent.trim().includes('Gravar') || b.textContent.trim().includes('Calcular') || b.name === 'cadastrar');
+                            if (btnGravar) btnGravar.click();
+                            else document.querySelector('form')?.submit();
+                        }),
+                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                    ]);
+                    console.log(`[RECEITANET-ROBOT] Rescisão concluída com sucesso no ERP para '${targetLogin}'!`);
+                    excluidoComSucesso = true;
+                }
+
+                // 2. Tenta Limpeza Adicional na Ficha de Cadastro se ainda existir
+                const cadastroUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(targetLogin)}`;
+                await page.goto(cadastroUrl, { waitUntil: 'networkidle2' });
+                const hasInput = await page.waitForSelector('input[name="cli_login"]', { timeout: 3000 }).then(() => true).catch(() => false);
+                
+                if (hasInput) {
+                    const loginAtual = await page.evaluate(() => document.querySelector('input[name="cli_login"]')?.value);
+                    if (loginAtual && loginAtual.length > 0) {
+                        console.log(`[RECEITANET-ROBOT] Alterando cadastro remanescente no ERP de '${loginAtual}' para '${loginSemDominio}expirado'...`);
+                        await page.evaluate((novoLog) => {
+                            const input = document.querySelector('input[name="cli_login"]');
+                            if (input) {
+                                input.value = novoLog;
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }, `${loginSemDominio}expirado`);
+                        await this.salvarFormularioCliente(page);
+                        excluidoComSucesso = true;
                     }
                 }
-            });
+            }
 
-            console.log(`[RECEITANET-ROBOT] Submetendo rescisão e efetuando baixa definitiva do cadastro no ERP...`);
-            await Promise.all([
-                page.evaluate(() => {
-                    const form = document.querySelector('form');
-                    if (form) form.submit();
-                    else {
-                        const btn = Array.from(document.querySelectorAll('button, input[type="submit"]')).find(b => b.textContent.includes('Gravar') || b.textContent.includes('Calcular'));
-                        if (btn) btn.click();
-                    }
-                }),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
-            ]);
-
-            console.log(`[RECEITANET-ROBOT SUCCESS] Cliente de teste ${login} excluído e rescindido com sucesso do ReceitaNet ERP!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] Processo de exclusão do teste '${rawLogin}' concluído no ReceitaNet ERP!`);
             await browser.close();
             return true;
         } catch (error) {
