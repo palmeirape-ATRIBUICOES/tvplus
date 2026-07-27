@@ -40,17 +40,27 @@ class WhatsappService {
         try {
             let response;
             if (API_URL.includes('z-api.io')) {
-                // Suporte Z-API nativo (http://api.z-api.io/instances/ID/token/TOKEN/send-text)
-                const zapiHeaders = { 'Content-Type': 'application/json' };
-                
-                // Envia Client-Token de segurança apenas se estiver configurado no .env
-                const clientTokenSecret = process.env.WHATSAPP_CLIENT_TOKEN || process.env.ZAPI_CLIENT_TOKEN;
-                if (clientTokenSecret) {
-                    zapiHeaders['Client-Token'] = clientTokenSecret;
+                // Assegura que a URL da Z-API termina com /send-text
+                let targetUrl = API_URL.trim();
+                if (!targetUrl.endsWith('/send-text') && !targetUrl.endsWith('/sendText')) {
+                    targetUrl = `${targetUrl}/send-text`;
                 }
 
-                console.log(`[WHATSAPP Z-API] Disparando para Z-API na URL: ${API_URL}`);
-                response = await axios.post(API_URL, {
+                // Obtém o Client Token da variável WHATSAPP_CLIENT_TOKEN ou usa o WHATSAPP_API_TOKEN
+                const clientToken = (process.env.WHATSAPP_CLIENT_TOKEN || process.env.WHATSAPP_API_TOKEN || '').trim();
+
+                const zapiHeaders = { 
+                    'Content-Type': 'application/json' 
+                };
+
+                if (clientToken) {
+                    zapiHeaders['Client-Token'] = clientToken;
+                    zapiHeaders['client-token'] = clientToken;
+                }
+
+                console.log(`[WHATSAPP Z-API] Disparando para Z-API na URL: ${targetUrl} (Client-Token enviado: ${clientToken ? 'SIM' : 'NÃO'})`);
+                
+                response = await axios.post(targetUrl, {
                     phone: foneDestinatario,
                     message: mensagem
                 }, {
