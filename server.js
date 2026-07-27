@@ -552,48 +552,55 @@ async function processarConfirmacaoPagamento(txid) {
     if (assinatura) {
         console.log(`[CONFIRMAÇÃO] Ativando/renovando assinatura para ${cliente.nome} por ${meses} meses (${horasExtensao} horas)...`);
         
-        // Se a assinatura estava pendente (compra direta), ela ainda não existe no painel. Cadastramos pela primeira vez.
-        // Se já estava ativa/suspensa, apenas reativamos.
+        // Remove sufixo 'suspenso' se existir no login
+        const loginLimpo = assinatura.login_tv.replace(/suspenso$/, '');
+        
+        // Se a assinatura estava pendente (compra direta), cadastra no ReceitaNet pela primeira vez.
+        // Se já estava ativa ou suspensa, chama a reativação no ReceitaNet ERP.
+        const robot = require('./services/receitanetRobot');
         if (assinatura.status === 'pendente') {
             console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Cadastrando e ativando sinal no ReceitaNet pela primeira vez...`);
-            const robot = require('./services/receitanetRobot');
-            await robot.cadastrarEAtivarTV(cliente, assinatura.login_tv, assinatura.senha_tv);
+            robot.cadastrarEAtivarTV(cliente, loginLimpo, assinatura.senha_tv).then(() => {
+                console.log(`[CONFIRMAÇÃO ROBOT] Cadastro e ativação concluídos no ERP para ${loginLimpo}`);
+            }).catch(e => console.error(`[CONFIRMAÇÃO ROBOT ERROR]:`, e.message));
         } else {
-            console.log(`[CONFIRMAÇÃO] Cliente existente (${assinatura.status}). Reativando sinal no ReceitaNet...`);
-            await tvPanelService.reativarCliente(assinatura.login_tv);
+            console.log(`[CONFIRMAÇÃO] Reativando login no ReceitaNet ERP (${loginLimpo})...`);
+            robot.reativarCliente(loginLimpo, cliente.cpfcnpj, cliente.nome).then(() => {
+                console.log(`[CONFIRMAÇÃO ROBOT] Reativação concluída com sucesso no ERP para ${loginLimpo}`);
+            }).catch(e => console.error(`[CONFIRMAÇÃO ROBOT ERROR]:`, e.message));
         }
         
-        // Estende o vencimento
+        // Estende a validade no banco local para +30 dias (ou +meses)
         const novaAssinatura = await helpers.ativarAssinatura(
             cliente.id, 
-            assinatura.login_tv, 
+            loginLimpo, 
             assinatura.senha_tv, 
             horasExtensao, 
             assinatura.receitanet_lead_id, 
             assinatura.receitanet_cliente_id
         );
 
-        // Notifica cliente via WhatsApp com instrução do SIGNALPLAY e limites de dispositivos
+        // Notifica o cliente via WhatsApp com a mensagem de painel renovado com sucesso!
         const nomeCapitalizado = capitalizeName(cliente.nome);
         const vencimentoFormatado = new Date(novaAssinatura.data_vencimento).toLocaleDateString('pt-BR');
         const msgReativacao = `Olá, *${nomeCapitalizado}*!\n\n` +
-                              `Confirmamos o recebimento do seu Pix de R$ ${pagamento.valor.toFixed(2)}!\n` +
-                              `Seu acesso à TV foi ativado e renovado por *${meses * 30} dias* com sucesso.\n\n` +
+                              `Confirmamos o recebimento do seu Pix de R$ ${pagamento.valor.toFixed(2)}! 🥳\n` +
+                              `Seu acesso ao aplicativo *SIGNALPLAY* foi ativado e renovado por *${meses * 30} dias* com sucesso.\n\n` +
                               `🔑 *Seus dados de acesso de TV:*\n` +
-                              `• Usuário: *${assinatura.login_tv}*\n` +
+                              `• Usuário: *${loginLimpo}*\n` +
                               `• Senha: *${assinatura.senha_tv}*\n` +
-                              `📅 Vencimento: *${vencimentoFormatado}*\n\n` +
-                              `📱 *Instruções de Instalação:*\n` +
-                              `1. Baixe o aplicativo *SIGNALPLAY* na sua TV ou dispositivo móvel.\n` +
-                              `2. Conecte usando o Usuário e Senha fornecidos acima.\n\n` +
+                              `📅 Novo Vencimento: *${vencimentoFormatado}*\n\n` +
+                              `📱 *Instruções de Login:*\n` +
+                              `1. Abra o aplicativo *SIGNALPLAY* na sua TV, TV Box ou Celular.\n` +
+                              `2. Insira o Usuário e Senha fornecidos acima.\n\n` +
                               `⚠️ *Regra de Uso Importante:*\n` +
-                              `• Você pode usar este login em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
-                              `• *Evite conectar em mais do que 3 aparelhos simultaneamente* para não travar o seu cadastro, gerando lentidões e travamentos.\n\n` +
+                              `• Você pode assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n\n` +
                               `Obrigado e aproveite sua programação!`;
         
+        console.log(`[CONFIRMAÇÃO WA] Enviando mensagem de renovação concluída via WhatsApp para ${cliente.telefone}...`);
         await whatsappService.enviarMensagem(cliente.telefone, msgReativacao);
 
-        return { login_tv: assinatura.login_tv, senha_tv: assinatura.senha_tv };
+        return { login_tv: loginLimpo, senha_tv: assinatura.senha_tv };
     }
 
     return null;
