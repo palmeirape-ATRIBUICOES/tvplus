@@ -94,8 +94,24 @@ function initDb() {
                     )
                 `, (errBot) => {
                     if (errBot) return reject(errBot);
-                    console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot) verificadas/criadas com sucesso.');
-                    resolve();
+
+                    // Tabela de Testes Grátis de 3 Horas
+                    db.run(`
+                        CREATE TABLE IF NOT EXISTS testes (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            telefone TEXT UNIQUE NOT NULL,
+                            login_tv TEXT UNIQUE NOT NULL,
+                            senha_tv TEXT NOT NULL,
+                            data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            data_expiracao DATETIME NOT NULL,
+                            status TEXT DEFAULT 'ativo', -- 'ativo', 'expirado'
+                            aviso_expiracao_enviado INTEGER DEFAULT 0
+                        )
+                    `, (errTeste) => {
+                        if (errTeste) return reject(errTeste);
+                        console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes) verificadas/criadas com sucesso.');
+                        resolve();
+                    });
                 });
             });
         });
@@ -192,6 +208,92 @@ const dbHelpers = {
         `).catch(() => {});
 
         return await dbAll('SELECT * FROM conversas_bot ORDER BY ultima_interacao DESC').catch(() => []);
+    },
+
+    // Testes Grátis de 3 Horas (Validação e Geração Sequencial)
+    async obterTestePorTelefone(telefone) {
+        let fone = telefone.replace(/\D/g, '');
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS testes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefone TEXT UNIQUE NOT NULL,
+                login_tv TEXT UNIQUE NOT NULL,
+                senha_tv TEXT NOT NULL,
+                data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                data_expiracao DATETIME NOT NULL,
+                status TEXT DEFAULT 'ativo',
+                aviso_expiracao_enviado INTEGER DEFAULT 0
+            )
+        `).catch(() => {});
+
+        return await dbGet('SELECT * FROM testes WHERE telefone = ?', [fone]).catch(() => null);
+    },
+
+    async criarNovoTeste(telefone) {
+        let fone = telefone.replace(/\D/g, '');
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS testes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefone TEXT UNIQUE NOT NULL,
+                login_tv TEXT UNIQUE NOT NULL,
+                senha_tv TEXT NOT NULL,
+                data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                data_expiracao DATETIME NOT NULL,
+                status TEXT DEFAULT 'ativo',
+                aviso_expiracao_enviado INTEGER DEFAULT 0
+            )
+        `).catch(() => {});
+
+        // Calcula o próximo sequencial de teste (ex: teste1@tvplus, teste2@tvplus)
+        const countRow = await dbGet('SELECT count(*) as total FROM testes').catch(() => ({ total: 0 }));
+        const proximoNum = (countRow ? countRow.total : 0) + 1;
+        const loginTeste = `teste${proximoNum}@tvplus`;
+        
+        // Gera senha numérica aleatória de 4 dígitos
+        const senhaTeste = Math.floor(1000 + Math.random() * 9000).toString();
+
+        // Validade exata de 3 HORAS
+        const dataExpiracao = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+
+        await dbRun(`
+            INSERT INTO testes (telefone, login_tv, senha_tv, data_expiracao, status)
+            VALUES (?, ?, ?, ?, 'ativo')
+        `, [fone, loginTeste, senhaTeste, dataExpiracao]);
+
+        return {
+            telefone: fone,
+            login_tv: loginTeste,
+            senha_tv: senhaTeste,
+            data_expiracao: dataExpiracao,
+            duracaoHoras: 3
+        };
+    },
+
+    async buscarTestesExpirados() {
+        const agora = new Date().toISOString();
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS testes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telefone TEXT UNIQUE NOT NULL,
+                login_tv TEXT UNIQUE NOT NULL,
+                senha_tv TEXT NOT NULL,
+                data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                data_expiracao DATETIME NOT NULL,
+                status TEXT DEFAULT 'ativo',
+                aviso_expiracao_enviado INTEGER DEFAULT 0
+            )
+        `).catch(() => {});
+
+        return await dbAll(`
+            SELECT * FROM testes 
+            WHERE status = 'ativo' AND data_expiracao <= ? AND aviso_expiracao_enviado = 0
+        `, [agora]).catch(() => []);
+    },
+
+    async marcarTesteExpirado(id) {
+        await dbRun(`
+            UPDATE testes SET status = 'expirado', aviso_expiracao_enviado = 1 WHERE id = ?
+        `, [id]).catch(() => {});
     },
 
     // Clientes

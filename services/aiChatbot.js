@@ -78,10 +78,46 @@ class AiChatbotService {
                          `https://tv.signalplay.com.br/login\n\n` +
                          `Basta abrir o aplicativo no seu dispositivo e inserir seu Usuário e Senha para assistir em *até 3 telas ao mesmo tempo*!`;
         } else if (texto.includes('teste') || texto.includes('testar') || texto.includes('gratis') || texto.includes('gratuito')) {
-            respostaIA = `🎁 *Teste Grátis do SIGNALPLAY:*\n\n` +
-                         `Você pode fazer um teste grátis agora mesmo de *4 horas* diretamente pelo nosso site:\n` +
-                         `👉 Acesse https://tv-pix-platform.onrender.com para cadastrar seu teste!\n\n` +
-                         `Assim que cadastrar, seu login e senha serão liberados na hora!`;
+            // Checa se este número já realizou teste grátis anteriormente (trava de uso único por número)
+            const testeExistente = await helpers.obterTestePorTelefone(fone);
+
+            if (testeExistente) {
+                respostaIA = `⚠️ *Você já solicitou um teste grátis anteriormente com este número!*\n\n` +
+                             `Cada cliente tem direito a apenas 1 teste grátis por número de WhatsApp.\n\n` +
+                             `Para ter acesso completo por 30 dias a todos os canais de TV, filmes e séries em até 3 telas simultâneas, assine agora por apenas *R$ 10,00/mês* acessando nosso site:\n` +
+                             `👉 https://tv-pix-platform.onrender.com`;
+            } else {
+                // Gera novo teste sequencial (ex: teste1@tvplus, teste2@tvplus) válido por 3 horas
+                const novoTeste = await helpers.criarNovoTeste(fone);
+
+                // Dispara o robô em segundo plano para cadastrar e ativar o sinal do teste no ReceitaNet ERP
+                const robot = require('./receitanetRobot');
+                robot.cadastrarEAtivarTV(
+                    { nome: `Cliente Teste ${novoTeste.login_tv}`, email: novoTeste.login_tv, telefone: fone },
+                    novoTeste.login_tv,
+                    novoTeste.senha_tv
+                ).catch(err => console.error(`[IA TESTE ROBOT ERROR]:`, err.message));
+
+                const expiraHora = new Date(novoTeste.data_expiracao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+                respostaIA = `🎁 *SEU TESTE GRÁTIS DO SIGNALPLAY FOI GERADO COM SUCESSO!* 🎁\n\n` +
+                             `⚠️ *Lembrando:* Este é um teste temporário *válido por 3 HORAS* (expira às *${expiraHora}*).\n\n` +
+                             `🔑 *Seus dados de teste (Acesso de TV):*\n` +
+                             `• Usuário: *${novoTeste.login_tv}*\n` +
+                             `• Senha: *${novoTeste.senha_tv}*\n` +
+                             `⏱️ Validade: *3 Horas (Expirará às ${expiraHora})*\n\n` +
+                             `📱 *Links para Baixar o SIGNALPLAY:*\n\n` +
+                             `🍏 *iPhone / iPad / Apple TV (iOS):*\n` +
+                             `https://apps.apple.com/br/app/signalplay/id6749374183\n\n` +
+                             `🤖 *Android (Celular, Smart TV, TV Box & Firestick):*\n` +
+                             `https://play.google.com/store/apps/details?id=br.com.signalplay.tv.mobile&hl=pt_BR\n\n` +
+                             `💻 *Assistir no Computador / PC (Navegador):*\n` +
+                             `https://tv.signalplay.com.br/login\n\n` +
+                             `📋 *Como Acessar:*\n` +
+                             `1. Baixe o app no link acima ou abra no PC.\n` +
+                             `2. Digite o Usuário *${novoTeste.login_tv}* e Senha *${novoTeste.senha_tv}*.\n\n` +
+                             `Aproveite seus canais favoritos e tenha uma ótima experiência! 📺✨`;
+            }
         } else if (texto.includes('pix') || texto.includes('pagar') || texto.includes('renovar') || texto.includes('pagamento')) {
             respostaIA = `💳 *Renovação via Pix:*\n\n` +
                          `Para renovar sua assinatura por R$ 10,00 (30 dias), acesse nosso painel ou peça o seu Pix por aqui!\n` +

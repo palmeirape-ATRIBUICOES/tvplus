@@ -40,6 +40,43 @@ async function verificarPagamentosPendentes(processarConfirmacaoFn) {
 }
 
 /**
+ * Checagem automática em tempo real de testes grátis de 3 horas expirados
+ */
+async function verificarTestesExpirados() {
+    try {
+        const testesExpirados = await helpers.buscarTestesExpirados();
+        if (!testesExpirados || testesExpirados.length === 0) return;
+
+        console.log(`[CRON TESTES] Encontrados ${testesExpirados.length} testes de 3 horas expirados. Processando exclusão no ERP...`);
+
+        for (const teste of testesExpirados) {
+            console.log(`[CRON TESTES] Expirando teste ID ${teste.id} (${teste.login_tv}) para o número +${teste.telefone}...`);
+
+            // 1. Marcar como expirado no banco local para não notificar novamente
+            await helpers.marcarTesteExpirado(teste.id);
+
+            // 2. Chama o robô do ReceitaNet ERP em segundo plano para excluir/suspender o teste (adiciona 'suspenso')
+            const robot = require('./services/receitanetRobot');
+            robot.suspenderCliente(teste.login_tv).catch(err => {
+                console.error(`[CRON TESTES ROBOT ERROR] Erro ao suspender teste ${teste.login_tv} no ERP:`, err.message);
+            });
+
+            // 3. Envia mensagem via WhatsApp informando a expiração e o link para cadastro e compra de R$ 10
+            const msgExpiracao = `Seu teste grátis de 3 horas do aplicativo *SIGNALPLAY* expirou! ⏰\n\n` +
+                                 `Esperamos que você tenha gostado da qualidade do sinal e da variedade dos nossos canais!\n\n` +
+                                 `Para continuar assistindo sem interrupções por 30 dias em *ATÉ 3 APARELHOS*, assine agora mesmo seu plano por apenas *R$ 10,00/mês* no nosso site:\n\n` +
+                                 `👉 https://tv-pix-platform.onrender.com\n\n` +
+                                 `Faça seu cadastro no link acima e seu acesso será liberado na hora após o pagamento Pix! 🚀`;
+
+            console.log(`[CRON TESTES WA] Enviando mensagem de expiração e link do site para +${teste.telefone}...`);
+            await whatsappService.enviarMensagem(teste.telefone, msgExpiracao);
+        }
+    } catch (e) {
+        console.error('[CRON TESTES ERROR] Erro na varredura de testes expirados:', e.message);
+    }
+}
+
+/**
  * Função principal para checagem de vencimento, envio de cobranças e suspensões automáticas
  */
 async function verificarAssinaturas() {
@@ -134,16 +171,20 @@ async function verificarAssinaturas() {
     }
 }
 
-// Executa a checagem a cada 5 minutos
-// (Isso garante que o trial de 4 horas seja cortado no momento correto e com precisão)
+// Executa a checagem a cada 5 minutos para assinaturas regulares
 cron.schedule('*/5 * * * *', () => {
     verificarAssinaturas();
 });
 
-console.log('Cron Job de checagem agendado para rodar a cada 5 minutos.');
+// Executa a checagem a cada 1 minuto para expirar os testes de 3 horas com precisão pontual
+cron.schedule('*/1 * * * *', () => {
+    verificarTestesExpirados();
+});
 
-// Exporta para controle administrativo
+console.log('Cron Job de checagem agendado (Assinaturas: a cada 5m | Testes de 3h: a cada 1m).');
+
 module.exports = {
     verificarAssinaturas,
+    verificarTestesExpirados,
     verificarPagamentosPendentes
 };
