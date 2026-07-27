@@ -1236,26 +1236,64 @@ html {
 
 /* MEDIAS ADAPTATIVAS PARA MOBILE 100% RESPONSIVO */
 @media (max-width: 992px) {
+    .checkout-section-block {
+        padding: 50px 4% !important;
+    }
+
     .checkout-container-wrapper {
+        display: flex !important;
+        flex-direction: column !important;
         grid-template-columns: 1fr !important;
-        gap: 30px !important;
-        text-align: center !important;
+        gap: 20px !important;
+        align-items: center !important;
+        width: 100% !important;
     }
 
     .checkout-text-side {
         align-items: center !important;
         text-align: center !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    .checkout-text-side h2 {
+        font-size: 26px !important;
+        text-align: center !important;
+    }
+
+    .checkout-text-side p {
+        display: none !important; /* Oculta parágrafo redundante no celular para economizar espaço vertical */
     }
 
     .checkout-bullets {
-        align-items: flex-start !important;
-        text-align: left !important;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 8px 10px !important;
+        width: 100% !important;
+        max-width: 480px !important;
         margin: 0 auto !important;
     }
 
+    .checkout-bullets li {
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        background: rgba(255, 255, 255, 0.04) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        padding: 8px 10px !important;
+        border-radius: 8px !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    .checkout-bullets i {
+        font-size: 13px !important;
+    }
+
     .checkout-card {
-        max-width: 100% !important;
+        max-width: 480px !important;
         width: 100% !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
     }
 }
 
@@ -1276,7 +1314,7 @@ html {
     .download-guide-section,
     .benefits-section,
     .checkout-section-block {
-        padding: 40px 5% !important;
+        padding: 40px 4% !important;
     }
 
     .download-grid {
@@ -1312,7 +1350,7 @@ html {
 
     .checkout-card {
         padding: 24px 16px !important;
-        border-radius: 16px !important;
+        border-radius: 18px !important;
     }
 
     .input-group input {
