@@ -40,17 +40,27 @@ class WhatsappService {
         try {
             let response;
             if (API_URL.includes('z-api.io')) {
-                // Suporte Z-API
-                response = await axios.post(API_URL, {
+                // Suporte Z-API com triplo envio de Client-Token (Query Param, Header e Body JSON)
+                let zapiUrl = API_URL;
+                if (API_TOKEN && !zapiUrl.includes('Client-Token=')) {
+                    const separator = zapiUrl.includes('?') ? '&' : '?';
+                    zapiUrl = `${zapiUrl}${separator}Client-Token=${encodeURIComponent(API_TOKEN)}`;
+                }
+
+                console.log(`[WHATSAPP Z-API] Disparando para Z-API na URL: ${zapiUrl}`);
+                response = await axios.post(zapiUrl, {
                     phone: foneDestinatario,
-                    message: mensagem
+                    message: mensagem,
+                    'client-token': API_TOKEN,
+                    'Client-Token': API_TOKEN
                 }, {
                     headers: {
                         'Content-Type': 'application/json',
+                        'Client-Token': API_TOKEN,
                         'client-token': API_TOKEN,
-                        'Client-Token': API_TOKEN
+                        'x-client-token': API_TOKEN
                     },
-                    timeout: 8000
+                    timeout: 10000
                 });
             } else if (API_URL.includes('ultramsg.com')) {
                 // Suporte UltraMsg
