@@ -200,6 +200,10 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente em: ${editUrl}`);
             await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
+            const path = require('path');
+            console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (ficha carregada)...`);
+            await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_edit_loaded.png'), fullPage: true });
+
             // Altera o campo cli_login adicionando "_SUSPENSO" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             await page.evaluate((loginOriginal) => {
@@ -227,6 +231,9 @@ class ReceitanetRobotService {
                 }),
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
             ]);
+
+            console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (pós-gravação)...`);
+            await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_after_save.png'), fullPage: true });
 
             // Delay de segurança de 3 segundos para garantir a gravação no banco do ReceitaNet
             console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
