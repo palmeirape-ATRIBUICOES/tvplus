@@ -165,11 +165,11 @@ class ReceitanetRobotService {
      * Bloqueia o cliente no ReceitaNet renomeando seu login temporariamente (adiciona _SUSPENSO)
      * @param {string} login - Login original do cliente (ex: thiago@tvplus)
      */
-    async bloquearCliente(login) {
+    async bloquearCliente(login, cpf, nome) {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando bloqueio do login: ${login}`);
+        console.log(`[RECEITANET-ROBOT] Iniciando bloqueio do login: ${login} (CPF: ${cpf}, Nome: ${nome})`);
         
         const launchOptions = {
             headless: true,
@@ -196,7 +196,7 @@ class ReceitanetRobotService {
             ]);
 
             // Localiza e abre a ficha de edição real do cliente no ReceitaNet
-            const editUrl = await this.localizarEAbriFichaCliente(page, login);
+            const editUrl = await this.localizarEAbriFichaCliente(page, login, cpf, nome);
 
             // Altera o campo cli_login adicionando "_SUSPENSO" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -247,11 +247,11 @@ class ReceitanetRobotService {
      * Reativa o cliente no ReceitaNet restaurando seu login original (remove _SUSPENSO)
      * @param {string} login - Login original do cliente (ex: thiago@tvplus)
      */
-    async reativarCliente(login) {
+    async reativarCliente(login, cpf, nome) {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando reativação do login: ${login}`);
+        console.log(`[RECEITANET-ROBOT] Iniciando reativação do login: ${login} (CPF: ${cpf}, Nome: ${nome})`);
         
         const launchOptions = {
             headless: true,
@@ -278,7 +278,7 @@ class ReceitanetRobotService {
             ]);
 
             // Localiza e abre a ficha de edição real do cliente suspenso no ReceitaNet
-            const editUrl = await this.localizarEAbriFichaCliente(page, login);
+            const editUrl = await this.localizarEAbriFichaCliente(page, login, cpf, nome);
 
             // Restaura o campo cli_login para o original diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -329,11 +329,11 @@ class ReceitanetRobotService {
      * Efetua a rescisão contratual (cancelado chip) e exclui o cliente do ReceitaNet
      * @param {string} login - Login original do cliente
      */
-    async excluirCliente(login) {
+    async excluirCliente(login, cpf, nome) {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando exclusão completa do login: ${login}`);
+        console.log(`[RECEITANET-ROBOT] Iniciando exclusão completa do login: ${login} (CPF: ${cpf}, Nome: ${nome})`);
         
         const launchOptions = {
             headless: true,
@@ -366,7 +366,7 @@ class ReceitanetRobotService {
             ]);
 
             // 2. Localiza e abre a ficha do cliente real no ReceitaNet
-            const editUrl = await this.localizarEAbriFichaCliente(page, login);
+            const editUrl = await this.localizarEAbriFichaCliente(page, login, cpf, nome);
 
             // 3. Clica em "Rescisão" (ou botão correspondente)
             console.log(`[RECEITANET-ROBOT] Acessando tela de rescisão...`);
@@ -453,8 +453,20 @@ class ReceitanetRobotService {
     /**
      * Localiza o cliente no ReceitaNet pela tabela de listagem ou pela busca global e abre a ficha de edição
      */
-    async localizarEAbriFichaCliente(page, login) {
+    async localizarEAbriFichaCliente(page, login, cpf, nome) {
         let loadedFicha = false;
+        
+        // Define os termos de busca em ordem de prioridade
+        const termosBusca = [];
+        if (cpf) {
+            const cpfLimpo = cpf.replace(/\D/g, '');
+            if (cpfLimpo.length >= 11) termosBusca.push(cpfLimpo);
+            termosBusca.push(cpf);
+        }
+        termosBusca.push(login);
+        if (nome) termosBusca.push(nome);
+        
+        console.log(`[RECEITANET-ROBOT] Termos de busca priorizados:`, termosBusca);
         
         try {
             console.log(`[RECEITANET-ROBOT] Buscando cliente '${login}' na listagem de clientes...`);
@@ -466,9 +478,11 @@ class ReceitanetRobotService {
             if (tableSearch) {
                 await tableSearch.click();
                 await page.evaluate((el) => { el.value = ''; }, tableSearch);
-                await tableSearch.type(login);
-                // Aguarda a tabela realizar o filtro via AJAX
-                await new Promise(r => setTimeout(r, 3000));
+                // Aguarda a tabela realizar o filtro via AJAX (usamos o termo de busca prioritário: CPF ou Login)
+                const termoTabela = termosBusca[0];
+                console.log(`[RECEITANET-ROBOT] Filtrando a tabela por: ${termoTabela}`);
+                await tableSearch.type(termoTabela);
+                await new Promise(r => setTimeout(r, 4000));
             }
             
             // Clica no link com o login correspondente na tabela (suporta td, span e a)
@@ -503,27 +517,43 @@ class ReceitanetRobotService {
             
             const searchSelector = 'input[placeholder*="Nome/Login"], input[placeholder*="Digite o Nome"], input.input';
             await page.waitForSelector(searchSelector, { timeout: 10000 });
-            await page.click(searchSelector);
             
-            // Limpa o campo de busca global
-            await page.evaluate((sel) => {
-                document.querySelector(sel).value = '';
-            }, searchSelector);
-            
-            await page.type(searchSelector, login);
-            
-            // Aguarda o dropdown de sugestões aparecer no DOM
-            console.log(`[RECEITANET-ROBOT] Aguardando o menu de sugestões (jQuery UI) ficar visível...`);
-            const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion';
-            await page.waitForSelector(dropdownSelector, { timeout: 10000 });
-            
-            // Clica na primeira sugestão carregada e aguarda a navegação
-            console.log(`[RECEITANET-ROBOT] Selecionando a sugestão no menu e navegando...`);
-            await Promise.all([
-                page.click(dropdownSelector),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
-            ]);
-            console.log(`[RECEITANET-ROBOT] Ficha carregada via autocomplete global: ${page.url()}`);
+            // Tenta buscar com cada termo (CPF primeiro, depois Nome, depois Login) até o dropdown aparecer
+            for (const termo of termosBusca) {
+                console.log(`[RECEITANET-ROBOT] Pesquisando termo '${termo}' no autocomplete...`);
+                await page.click(searchSelector);
+                
+                await page.evaluate((sel) => {
+                    document.querySelector(sel).value = '';
+                }, searchSelector);
+                
+                await page.type(searchSelector, termo);
+                
+                // Aguarda o dropdown de sugestões aparecer no DOM
+                console.log(`[RECEITANET-ROBOT] Aguardando o menu de sugestões (jQuery UI) ficar visível para '${termo}'...`);
+                const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion';
+                
+                try {
+                    await page.waitForSelector(dropdownSelector, { timeout: 8000 });
+                    
+                    // Clica na primeira sugestão carregada e aguarda a navegação
+                    console.log(`[RECEITANET-ROBOT] Clicando na sugestão do autocomplete...`);
+                    await Promise.all([
+                        page.click(dropdownSelector),
+                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+                    ]);
+                    
+                    loadedFicha = true;
+                    console.log(`[RECEITANET-ROBOT] Ficha carregada com sucesso via autocomplete: ${page.url()}`);
+                    break; // Sai do loop se der certo
+                } catch (autoErr) {
+                    console.log(`[RECEITANET-ROBOT WARNING] Autocomplete não abriu para o termo '${termo}': ${autoErr.message}`);
+                }
+            }
+        }
+        
+        if (!loadedFicha) {
+            throw new Error(`Não foi possível carregar a ficha cadastral do cliente '${login}' por nenhum método.`);
         }
         
         return page.url();

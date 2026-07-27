@@ -624,11 +624,11 @@ app.get('/api/admin/clientes', async (req, res) => {
 app.post('/api/admin/suspender', async (req, res) => {
     const { cliente_id } = req.body;
     try {
-        db.get('SELECT * FROM assinaturas WHERE cliente_id = ?', [cliente_id], async (err, row) => {
+        db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
             const robot = require('./services/receitanetRobot');
-            await robot.bloquearCliente(row.login_tv);
+            await robot.bloquearCliente(row.login_tv, row.cpfcnpj, row.nome);
             
             db.run("UPDATE assinaturas SET status = 'suspensa' WHERE id = ?", [row.id], (err2) => {
                 if (err2) return res.status(500).json({ error: err2.message });
@@ -643,7 +643,7 @@ app.post('/api/admin/suspender', async (req, res) => {
 app.post('/api/admin/reativar', async (req, res) => {
     const { cliente_id } = req.body;
     try {
-        db.get('SELECT * FROM assinaturas WHERE cliente_id = ?', [cliente_id], async (err, row) => {
+        db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
             const robot = require('./services/receitanetRobot');
@@ -662,7 +662,7 @@ app.post('/api/admin/reativar', async (req, res) => {
                     });
                 });
             } else {
-                await robot.reativarCliente(row.login_tv);
+                await robot.reativarCliente(row.login_tv, row.cpfcnpj, row.nome);
                 
                 const novaDataVenc = new Date();
                 novaDataVenc.setDate(novaDataVenc.getDate() + 30);
@@ -680,11 +680,11 @@ app.post('/api/admin/reativar', async (req, res) => {
 app.post('/api/admin/excluir', async (req, res) => {
     const { cliente_id } = req.body;
     try {
-        db.get('SELECT * FROM assinaturas WHERE cliente_id = ?', [cliente_id], async (err, row) => {
+        db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
             const robot = require('./services/receitanetRobot');
-            await robot.excluirCliente(row.login_tv);
+            await robot.excluirCliente(row.login_tv, row.cpfcnpj, row.nome);
             
             // Exclui localmente do SQLite
             db.run('DELETE FROM pagamentos WHERE cliente_id = ?', [cliente_id], (err1) => {
