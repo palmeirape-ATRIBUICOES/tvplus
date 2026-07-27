@@ -460,30 +460,37 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Buscando cliente '${login}' na listagem de clientes...`);
             await page.goto('https://sistema.receitanet.net/clientes.php', { waitUntil: 'networkidle2', timeout: 20000 });
             
-            // Tenta localizar a busca da tabela
-            const tableSearch = await page.$('input[type="search"], input[name="busca"], #pesquisa');
+            // Aguarda o input de busca da tabela e filtra
+            console.log(`[RECEITANET-ROBOT] Filtrando a tabela pelo login...`);
+            const tableSearch = await page.waitForSelector('input[type="search"], .dataTables_filter input, input[name="busca"], #pesquisa', { timeout: 8000 }).catch(() => null);
             if (tableSearch) {
                 await tableSearch.click();
                 await page.evaluate((el) => { el.value = ''; }, tableSearch);
                 await tableSearch.type(login);
-                await new Promise(r => setTimeout(r, 2000));
+                // Aguarda a tabela realizar o filtro via AJAX
+                await new Promise(r => setTimeout(r, 3000));
             }
             
-            // Clica no link com o login correspondente na tabela
+            // Clica no link com o login correspondente na tabela (suporta td, span e a)
+            console.log(`[RECEITANET-ROBOT] Clicando no registro do cliente na tabela...`);
             await Promise.all([
                 page.evaluate((targetLogin) => {
-                    const links = Array.from(document.querySelectorAll('a'));
-                    const link = links.find(l => {
-                        const txt = l.textContent.trim();
-                        return txt === targetLogin || 
-                               txt === `${targetLogin}_SUSPENSO` || 
-                               txt.includes(targetLogin);
+                    const elements = Array.from(document.querySelectorAll('a, td, span'));
+                    const match = elements.find(el => {
+                        const txt = el.textContent.trim();
+                        return txt === targetLogin || txt === `${targetLogin}_SUSPENSO`;
                     });
-                    if (link) link.click();
-                    else throw new Error("Link com o login correspondente não encontrado na tabela.");
+                    
+                    if (match) {
+                        const clickable = match.tagName === 'A' ? match : (match.closest('a') || match);
+                        clickable.click();
+                    } else {
+                        throw new Error("Login não localizado nos textos da tabela.");
+                    }
                 }, login),
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
             ]);
+            
             loadedFicha = true;
             console.log(`[RECEITANET-ROBOT] Ficha carregada via listagem de clientes: ${page.url()}`);
         } catch (tblErr) {
@@ -497,17 +504,26 @@ class ReceitanetRobotService {
             const searchSelector = 'input[placeholder*="Nome/Login"], input[placeholder*="Digite o Nome"], input.input';
             await page.waitForSelector(searchSelector, { timeout: 10000 });
             await page.click(searchSelector);
+            
+            // Limpa o campo de busca global
+            await page.evaluate((sel) => {
+                document.querySelector(sel).value = '';
+            }, searchSelector);
+            
             await page.type(searchSelector, login);
-            await new Promise(r => setTimeout(r, 3000));
             
-            await page.keyboard.press('ArrowDown');
-            await new Promise(r => setTimeout(r, 500));
+            // Aguarda o dropdown de sugestões aparecer no DOM
+            console.log(`[RECEITANET-ROBOT] Aguardando o menu de sugestões (jQuery UI) ficar visível...`);
+            const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion';
+            await page.waitForSelector(dropdownSelector, { timeout: 10000 });
             
+            // Clica na primeira sugestão carregada e aguarda a navegação
+            console.log(`[RECEITANET-ROBOT] Selecionando a sugestão no menu e navegando...`);
             await Promise.all([
-                page.keyboard.press('Enter'),
+                page.click(dropdownSelector),
                 page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
             ]);
-            console.log(`[RECEITANET-ROBOT] Ficha carregada via busca global por autocomplete: ${page.url()}`);
+            console.log(`[RECEITANET-ROBOT] Ficha carregada via autocomplete global: ${page.url()}`);
         }
         
         return page.url();
