@@ -129,10 +129,10 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 1. Carrega a ficha oficial do cliente via busca input[name="search"] (permaneça na aba padrão DADOS PESSOAIS)
+            // 1. Carrega a ficha oficial de cadastro do cliente na aba DADOS PESSOAIS
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
-            // 2. Na aba padrão DADOS PESSOAIS, localiza o campo cli_login e altera para login + "suspenso"
+            // 2. Altera o campo cli_login na aba DADOS PESSOAIS para o login suspenso
             console.log(`[RECEITANET-ROBOT] Alterando campo cli_login na aba DADOS PESSOAIS para '${nuevoLogin}'...`);
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             
@@ -147,7 +147,7 @@ class ReceitanetRobotService {
                 }
             }, nuevoLogin);
 
-            // 3. Submete o formulário com o botão vermelho 'Gravar no ReceitaNet + Servidor' (com atualizar=1)
+            // 3. Clica fisicamente no botão 'Gravar no ReceitaNet' para disparar a submissão nativa
             await this.salvarFormularioCliente(page);
 
             // 4. --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
@@ -330,109 +330,64 @@ class ReceitanetRobotService {
     }
 
     /**
-     * Carrega a ficha de edição real do cliente buscando na barra oficial do menu: input[name="search"] (placeholder="Nome/Login/Tel./CPF")
+     * Carrega a ficha de edição oficial do cliente
      */
     async abrirFichaClienteReal(page, login, cpf, nome) {
-        console.log(`[RECEITANET-ROBOT] Buscando cliente na barra oficial input[name="search"]...`);
+        console.log(`[RECEITANET-ROBOT] Acessando ficha de cadastro do cliente: ${login}...`);
         
-        if (!page.url().includes('receitanet.net')) {
-            await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
+        // 1. Tenta a URL direta por login
+        const directUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(login)}`;
+        console.log(`[RECEITANET-ROBOT] Abrindo URL direta do cadastro: ${directUrl}`);
+        await page.goto(directUrl, { waitUntil: 'networkidle2' });
+
+        const hasInputDirect = await page.waitForSelector('input[name="cli_login"]', { timeout: 6000 }).then(() => true).catch(() => false);
+        if (hasInputDirect) {
+            console.log(`[RECEITANET-ROBOT] Ficha de cadastro carregada com sucesso na aba DADOS PESSOAIS!`);
+            return;
         }
-        
-        const searchSelector = 'input[name="search"], input[placeholder="Nome/Login/Tel./CPF"], input[title="Nome/Login/Tel./CPF"]';
+
+        // 2. Se não carregou o input diretamente, pesquisa na barra principal input[name="search"]
+        console.log(`[RECEITANET-ROBOT] Pesquisando cliente na barra principal input[name="search"]...`);
+        const searchSelector = 'input[name="search"], input[placeholder="Nome/Login/Tel./CPF"]';
         await page.waitForSelector(searchSelector, { timeout: 10000 });
         
-        const termos = [login];
-        if (nome) termos.push(nome.split(' ')[0]);
-        if (cpf) {
-            termos.push(cpf);
-            const cpfLimpo = cpf.replace(/\D/g, '');
-            if (cpfLimpo.length >= 11) termos.push(cpfLimpo);
-        }
+        await page.click(searchSelector);
+        await page.evaluate((sel) => { const el = document.querySelector(sel); if (el) el.value = ''; }, searchSelector);
+        await page.type(searchSelector, login);
         
-        let loaded = false;
-        const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion, li.ui-menu-item a';
+        await Promise.all([
+            page.keyboard.press('Enter'),
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
+        ]);
 
-        for (const termo of termos) {
-            try {
-                console.log(`[RECEITANET-ROBOT] Pesquisando termo '${termo}' na barra input[name="search"]...`);
-                const inputSearch = await page.$(searchSelector);
-                await inputSearch.click();
-                
-                await page.evaluate((sel) => {
-                    const el = document.querySelector(sel);
-                    if (el) el.value = '';
-                }, searchSelector);
-                
-                await inputSearch.type(termo);
-                
-                console.log(`[RECEITANET-ROBOT] Aguardando o menu suspenso ou resultado para '${termo}'...`);
-                const hasDropdown = await page.waitForSelector(dropdownSelector, { timeout: 5000 }).then(() => true).catch(() => false);
-                
-                if (hasDropdown) {
-                    console.log(`[RECEITANET-ROBOT] Sugestão encontrada! Clicando no resultado do menu suspenso...`);
-                    await Promise.all([
-                        page.click(dropdownSelector),
-                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
-                    ]);
-                } else {
-                    console.log(`[RECEITANET-ROBOT] Pressionando Enter na barra input[name="search"]...`);
-                    await Promise.all([
-                        page.keyboard.press('Enter'),
-                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
-                    ]);
-                }
-                
-                loaded = true;
-                console.log(`[RECEITANET-ROBOT] Ficha oficial com cli_id carregada com sucesso via input[name="search"]: ${page.url()}`);
-                break;
-            } catch (err) {
-                console.log(`[RECEITANET-ROBOT WARNING] Termo '${termo}' no input[name="search"]: ${err.message}`);
-            }
+        // Se cair na tabela de listagem do /novo, clica na linha do cliente
+        if (!page.url().includes('clientes_cadastro.php')) {
+            console.log(`[RECEITANET-ROBOT] Clicando no link do cliente na tabela de resultados...`);
+            await page.evaluate((loginTarget) => {
+                const links = Array.from(document.querySelectorAll('a'));
+                const targetLink = links.find(a => a.href.includes('clientes_cadastro.php') || a.textContent.includes(loginTarget));
+                if (targetLink) targetLink.click();
+            }, login);
+            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
         }
 
-        if (!loaded) {
-            throw new Error(`Não foi possível localizar o cliente '${login}' no ERP usando input[name="search"].`);
-        }
+        await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
+        console.log(`[RECEITANET-ROBOT] Ficha de cadastro carregada com sucesso: ${page.url()}`);
     }
 
+    /**
+     * Clica no botão 'Gravar no ReceitaNet' via Puppeteer nativo (simula o clique do mouse com o evento name="atualizar")
+     */
     async salvarFormularioCliente(page) {
-        console.log(`[RECEITANET-ROBOT] Submetendo formulário via AJAX com parâmetro 'atualizar=1' no botão vermelho...`);
+        console.log(`[RECEITANET-ROBOT] Executando clique nativo no botão 'Gravar no ReceitaNet'...`);
         
-        await page.evaluate(() => {
-            const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
-            if (form) {
-                let inputAtualizar = form.querySelector('input[name="atualizar"]');
-                if (!inputAtualizar) {
-                    inputAtualizar = document.createElement('input');
-                    inputAtualizar.type = 'hidden';
-                    inputAtualizar.name = 'atualizar';
-                    inputAtualizar.value = '1';
-                    form.appendChild(inputAtualizar);
-                } else {
-                    inputAtualizar.value = '1';
-                }
-                
-                const buttons = Array.from(form.querySelectorAll('button, input'));
-                const btnRed = buttons.find(b => {
-                    const txt = (b.textContent || b.value || '').trim();
-                    return txt.includes('Servidor') && txt.includes('Gravar');
-                }) || form.querySelector('button.btn-danger');
-                
-                const btnBlue = form.querySelector('button.btn-primary') || buttons.find(b => (b.textContent || b.value || '').includes('Gravar'));
-                
-                const targetBtn = btnRed || btnBlue;
-                if (targetBtn) {
-                    targetBtn.click();
-                } else {
-                    form.submit();
-                }
-            } else {
-                throw new Error("Formulário principal do cliente não encontrado no DOM.");
-            }
-        });
+        const saveButtonSelector = 'button[name="atualizar"], button.btn-primary, button.btn-danger';
+        await page.waitForSelector(saveButtonSelector, { timeout: 10000 });
+        
+        // Clique nativo do Puppeteer dispara o envio do botão name="atualizar" value="1"
+        await page.click(saveButtonSelector);
 
-        console.log(`[RECEITANET-ROBOT] Aguardando processamento da gravação assíncrona...`);
+        console.log(`[RECEITANET-ROBOT] Aguardando processamento da gravação assíncrona (5 segundos)...`);
         await new Promise(r => setTimeout(r, 5000));
     }
 }
