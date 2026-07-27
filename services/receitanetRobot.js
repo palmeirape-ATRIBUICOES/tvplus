@@ -61,35 +61,31 @@ class ReceitanetRobotService {
 
             console.log(`[RECEITANET-ROBOT] Cliente cadastrado com sucesso! Associando plano CDNTV...`);
 
-            const planoSelector = 'a[href*="/novo/financeiros/clientes/planos/"]';
-            const btnPlano = await page.$(planoSelector);
-            if (btnPlano) {
-                await Promise.all([
-                    btnPlano.click(),
-                    page.waitForNavigation({ waitUntil: 'networkidle2' })
-                ]);
-                
-                await page.waitForSelector('select', { timeout: 10000 });
-                await page.evaluate(() => {
-                    const selects = Array.from(document.querySelectorAll('select'));
-                    const selectPlano = selects.find(s => Array.from(s.options).some(opt => opt.text.toUpperCase().includes('CDNTV') || opt.text.toUpperCase().includes('TV')));
-                    if (selectPlano) {
-                        const opt = Array.from(selectPlano.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.text.toUpperCase().includes('TV'));
-                        selectPlano.value = opt.value;
-                        selectPlano.dispatchEvent(new Event('change'));
-                    }
-                });
+            await page.evaluate(() => {
+                const links = Array.from(document.querySelectorAll('a'));
+                const btnPlano = links.find(a => a.href.includes('/planos/') || a.textContent.includes('Planos') || a.textContent.includes('Plano'));
+                if (btnPlano) btnPlano.click();
+            });
+            await new Promise(r => setTimeout(r, 2000));
+            
+            await page.evaluate(() => {
+                const selects = Array.from(document.querySelectorAll('select'));
+                const selectPlano = selects.find(s => Array.from(s.options).some(opt => opt.text.toUpperCase().includes('CDNTV') || opt.text.toUpperCase().includes('TV')));
+                if (selectPlano) {
+                    const opt = Array.from(selectPlano.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.text.toUpperCase().includes('TV'));
+                    selectPlano.value = opt.value;
+                    selectPlano.dispatchEvent(new Event('change'));
+                }
+            });
 
-                await Promise.all([
-                    page.evaluate(() => {
-                        const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
-                        const btnGravar = buttons.find(b => b.textContent.trim().includes('Gravar') || b.textContent.trim().includes('Adicionar'));
-                        if (btnGravar) btnGravar.click();
-                    }),
-                    page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {})
-                ]);
-            }
+            await page.evaluate(() => {
+                const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
+                const btnGravar = buttons.find(b => b.textContent.trim().includes('Gravar') || b.textContent.trim().includes('Adicionar'));
+                if (btnGravar) btnGravar.click();
+            });
+            await new Promise(r => setTimeout(r, 3000));
 
+            console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);
             await browser.close();
             return true;
         } catch (error) {
@@ -129,10 +125,8 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 1. Carrega a ficha oficial de cadastro do cliente na aba DADOS PESSOAIS
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
-            // 2. Altera o campo cli_login na aba DADOS PESSOAIS para o login suspenso
             console.log(`[RECEITANET-ROBOT] Alterando campo cli_login na aba DADOS PESSOAIS para '${nuevoLogin}'...`);
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             
@@ -147,10 +141,8 @@ class ReceitanetRobotService {
                 }
             }, nuevoLogin);
 
-            // 3. Clica no botão exato via XPath fornecido pelo usuário
             await this.salvarFormularioCliente(page);
 
-            // 4. --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando alteração diretamente no ERP para '${nuevoLogin}'...`);
             await this.abrirFichaClienteReal(page, nuevoLogin, cpf, nome);
 
@@ -225,7 +217,6 @@ class ReceitanetRobotService {
 
             await this.salvarFormularioCliente(page);
 
-            // --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando reativação diretamente no ERP para '${login}'...`);
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
@@ -329,9 +320,6 @@ class ReceitanetRobotService {
         }
     }
 
-    /**
-     * Carrega a ficha de edição oficial do cliente
-     */
     async abrirFichaClienteReal(page, login, cpf, nome) {
         console.log(`[RECEITANET-ROBOT] Acessando ficha de cadastro do cliente: ${login}...`);
         
@@ -372,15 +360,10 @@ class ReceitanetRobotService {
         console.log(`[RECEITANET-ROBOT] Ficha de cadastro carregada com sucesso: ${page.url()}`);
     }
 
-    /**
-     * Clica no botão exato via XPath fornecido pelo usuário:
-     * /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]
-     */
     async salvarFormularioCliente(page) {
         console.log(`[RECEITANET-ROBOT] Clicando no botão exato via XPath: /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]...`);
         
         await page.evaluate(() => {
-            // Garante parâmetro atualizar=1 no formulário se necessário
             const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
             if (form) {
                 let inputAtualizar = form.querySelector('input[name="atualizar"]');
@@ -395,12 +378,10 @@ class ReceitanetRobotService {
                 }
             }
 
-            // Executa o XPath exato fornecido pelo usuário
             const xpathResult = document.evaluate('/html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
             let btn = xpathResult.singleNodeValue;
             
             if (!btn) {
-                console.log("[RECEITANET-ROBOT DOM] XPath específico não retornou nó, buscando botões de gravação...");
                 const buttons = Array.from(document.querySelectorAll('form button, button'));
                 btn = buttons.find(b => {
                     const txt = (b.textContent || b.value || '').trim();
