@@ -370,41 +370,36 @@ class ReceitanetRobotService {
      * Submete com segurança o formulário de cadastro/edição do cliente isolando os elementos da tag <form>
      */
     async salvarFormularioCliente(page) {
-        console.log(`[RECEITANET-ROBOT] Submetendo formulário do cliente no ERP...`);
-        
-        const formInfo = await page.evaluate(() => {
-            const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
-            if (!form) return { found: false };
-            const buttons = Array.from(form.querySelectorAll('input[type="submit"], input[type="button"], button, a')).map(b => ({
-                id: b.id, name: b.name, value: b.value, text: b.textContent.trim(), tag: b.tagName, type: b.type
-            }));
-            return { found: true, action: form.action, buttons };
-        });
-        console.log(`[RECEITANET-ROBOT DIAGNOSE] FormInfo:`, JSON.stringify(formInfo));
+        console.log(`[RECEITANET-ROBOT] Submetendo formulário com parâmetro de salvamento 'atualizar=1' (Gravar no ReceitaNet)...`);
         
         await Promise.all([
             page.evaluate(() => {
                 const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
                 if (form) {
-                    // Procura botão específico de submit dentro do formulário do cliente
-                    const submitBtn = form.querySelector('#GravarCliente, input[name="GravarCliente"], input[name="Gravar"], input[type="submit"], button[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.click();
-                        return;
+                    // Garante que o parâmetro obrigatório do PHP 'atualizar=1' exista no formulário
+                    let inputAtualizar = form.querySelector('input[name="atualizar"]');
+                    if (!inputAtualizar) {
+                        inputAtualizar = document.createElement('input');
+                        inputAtualizar.type = 'hidden';
+                        inputAtualizar.name = 'atualizar';
+                        inputAtualizar.value = '1';
+                        form.appendChild(inputAtualizar);
+                    } else {
+                        inputAtualizar.value = '1';
                     }
                     
-                    const buttons = Array.from(form.querySelectorAll('input, button, a'));
-                    const btnSave = buttons.find(b => {
-                        const val = (b.value || b.textContent || '').toLowerCase();
-                        return val.includes('gravar') || val.includes('salvar') || val.includes('alterar') || val.includes('incluir');
-                    });
+                    // Localiza o botão exato do ReceitaNet: <button type="submit" name="atualizar" value="1" class="btn btn-primary">Gravar no ReceitaNet</button>
+                    const btnAtualizar = form.querySelector('button[name="atualizar"], button[value="1"], button.btn-primary') ||
+                                         Array.from(form.querySelectorAll('button, input[type="submit"]')).find(b => {
+                                             const txt = (b.textContent || b.value || '').trim();
+                                             return txt.includes('Gravar no ReceitaNet') || txt.includes('Gravar');
+                                         });
                     
-                    if (btnSave) {
-                        btnSave.click();
-                        return;
+                    if (btnAtualizar) {
+                        btnAtualizar.click();
+                    } else {
+                        form.submit();
                     }
-                    
-                    form.submit();
                 } else {
                     throw new Error("Formulário principal do cliente não encontrado no DOM.");
                 }
