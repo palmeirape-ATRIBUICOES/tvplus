@@ -52,6 +52,24 @@ class ReceitanetRobotService {
                 await page.type('input[name="cli_email"]', emailValor);
             } catch (e) {}
 
+            // Seleciona o plano CDNTV / TV no formulário principal de cadastro
+            console.log(`[RECEITANET-ROBOT] Selecionando o plano de TV no formulário do ERP...`);
+            await page.evaluate(() => {
+                const selectPlano = document.querySelector('select[name="plano"]');
+                if (selectPlano) {
+                    const opt = Array.from(selectPlano.options).find(o => 
+                        o.text.toUpperCase().includes('CDNTV') || 
+                        o.text.toUpperCase().includes('TV') || 
+                        o.text.toUpperCase().includes('PADRÃO') ||
+                        o.value === '2'
+                    );
+                    if (opt) {
+                        selectPlano.value = opt.value;
+                        selectPlano.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+            });
+
             await Promise.all([
                 page.evaluate(() => {
                     const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
@@ -62,31 +80,35 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            console.log(`[RECEITANET-ROBOT] Cliente cadastrado com sucesso! Associando plano CDNTV...`);
+            console.log(`[RECEITANET-ROBOT] Cliente cadastrado com sucesso! Vinculando plano CDNTV/TV Plus...`);
 
-            await page.evaluate(() => {
-                const links = Array.from(document.querySelectorAll('a'));
-                const btnPlano = links.find(a => a.href.includes('/planos/') || a.textContent.includes('Planos') || a.textContent.includes('Plano'));
-                if (btnPlano) btnPlano.click();
-            });
-            await new Promise(r => setTimeout(r, 2000));
-            
-            await page.evaluate(() => {
-                const selects = Array.from(document.querySelectorAll('select'));
-                const selectPlano = selects.find(s => Array.from(s.options).some(opt => opt.text.toUpperCase().includes('CDNTV') || opt.text.toUpperCase().includes('TV')));
-                if (selectPlano) {
-                    const opt = Array.from(selectPlano.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.text.toUpperCase().includes('TV'));
-                    selectPlano.value = opt.value;
-                    selectPlano.dispatchEvent(new Event('change'));
-                }
-            });
+            try {
+                await page.evaluate(() => {
+                    const links = Array.from(document.querySelectorAll('a'));
+                    const btnPlano = links.find(a => a.href.includes('/planos/') || a.textContent.includes('Planos') || a.textContent.includes('Plano'));
+                    if (btnPlano) btnPlano.click();
+                });
+                await new Promise(r => setTimeout(r, 2000));
+                
+                await page.evaluate(() => {
+                    const selects = Array.from(document.querySelectorAll('select'));
+                    const selectPlano = selects.find(s => Array.from(s.options).some(opt => opt.text.toUpperCase().includes('CDNTV') || opt.text.toUpperCase().includes('TV')));
+                    if (selectPlano) {
+                        const opt = Array.from(selectPlano.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.text.toUpperCase().includes('TV'));
+                        selectPlano.value = opt.value;
+                        selectPlano.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
 
-            await page.evaluate(() => {
-                const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
-                const btnGravar = buttons.find(b => b.textContent.trim().includes('Gravar') || b.textContent.trim().includes('Adicionar'));
-                if (btnGravar) btnGravar.click();
-            });
-            await new Promise(r => setTimeout(r, 3000));
+                await page.evaluate(() => {
+                    const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
+                    const btnGravar = buttons.find(b => b.textContent.trim().includes('Gravar') || b.textContent.trim().includes('Adicionar'));
+                    if (btnGravar) btnGravar.click();
+                });
+                await new Promise(r => setTimeout(r, 3000));
+            } catch (ePlano) {
+                console.log(`[RECEITANET-ROBOT] Aviso ao vincular aba secundária de planos: ${ePlano.message}`);
+            }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);
             await browser.close();
