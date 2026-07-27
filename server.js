@@ -743,6 +743,77 @@ app.post('/api/admin/enviar-instrucoes', async (req, res) => {
     }
 });
 
+app.get('/api/admin/diagnose-erp', async (req, res) => {
+    const puppeteer = require('puppeteer');
+    const adminUser = process.env.RECEITANET_ADMIN_USER;
+    const adminPass = process.env.RECEITANET_ADMIN_PASS;
+    
+    console.log("[DIAGNOSE-ERP] Iniciando diagnóstico do ERP...");
+    
+    const launchOptions = {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    
+    const browser = await puppeteer.launch(launchOptions);
+    const page = await browser.newPage();
+    
+    try {
+        await page.goto('https://sistema.receitanet.net/novo/auth/login', { waitUntil: 'networkidle2' });
+        await page.waitForSelector('#username', { timeout: 10000 });
+        await page.type('#username', adminUser);
+        await page.type('#password', adminPass);
+        await Promise.all([
+            page.click('#kc-login'),
+            page.waitForNavigation({ waitUntil: 'networkidle2' })
+        ]);
+        
+        // Vai para a listagem
+        await page.goto('https://sistema.receitanet.net/novo/clientes', { waitUntil: 'networkidle2' });
+        await page.waitForSelector('input', { timeout: 10000 }).catch(() => {});
+        
+        // Tira screenshot e salva na pasta public
+        const path = require('path');
+        const screenshotPath = path.join(__dirname, 'public', 'erp_diagnose.png');
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        
+        // Coleta dados estruturais
+        const data = await page.evaluate(() => {
+            const inputs = Array.from(document.querySelectorAll('input, select, textarea, button')).map(el => ({
+                tag: el.tagName,
+                type: el.type,
+                id: el.id,
+                name: el.name,
+                placeholder: el.placeholder,
+                className: el.className,
+                outerHTML: el.outerHTML.substring(0, 300)
+            }));
+            
+            const headers = Array.from(document.querySelectorAll('th, td')).map(el => el.textContent.trim()).filter(t => t.length > 0 && t.length < 50);
+            
+            return {
+                title: document.title,
+                url: window.location.href,
+                inputs,
+                headersSlice: headers.slice(0, 100)
+            };
+        });
+        
+        await browser.close();
+        res.status(200).json({
+            message: "Diagnóstico concluído! Screenshot salva em /erp_diagnose.png",
+            screenshotUrl: `${req.protocol}://${req.get('host')}/erp_diagnose.png`,
+            data
+        });
+    } catch (error) {
+        if (browser) await browser.close();
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.get('/api/admin/server-logs', (req, res) => {
     res.status(200).json(serverLogs);
 });
