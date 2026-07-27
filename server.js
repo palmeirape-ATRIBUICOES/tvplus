@@ -869,33 +869,34 @@ app.get('/api/admin/server-logs', (req, res) => {
 app.post('/api/webhook/whatsapp', async (req, res) => {
     try {
         const body = req.body || {};
-        console.log(`[WEBHOOK WHATSAPP] Notificação recebida:`, JSON.stringify(body).substring(0, 400));
+        console.log(`[WEBHOOK WHATSAPP] Notificação recebida:`, JSON.stringify(body).substring(0, 500));
 
-        // Extração flexível de telefone do payload Z-API
-        const phone = body.phone || body.from || (body.data && body.data.phone) || body.participant;
+        // Extração infalível de número de telefone (remove sufixos como @c.us e caracteres não-numéricos)
+        let rawPhone = body.phone || body.from || body.chatId || body.sender || body.participant ||
+                       (body.data && (body.data.phone || body.data.from || body.data.chatId)) || '';
+        
+        const phone = rawPhone.toString().replace(/@.*$/, '').replace(/\D/g, '');
         const isGroup = body.isGroup === true || (body.data && body.data.isGroup === true);
         
-        // Extração flexível do texto da mensagem do Z-API
+        // Extração infalível do texto da mensagem enviada pelo cliente
         let text = '';
-        if (typeof body.text === 'string') {
-            text = body.text;
-        } else if (body.text && typeof body.text === 'object' && body.text.message) {
-            text = body.text.message;
-        } else if (typeof body.message === 'string') {
-            text = body.message;
-        } else if (typeof body.body === 'string') {
-            text = body.body;
-        } else if (body.data && typeof body.data.message === 'string') {
-            text = body.data.message;
-        }
+        if (typeof body.text === 'string') text = body.text;
+        else if (body.text && typeof body.text === 'object' && body.text.message) text = body.text.message;
+        else if (body.text && typeof body.text === 'object' && body.text.text) text = body.text.text;
+        else if (typeof body.message === 'string') text = body.message;
+        else if (typeof body.body === 'string') text = body.body;
+        else if (typeof body.content === 'string') text = body.content;
+        else if (body.data && typeof body.data.message === 'string') text = body.data.message;
+        else if (body.data && typeof body.data.text === 'string') text = body.data.text;
+        else if (body.data && body.data.message && typeof body.data.message.text === 'string') text = body.data.message.text;
 
-        console.log(`[WEBHOOK WHATSAPP ANALISE] Telefone: ${phone}, Grupo: ${isGroup}, Texto: "${text}"`);
+        console.log(`[WEBHOOK WHATSAPP ANALISE] Telefone: "${phone}", Grupo: ${isGroup}, Texto: "${text}"`);
 
-        // Processa apenas se houver número e texto válido e não for grupo
-        if (!isGroup && phone && text) {
+        // Processa a mensagem se houver número e texto válido e não for grupo
+        if (!isGroup && phone && text && text.trim().length > 0) {
             const aiChatbotService = require('./services/aiChatbot');
             aiChatbotService.processarMensagemEntrada(phone, text).catch(err => {
-                console.error("[WEBHOOK WHATSAPP ERROR] Erro no processamento da mensagem:", err.message);
+                console.error("[WEBHOOK WHATSAPP ERROR] Erro no processamento da mensagem pelo robô:", err.message);
             });
         }
 

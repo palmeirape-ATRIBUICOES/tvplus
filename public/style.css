@@ -360,22 +360,25 @@ html {
     line-height: 1.5;
 }
 
-/* 4. Seção Checkout (Split Layout) */
+/* 4. Seção Checkout (Split Layout Responsivo) */
 .checkout-section-block {
-    padding: 80px 8%;
+    padding: 60px 8%;
     background: rgba(255, 255, 255, 0.01);
     border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
 .checkout-container-wrapper {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 60px;
+    gap: 40px;
     align-items: center;
     width: 100%;
     max-width: 1100px;
+    margin: 0 auto;
 }
 
 .checkout-text-side {
@@ -385,7 +388,7 @@ html {
 }
 
 .checkout-text-side h2 {
-    font-size: clamp(28px, 4vw, 42px);
+    font-size: clamp(26px, 4vw, 42px);
     font-weight: 800;
 }
 
@@ -415,26 +418,28 @@ html {
     font-size: 18px;
 }
 
-/* Checkout Section Backwards Compatibility */
+/* Checkout Card Responsivo */
 .checkout-section {
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 
 .checkout-card {
     width: 100%;
-    max-width: 450px;
+    max-width: 480px;
+    margin: 0 auto;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 24px;
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
-    padding: 35px;
+    padding: 30px 24px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
     position: relative;
     overflow: hidden;
-    transition: all 0.5s ease;
+    transition: all 0.4s ease;
 }
 
 /* Transições de Passos */
@@ -1221,13 +1226,48 @@ html {
 }
 
 /* MEDIAS ADAPTATIVAS PARA MOBILE 100% RESPONSIVO */
+@media (max-width: 992px) {
+    .checkout-container-wrapper {
+        grid-template-columns: 1fr !important;
+        gap: 30px !important;
+        text-align: center !important;
+    }
+
+    .checkout-text-side {
+        align-items: center !important;
+        text-align: center !important;
+    }
+
+    .checkout-bullets {
+        align-items: flex-start !important;
+        text-align: left !important;
+        margin: 0 auto !important;
+    }
+
+    .checkout-card {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+}
+
 @media (max-width: 768px) {
     .navbar {
         padding: 15px 5%;
     }
+
+    .main-layout {
+        padding: 0;
+    }
+
+    .hero-section {
+        padding: 40px 5% 20px 5% !important;
+    }
     
-    .download-guide-section {
-        padding: 40px 5%;
+    .how-it-works-section,
+    .download-guide-section,
+    .benefits-section,
+    .checkout-section-block {
+        padding: 40px 5% !important;
     }
 
     .download-grid {
@@ -1236,7 +1276,7 @@ html {
     }
 
     .hero-title {
-        font-size: 28px !important;
+        font-size: 26px !important;
         line-height: 1.25 !important;
     }
 
@@ -1261,11 +1301,12 @@ html {
         gap: 15px !important;
     }
 
-    .checkout-container-wrapper {
-        padding: 0 !important;
+    .checkout-card {
+        padding: 24px 16px !important;
+        border-radius: 16px !important;
     }
 
-    .checkout-card {
-        padding: 20px 15px !important;
+    .input-group input {
+        font-size: 16px !important; /* Previne zoom automático do Safari no iOS ao focar input */
     }
 }
