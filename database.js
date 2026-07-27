@@ -119,10 +119,13 @@ function initDb() {
                                 ip_origem TEXT,
                                 canal_atual TEXT DEFAULT 'Sinal Digital Live',
                                 ultimo_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                status TEXT DEFAULT 'ONLINE'
+                                status TEXT DEFAULT 'ONLINE',
+                                pix_forcado TEXT
                             )
                         `, (errSessao) => {
                             if (errSessao) return reject(errSessao);
+                            // Adiciona coluna pix_forcado se não existir
+                            db.run("ALTER TABLE sessoes_ativas ADD COLUMN pix_forcado TEXT", () => {});
                             console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes, sessoes_ativas) verificadas com sucesso.');
                             resolve();
                         });
@@ -373,6 +376,33 @@ const dbHelpers = {
     async verificarSessaoDerrubada(loginTv) {
         const sessao = await dbGet('SELECT * FROM sessoes_ativas WHERE login_tv = ?', [loginTv]).catch(() => null);
         return sessao && sessao.status === 'DERRUBADO';
+    },
+
+    async forcarPixNaTv(loginTv, pixData) {
+        const payloadStr = typeof pixData === 'object' ? JSON.stringify(pixData) : pixData;
+        await dbRun(`
+            INSERT INTO sessoes_ativas (login_tv, status, pix_forcado, ultimo_ping)
+            VALUES (?, 'ONLINE', ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(login_tv) DO UPDATE SET 
+                pix_forcado = excluded.pix_forcado,
+                ultimo_ping = CURRENT_TIMESTAMP
+        `, [loginTv, payloadStr]).catch(() => {});
+    },
+
+    async obterPixForcado(loginTv) {
+        const sessao = await dbGet('SELECT pix_forcado FROM sessoes_ativas WHERE login_tv = ?', [loginTv]).catch(() => null);
+        if (sessao && sessao.pix_forcado) {
+            try {
+                return JSON.parse(sessao.pix_forcado);
+            } catch (e) {
+                return sessao.pix_forcado;
+            }
+        }
+        return null;
+    },
+
+    async limparPixForcado(loginTv) {
+        await dbRun('UPDATE sessoes_ativas SET pix_forcado = NULL WHERE login_tv = ?', [loginTv]).catch(() => {});
     },
 
     // Clientes

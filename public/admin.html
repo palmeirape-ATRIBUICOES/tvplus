@@ -1093,13 +1093,24 @@
                     tdPing.textContent = formatarData(s.ultimo_ping);
                     tr.appendChild(tdPing);
 
-                    // Ação Administrativa (Derrubar Conexão)
+                    // Ação Administrativa (Enviar Pix na TV ou Derrubar Conexão)
                     const tdAcao = document.createElement('td');
                     if (s.status !== 'DERRUBADO' && diffSegundos < 120) {
+                        // Botão Enviar Pix QR Code direto para a tela da TV
+                        const btnPixTv = document.createElement('button');
+                        btnPixTv.type = 'button';
+                        btnPixTv.className = 'btn-secondary btn-table';
+                        btnPixTv.style.backgroundColor = '#8b5cf6';
+                        btnPixTv.style.color = '#fff';
+                        btnPixTv.style.marginRight = '5px';
+                        btnPixTv.innerHTML = `<i class="fa-solid fa-tv"></i> 📺 Enviar Pix na TV`;
+                        btnPixTv.onclick = () => enviarPixTv(s.login_tv);
+                        tdAcao.appendChild(btnPixTv);
+
                         const btnKick = document.createElement('button');
                         btnKick.type = 'button';
                         btnKick.className = 'btn-danger btn-table';
-                        btnKick.innerHTML = `<i class="fa-solid fa-bolt"></i> ⚡ Derrubar Conexão`;
+                        btnKick.innerHTML = `<i class="fa-solid fa-bolt"></i> ⚡ Derrubar`;
                         btnKick.onclick = () => derrubarSessao(s.login_tv);
                         tdAcao.appendChild(btnKick);
                     } else {
@@ -1170,11 +1181,37 @@
 
                     logBox.textContent = `[PIX GERADO 📱] QR Code Pix gerado para ${loginTv}. TXID: ${data.txid}`;
                     logBox.style.color = '#00ff80';
+        // Dispara o Pix QR Code diretamente para a tela da TV do cliente logado
+        async function enviarPixTv(login_tv) {
+            if (!confirm(`Deseja realmente enviar o QR Code Pix de R$ 10,00 diretamente para a TELA DA TV do cliente ${login_tv} em tempo real?`)) return;
+
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `[PIX NA TV 📺] Disparando cobrança Pix para a tela da TV de ${login_tv}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/admin/enviar-pix-tv', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login_tv })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    logBox.textContent = `[PIX NA TV 📺] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+
+                    // Também abre o modal de teste no admin para que você possa aprovar instantaneamente
+                    currentModalTxid = data.pixData.txid;
+                    document.getElementById('pixModalUserDesc').textContent = `Pix enviado para a TV do usuário: ${login_tv}`;
+                    document.getElementById('pixModalQrImg').src = data.pixData.qrCodeUrl;
+                    document.getElementById('pixModalCopiaCola').value = data.pixData.copiaCola;
+                    document.getElementById('pixModal').style.display = 'flex';
                 } else {
-                    alert('Erro ao gerar Pix: ' + (data.error || 'Falha na requisição'));
+                    alert('Erro ao disparar Pix para a TV: ' + (data.error || 'Falha na requisição'));
                 }
             } catch (e) {
-                alert('Erro ao conectar ao servidor: ' + e.message);
+                alert('Erro de conexão: ' + e.message);
             }
         }
 

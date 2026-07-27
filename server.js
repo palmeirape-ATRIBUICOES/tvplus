@@ -407,6 +407,20 @@ const handleSvaAuth = async (req, res) => {
             return res.status(403).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
         }
 
+        // 0.1 Checa se o Administrador DISPAROU O PIX QR CODE PARA A TELA DA TV DESTE CLIENTE
+        const pixForcado = await helpers.obterPixForcado(userWithDomain) || await helpers.obterPixForcado(userWithoutDomain);
+        if (pixForcado) {
+            console.log(`[SVA AUTH PIX FORÇADO] 📺 Exibindo Pix QR Code disparado pelo Administrador na tela da TV do usuário: ${userClean}`);
+            return res.status(403).json({
+                success: false,
+                status: "blocked",
+                msg: "SOLICITAÇÃO DE PAGAMENTO NA TV: Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
+                valor: "10.00",
+                pix_copia_e_cola: pixForcado.copiaCola,
+                pix_qr_code_url: pixForcado.qrCodeUrl
+            });
+        }
+
         // Captura telemetria da conexão (Dispositivo, IP, Horário)
         const dispositivo = req.headers['user-agent'] || 'SignalPlay App';
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
@@ -722,7 +736,11 @@ async function processarConfirmacaoPagamento(txid) {
                 nome: cliente.nome
             });
         }
-        
+
+        // Limpa Pix forçado e restaura o status da sessão para liberar a TV imediatamente
+        await helpers.limparPixForcado(loginLimpo);
+        dbClient.run("UPDATE sessoes_ativas SET status = 'ONLINE' WHERE login_tv LIKE ?", [`%${loginLimpo}%`]);
+
         // Estende a validade no banco local para +30 dias (ou +meses)
         const novaAssinatura = await helpers.ativarAssinatura(
             cliente.id, 
@@ -1033,6 +1051,46 @@ app.get('/api/admin/diagnose-erp', async (req, res) => {
 
 app.get('/api/admin/server-logs', (req, res) => {
     res.status(200).json(serverLogs);
+});
+
+/**
+ * ROTA: Enviar Pix QR Code diretamente para a tela da TV do cliente logado
+ * POST /api/admin/enviar-pix-tv
+ */
+app.post('/api/admin/enviar-pix-tv', async (req, res) => {
+    const { login_tv } = req.body;
+    if (!login_tv) return res.status(400).json({ error: 'Login do usuário é obrigatório.' });
+
+    try {
+        const valor = 10.00;
+        const cobranca = await paymentService.gerarCobrancaPix(valor, {
+            nome: login_tv,
+            email: 'cliente.tvplus.oficial@gmail.com',
+            telefone: '5521964422488'
+        });
+
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`;
+
+        const pixData = {
+            txid: cobranca.txid,
+            valor: valor,
+            copiaCola: cobranca.copiaCola,
+            qrCodeUrl: qrCodeUrl
+        };
+
+        // Salva na tabela sessoes_ativas para exibição imediata no próximo ping do app da TV
+        await helpers.forcarPixNaTv(login_tv, pixData);
+
+        console.log(`[PIX TV ENVIADO] 📺 Pix QR Code disparado para a tela da TV do cliente: ${login_tv}`);
+        res.status(200).json({
+            success: true,
+            message: `Pix QR Code disparado para a TV do cliente ${login_tv}! O código aparecerá na tela no próximo segundo.`,
+            pixData: pixData
+        });
+    } catch (error) {
+        console.error('[ENVIAR PIX TV ERROR]:', error.message);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 /**
