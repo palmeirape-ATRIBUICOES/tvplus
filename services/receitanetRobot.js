@@ -195,8 +195,10 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // Localiza e abre a ficha de edição real do cliente no ReceitaNet
-            const editUrl = await this.localizarEAbriFichaCliente(page, login, cpf, nome);
+            // Acessa diretamente a ficha de edição do cliente via login na URL
+            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
+            console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente em: ${editUrl}`);
+            await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
             // Altera o campo cli_login adicionando "_SUSPENSO" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -277,8 +279,10 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // Localiza e abre a ficha de edição real do cliente suspenso no ReceitaNet
-            const editUrl = await this.localizarEAbriFichaCliente(page, login, cpf, nome);
+            // Acessa diretamente a ficha de edição do cliente suspenso via login na URL
+            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}_SUSPENSO`;
+            console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente suspenso em: ${editUrl}`);
+            await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
             // Restaura o campo cli_login para o original diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -365,8 +369,10 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 2. Localiza e abre a ficha do cliente real no ReceitaNet
-            const editUrl = await this.localizarEAbriFichaCliente(page, login, cpf, nome);
+            // 2. Acessa diretamente a ficha de edição do cliente via login na URL
+            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
+            console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente em: ${editUrl}`);
+            await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
             // 3. Clica em "Rescisão" (ou botão correspondente)
             console.log(`[RECEITANET-ROBOT] Acessando tela de rescisão...`);
