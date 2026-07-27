@@ -370,6 +370,23 @@ app.post('/api/webhook/pix', async (req, res) => {
     }
 });
 
+// Armazena em memória as últimas 50 tentativas de login do aplicativo com diagnóstico completo
+const svaDebugLogs = [];
+
+function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senhaCadastrada = null) {
+    const entry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        loginEnviado,
+        senhaEnviada,
+        status,
+        detalhes,
+        senhaCadastrada
+    };
+    svaDebugLogs.unshift(entry);
+    if (svaDebugLogs.length > 50) svaDebugLogs.pop();
+}
+
 /**
  * ENDPOINTS DE AUTENTICAÇÃO CDNTV (Ativo/Inativo localmente no SQLite)
  * POST /api/sva/cdntv/auth
@@ -492,23 +509,6 @@ const handleSvaAuth = async (req, res) => {
                 }
             );
         });
-
-// Armazena em memória as últimas 50 tentativas de login do aplicativo com diagnóstico completo
-const svaDebugLogs = [];
-
-function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senhaCadastrada = null) {
-    const entry = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        loginEnviado,
-        senhaEnviada,
-        status,
-        detalhes,
-        senhaCadastrada
-    };
-    svaDebugLogs.unshift(entry);
-    if (svaDebugLogs.length > 50) svaDebugLogs.pop();
-}
 
         if (assinatura) {
             const vencimento = new Date(assinatura.data_vencimento);
