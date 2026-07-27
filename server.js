@@ -375,11 +375,11 @@ const handleSvaAuth = async (req, res) => {
     let rawPass = req.body.password || req.body.pass || req.body.senha || req.query.password || req.query.pass || req.query.senha || '';
 
     // Suporte nativo para o aplicativo SignalPlay iOS (iPhone / iPad) que envia credenciais no cabeçalho HTTP Authorization
-    if ((!rawUser || !rawPass) && req.headers.authorization) {
+    const headerAuth = req.headers.authorization || req.headers.Authorization || req.headers['authorization'] || '';
+    if ((!rawUser || !rawPass) && headerAuth) {
         try {
-            const authHeader = req.headers.authorization;
-            if (authHeader.startsWith('Basic ')) {
-                const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString('utf8').split(':');
+            if (headerAuth.toLowerCase().startsWith('basic ')) {
+                const credentials = Buffer.from(headerAuth.split(' ')[1], 'base64').toString('utf8').split(':');
                 if (credentials.length >= 2) {
                     rawUser = credentials[0];
                     rawPass = credentials.slice(1).join(':');
