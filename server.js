@@ -369,22 +369,29 @@ app.post('/api/webhook/pix', async (req, res) => {
  * GET /api/sva/cdntv/auth
  */
 const handleSvaAuth = async (req, res) => {
-    const username = req.body.username || req.query.username;
-    const password = req.body.password || req.query.password;
+    const rawUser = req.body.username || req.body.user || req.body.login || req.query.username || req.query.user || req.query.login || '';
+    const rawPass = req.body.password || req.body.pass || req.body.senha || req.query.password || req.query.pass || req.query.senha || '';
 
-    if (!username || !password) {
-        console.log(`[SVA AUTH FAIL] Login ou senha ausentes.`);
+    if (!rawUser || !rawPass) {
+        console.log(`[SVA AUTH FAIL] Login ou senha ausentes na requisição: Body=${JSON.stringify(req.body)}, Query=${JSON.stringify(req.query)}`);
         return res.status(400).json({ success: false, status: "bad_request", msg: "Parâmetros username e password são obrigatórios." });
     }
+
+    const userClean = rawUser.toString().trim().toLowerCase();
+    const passClean = rawPass.toString().trim();
+    const userWithDomain = userClean.includes('@') ? userClean : `${userClean}@tvplus`;
+    const userWithoutDomain = userClean.replace(/@.*$/, '');
+
+    console.log(`[SVA AUTH] Tentativa de login recebida do app: Login='${userClean}' (Variações: '${userWithDomain}', '${userWithoutDomain}'), Senha='${passClean}'`);
 
     try {
         const dbClient = require('./database').db;
         const agora = new Date();
 
         // 0. Checa se o Administrador clicou para DERRUBAR ESTA CONEXÃO
-        const sessaoDerrubada = await helpers.verificarSessaoDerrubada(username);
+        const sessaoDerrubada = await helpers.verificarSessaoDerrubada(userWithDomain) || await helpers.verificarSessaoDerrubada(userWithoutDomain);
         if (sessaoDerrubada) {
-            console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${username}`);
+            console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${userClean}`);
             return res.status(403).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
         }
 
@@ -392,11 +399,13 @@ const handleSvaAuth = async (req, res) => {
         const dispositivo = req.headers['user-agent'] || 'SignalPlay App';
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-        // 1. Busca em assinaturas pagas
+        // 1. Busca em assinaturas pagas (Suporta variações de login com ou sem @tvplus)
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
-                'SELECT * FROM assinaturas WHERE login_tv = ? AND senha_tv = ?',
-                [username, password],
+                `SELECT * FROM assinaturas 
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ?) 
+                   AND TRIM(senha_tv) = ?`,
+                [userClean, userWithDomain, userWithoutDomain, passClean],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -407,20 +416,48 @@ const handleSvaAuth = async (req, res) => {
         if (assinatura) {
             const vencimento = new Date(assinatura.data_vencimento);
             if (assinatura.status === 'ativa' && vencimento > agora) {
-                console.log(`[SVA AUTH OK] Acesso autorizado para cliente pago: ${username} (Expira em: ${assinatura.data_vencimento})`);
-                await helpers.registrarPingSessao(username, dispositivo, ip, 'Canais digitais e Filmes HD');
+                console.log(`[SVA AUTH OK] Acesso autorizado para cliente pago: ${assinatura.login_tv} (Expira em: ${assinatura.data_vencimento})`);
+                await helpers.registrarPingSessao(assinatura.login_tv, dispositivo, ip, 'Canais digitais e Filmes HD');
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
             } else {
-                console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${username}`);
-                return res.status(403).json({ success: false, status: "blocked", msg: "Sua assinatura de TV está suspensa ou vencida." });
+                console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${assinatura.login_tv}`);
+                
+                // Gera cobrança Pix de renovação instantânea para exibição direta no app da TV
+                let pixData = null;
+                try {
+                    const cobranca = await paymentService.gerarCobrancaPix(10.00, {
+                        nome: `Cliente ${assinatura.login_tv}`,
+                        email: `${userWithoutDomain}@tvplus.com`,
+                        telefone: '5521964422488'
+                    });
+                    if (cobranca && cobranca.copiaCola) {
+                        pixData = {
+                            copiaCola: cobranca.copiaCola,
+                            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
+                        };
+                    }
+                } catch (pixErr) {
+                    console.error("[SVA PIX ERROR]:", pixErr.message);
+                }
+
+                return res.status(403).json({ 
+                    success: false, 
+                    status: "blocked", 
+                    msg: "Sua assinatura de TV está vencida. Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
+                    valor: "10.00",
+                    pix_copia_e_cola: pixData ? pixData.copiaCola : null,
+                    pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
+                });
             }
         }
 
         // 2. Se não encontrou em assinaturas, busca na tabela de testes grátis de 3 horas
         const teste = await new Promise((resolve, reject) => {
             dbClient.get(
-                'SELECT * FROM testes WHERE login_tv = ? AND senha_tv = ?',
-                [username, password],
+                `SELECT * FROM testes 
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ?) 
+                   AND TRIM(senha_tv) = ?`,
+                [userClean, userWithDomain, userWithoutDomain, passClean],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -431,16 +468,42 @@ const handleSvaAuth = async (req, res) => {
         if (teste) {
             const expiracaoTeste = new Date(teste.data_expiracao);
             if (teste.status === 'ativo' && expiracaoTeste > agora) {
-                console.log(`[SVA AUTH OK] Acesso autorizado para TESTE GRÁTIS: ${username} (Validade até: ${teste.data_expiracao})`);
-                await helpers.registrarPingSessao(username, dispositivo, ip, 'Teste Grátis 3 Horas');
+                console.log(`[SVA AUTH OK] Acesso autorizado para TESTE GRÁTIS: ${teste.login_tv} (Validade até: ${teste.data_expiracao})`);
+                await helpers.registrarPingSessao(teste.login_tv, dispositivo, ip, 'Teste Grátis 3 Horas');
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso (Teste Grátis de 3 Horas)." });
             } else {
-                console.log(`[SVA AUTH BLOCKED] Teste grátis expirado: ${username}`);
-                return res.status(403).json({ success: false, status: "blocked", msg: "Seu teste grátis de 3 horas expirou." });
+                console.log(`[SVA AUTH BLOCKED] Teste grátis expirado: ${teste.login_tv}`);
+                
+                // Gera Pix de R$ 10,00 para o cliente de teste assinar na hora direto na TV
+                let pixData = null;
+                try {
+                    const cobranca = await paymentService.gerarCobrancaPix(10.00, {
+                        nome: `Teste ${teste.login_tv}`,
+                        email: `${userWithoutDomain}@tvplus.com`,
+                        telefone: teste.telefone
+                    });
+                    if (cobranca && cobranca.copiaCola) {
+                        pixData = {
+                            copiaCola: cobranca.copiaCola,
+                            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
+                        };
+                    }
+                } catch (pixErr) {
+                    console.error("[SVA PIX ERROR]:", pixErr.message);
+                }
+
+                return res.status(403).json({ 
+                    success: false, 
+                    status: "blocked", 
+                    msg: "Seu teste grátis de 3 horas expirou! Assine agora por R$ 10,00/mês pagando o Pix abaixo para liberar o sinal instantaneamente!",
+                    valor: "10.00",
+                    pix_copia_e_cola: pixData ? pixData.copiaCola : null,
+                    pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
+                });
             }
         }
 
-        console.log(`[SVA AUTH FAIL] Credenciais de TV não encontradas: ${username}`);
+        console.log(`[SVA AUTH FAIL] Credenciais de TV não encontradas: ${userClean}`);
         return res.status(401).json({ success: false, status: "not_found", msg: "Credenciais de acesso inválidas!" });
 
     } catch (error) {
