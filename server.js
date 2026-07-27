@@ -555,19 +555,23 @@ async function processarConfirmacaoPagamento(txid) {
         // Remove sufixo 'suspenso' se existir no login
         const loginLimpo = assinatura.login_tv.replace(/suspenso$/, '');
         
-        // Se a assinatura estava pendente (compra direta), cadastra no ReceitaNet pela primeira vez.
-        // Se já estava ativa ou suspensa, chama a reativação no ReceitaNet ERP.
-        const robot = require('./services/receitanetRobot');
+        // Se a assinatura estava pendente (compra direta), enfileira cadastro no ReceitaNet pela primeira vez.
+        // Se já estava ativa ou suspensa, enfileira a reativação no ReceitaNet ERP de forma totalmente assíncrona.
+        const receitanetQueue = require('./services/receitanetQueue');
         if (assinatura.status === 'pendente') {
-            console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Cadastrando e ativando sinal no ReceitaNet pela primeira vez...`);
-            robot.cadastrarEAtivarTV(cliente, loginLimpo, assinatura.senha_tv).then(() => {
-                console.log(`[CONFIRMAÇÃO ROBOT] Cadastro e ativação concluídos no ERP para ${loginLimpo}`);
-            }).catch(e => console.error(`[CONFIRMAÇÃO ROBOT ERROR]:`, e.message));
+            console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Enfileirando cadastro no ERP em 0.01s...`);
+            receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
+                cliente,
+                loginTv: loginLimpo,
+                senhaTv: assinatura.senha_tv
+            });
         } else {
-            console.log(`[CONFIRMAÇÃO] Reativando login no ReceitaNet ERP (${loginLimpo})...`);
-            robot.reativarCliente(loginLimpo, cliente.cpfcnpj, cliente.nome).then(() => {
-                console.log(`[CONFIRMAÇÃO ROBOT] Reativação concluída com sucesso no ERP para ${loginLimpo}`);
-            }).catch(e => console.error(`[CONFIRMAÇÃO ROBOT ERROR]:`, e.message));
+            console.log(`[CONFIRMAÇÃO] Enfileirando reativação do login (${loginLimpo}) no ERP em 0.01s...`);
+            receitanetQueue.adicionarTarefa('REATIVAR', {
+                loginTv: loginLimpo,
+                cpf: cliente.cpfcnpj,
+                nome: cliente.nome
+            });
         }
         
         // Estende a validade no banco local para +30 dias (ou +meses)
@@ -676,12 +680,12 @@ app.post('/api/admin/suspender', async (req, res) => {
                 console.error("[SUSPENDER WA ERROR] Falha no disparo do WhatsApp:", waErr.message);
             });
 
-            // 4. Inicia o bloqueio físico no ReceitaNet em background (não trava o envio da notificação)
-            const robot = require('./services/receitanetRobot');
-            robot.bloquearCliente(row.login_tv, row.cpfcnpj, row.nome).then(() => {
-                console.log(`[SUSPENDER ROBOT] Bloqueio físico no ERP concluído para ${row.login_tv}`);
-            }).catch(robErr => {
-                console.error(`[SUSPENDER ROBOT ERROR] Erro ao bloquear no ERP:`, robErr.message);
+            // 4. Enfileira o bloqueio/suspensão no ReceitaNet ERP em segundo plano (resposta imediata para a tela em 0.01s)
+            const receitanetQueue = require('./services/receitanetQueue');
+            receitanetQueue.adicionarTarefa('SUSPENDER', {
+                loginTv: row.login_tv,
+                cpf: row.cpfcnpj,
+                nome: row.nome
             });
 
             res.status(200).json({ message: 'Cliente suspenso e notificado via WhatsApp com o Pix instantaneamente!' });
@@ -697,29 +701,37 @@ app.post('/api/admin/reativar', async (req, res) => {
         db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
-            const robot = require('./services/receitanetRobot');
+            const receitanetQueue = require('./services/receitanetQueue');
             
             if (row.status === 'pendente') {
                 db.get('SELECT * FROM clientes WHERE id = ?', [cliente_id], async (err3, cliente) => {
                     if (err3 || !cliente) return res.status(404).json({ error: 'Cliente não localizado no banco local.' });
                     
-                    await robot.cadastrarEAtivarTV(cliente, row.login_tv, row.senha_tv);
+                    receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
+                        cliente,
+                        loginTv: row.login_tv,
+                        senhaTv: row.senha_tv
+                    });
                     
                     const novaDataVenc = new Date();
                     novaDataVenc.setDate(novaDataVenc.getDate() + 30);
                     db.run("UPDATE assinaturas SET status = 'ativa', data_vencimento = ? WHERE id = ?", [novaDataVenc.toISOString(), row.id], (err2) => {
                         if (err2) return res.status(500).json({ error: err2.message });
-                        res.status(200).json({ message: 'Cliente cadastrado e sinal de TV ativado com sucesso!' });
+                        res.status(200).json({ message: 'Comando de ativação enfileirado em segundo plano!' });
                     });
                 });
             } else {
-                await robot.reativarCliente(row.login_tv, row.cpfcnpj, row.nome);
-                
+                receitanetQueue.adicionarTarefa('REATIVAR', {
+                    loginTv: row.login_tv,
+                    cpf: row.cpfcnpj,
+                    nome: row.nome
+                });
+
                 const novaDataVenc = new Date();
                 novaDataVenc.setDate(novaDataVenc.getDate() + 30);
                 db.run("UPDATE assinaturas SET status = 'ativa', data_vencimento = ? WHERE id = ?", [novaDataVenc.toISOString(), row.id], (err2) => {
                     if (err2) return res.status(500).json({ error: err2.message });
-                    res.status(200).json({ message: 'Cliente reativado por 30 dias no ReceitaNet e no banco local!' });
+                    res.status(200).json({ message: 'Comando de reativação enfileirado em segundo plano!' });
                 });
             }
         });
@@ -734,14 +746,19 @@ app.post('/api/admin/excluir', async (req, res) => {
         db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
-            const robot = require('./services/receitanetRobot');
-            await robot.excluirCliente(row.login_tv, row.cpfcnpj, row.nome);
+            // Enfileira a exclusão no ERP em segundo plano
+            const receitanetQueue = require('./services/receitanetQueue');
+            receitanetQueue.adicionarTarefa('SUSPENDER', {
+                loginTv: row.login_tv,
+                cpf: row.cpfcnpj,
+                nome: row.nome
+            });
             
-            // Exclui localmente do SQLite
-            db.run('DELETE FROM pagamentos WHERE cliente_id = ?', [cliente_id], (err1) => {
-                db.run('DELETE FROM assinaturas WHERE cliente_id = ?', [cliente_id], (err2) => {
-                    db.run('DELETE FROM clientes WHERE id = ?', [cliente_id], (err3) => {
-                        res.status(200).json({ message: 'Cliente cancelado e excluído com sucesso no ReceitaNet e no banco local!' });
+            // Exclui localmente do SQLite em < 0.01 segundo para liberar a tela imediatamente
+            db.run('DELETE FROM pagamentos WHERE cliente_id = ?', [cliente_id], () => {
+                db.run('DELETE FROM assinaturas WHERE cliente_id = ?', [cliente_id], () => {
+                    db.run('DELETE FROM clientes WHERE id = ?', [cliente_id], () => {
+                        res.status(200).json({ message: 'Cliente excluído localmente em 0.01s! O robô desativará a conta no ERP em segundo plano.' });
                     });
                 });
             });
