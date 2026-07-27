@@ -119,6 +119,37 @@ const dbAll = (sql, params = []) => {
 
 // Helpers do Banco
 const dbHelpers = {
+    // Conversas do Bot IA / Humano
+    async obterEstadoBot(telefone) {
+        let fone = telefone.replace(/\D/g, '');
+        let row = await dbGet('SELECT * FROM conversas_bot WHERE telefone = ?', [fone]);
+        if (!row) {
+            await dbRun('INSERT INTO conversas_bot (telefone, modo) VALUES (?, ?)', [fone, 'IA']);
+            row = { telefone: fone, modo: 'IA', historico: '[]' };
+        }
+        return row;
+    },
+
+    async definirModoBot(telefone, modo) {
+        let fone = telefone.replace(/\D/g, '');
+        await dbRun(`
+            INSERT INTO conversas_bot (telefone, modo, ultima_interacao)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(telefone) DO UPDATE SET modo = excluded.modo, ultima_interacao = CURRENT_TIMESTAMP
+        `, [fone, modo]);
+    },
+
+    async salvarHistoricoBot(telefone, historicoJson) {
+        let fone = telefone.replace(/\D/g, '');
+        await dbRun(`
+            UPDATE conversas_bot SET historico = ?, ultima_interacao = CURRENT_TIMESTAMP WHERE telefone = ?
+        `, [JSON.stringify(historicoJson), fone]);
+    },
+
+    async listarConversasBot() {
+        return await dbAll('SELECT * FROM conversas_bot ORDER BY ultima_interacao DESC');
+    },
+
     // Clientes
     async criarOuObterCliente(nome, email, telefone, cpfcnpj = null, cep = null, endereco = null, numero = null, bairro = null, cidade = null, uf = null) {
         // Normaliza telefone (remove caracteres não numéricos)
