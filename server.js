@@ -449,15 +449,7 @@ const handleSvaAuth = async (req, res) => {
         const dbClient = require('./database').db;
         const agora = new Date();
 
-        // 0. Checa se o Administrador clicou para DERRUBAR ESTA CONEXÃO
-        const sessaoDerrubada = await helpers.verificarSessaoDerrubada(userWithDomain) || await helpers.verificarSessaoDerrubada(userWithoutDomain);
-        if (sessaoDerrubada) {
-            console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${userClean}`);
-            registrarLogDebugSva(userClean, passClean, 'DERRUBADO_ADMIN', 'Sessão derrubada pelo Administrador.');
-            return res.status(200).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
-        }
-
-        // 0.1 Checa se o Administrador DISPAROU O PIX QR CODE PARA A TELA DA TV DESTE CLIENTE
+        // 0. Checa se o Administrador DISPAROU O PIX QR CODE PARA A TELA DA TV DESTE CLIENTE
         let pixForcado = null;
         try {
             pixForcado = await helpers.obterPixForcado(userWithDomain) || await helpers.obterPixForcado(userWithoutDomain) || await helpers.obterPixForcado(userClean);
@@ -479,6 +471,38 @@ const handleSvaAuth = async (req, res) => {
                 valor: "10.00",
                 pix_copia_e_cola: copiaCola,
                 pix_qr_code_url: qrCodeUrl
+            });
+        }
+
+        // 0.1 Checa se o Administrador clicou para DERRUBAR ESTA CONEXÃO
+        const sessaoDerrubada = await helpers.verificarSessaoDerrubada(userWithDomain) || await helpers.verificarSessaoDerrubada(userWithoutDomain);
+        if (sessaoDerrubada) {
+            console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${userClean}`);
+            registrarLogDebugSva(userClean, passClean, 'DERRUBADO_ADMIN', 'Sessão derrubada pelo Administrador.');
+            
+            // Gera um Pix de renovação para exibir na tela derrubada
+            let pixData = null;
+            try {
+                const cobranca = await paymentService.gerarCobrancaPix(10.00, {
+                    nome: `Cliente ${userClean}`,
+                    email: `${userWithoutDomain}@tvplus.com`,
+                    telefone: '5521964422488'
+                });
+                if (cobranca && cobranca.copiaCola) {
+                    pixData = {
+                        copiaCola: cobranca.copiaCola,
+                        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
+                    };
+                }
+            } catch (e) {}
+
+            return res.status(200).json({ 
+                success: false, 
+                status: "kicked", 
+                msg: "Sua conexão foi encerrada pelo Administrador do sistema.",
+                valor: "10.00",
+                pix_copia_e_cola: pixData ? pixData.copiaCola : null,
+                pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
             });
         }
 
