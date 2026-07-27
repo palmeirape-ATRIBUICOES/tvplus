@@ -129,7 +129,7 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 1. Carrega a ficha de edição real do cliente com o cli_id oficial
+            // 1. Carrega a ficha de edição real do cliente com o cli_id oficial via busca no input[name="search"]
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
             // 2. Clica na aba Servidor para revelar o campo cli_login
@@ -334,47 +334,69 @@ class ReceitanetRobotService {
     }
 
     /**
-     * Carrega a ficha de edição real do cliente abrindo a URL parametrizada por cli_id via busca no autocomplete verde
+     * Carrega a ficha de edição real do cliente buscando na barra oficial do menu: input[name="search"] (placeholder="Nome/Login/Tel./CPF")
      */
     async abrirFichaClienteReal(page, login, cpf, nome) {
-        console.log(`[RECEITANET-ROBOT] Buscando cliente no campo verde de autocomplete do ERP...`);
-        await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
+        console.log(`[RECEITANET-ROBOT] Buscando cliente na barra oficial input[name="search"]...`);
         
-        const searchSelector = 'input[placeholder*="Nome/Login"], input[placeholder*="Digite o Nome"], #pesquisa';
+        if (!page.url().includes('receitanet.net')) {
+            await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
+        }
+        
+        const searchSelector = 'input[name="search"], input[placeholder="Nome/Login/Tel./CPF"], input[title="Nome/Login/Tel./CPF"]';
         await page.waitForSelector(searchSelector, { timeout: 10000 });
         
         const termos = [login];
         if (nome) termos.push(nome.split(' ')[0]);
-        if (cpf) termos.push(cpf);
+        if (cpf) {
+            termos.push(cpf);
+            const cpfLimpo = cpf.replace(/\D/g, '');
+            if (cpfLimpo.length >= 11) termos.push(cpfLimpo);
+        }
         
         let loaded = false;
-        const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion';
+        const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion, li.ui-menu-item a';
 
         for (const termo of termos) {
             try {
-                console.log(`[RECEITANET-ROBOT] Pesquisando termo '${termo}' no campo verde...`);
-                await page.click(searchSelector);
-                await page.evaluate((sel) => { document.querySelector(sel).value = ''; }, searchSelector);
-                await page.type(searchSelector, termo);
+                console.log(`[RECEITANET-ROBOT] Pesquisando termo '${termo}' na barra input[name="search"]...`);
+                const inputSearch = await page.$(searchSelector);
+                await inputSearch.click();
                 
-                await page.waitForSelector(dropdownSelector, { timeout: 5000 });
+                await page.evaluate((sel) => {
+                    const el = document.querySelector(sel);
+                    if (el) el.value = '';
+                }, searchSelector);
                 
-                console.log(`[RECEITANET-ROBOT] Sugestão encontrada! Clicando no resultado para '${termo}'...`);
-                await Promise.all([
-                    page.click(dropdownSelector),
-                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
-                ]);
+                await inputSearch.type(termo);
+                
+                console.log(`[RECEITANET-ROBOT] Aguardando o menu suspenso ou resultado para '${termo}'...`);
+                const hasDropdown = await page.waitForSelector(dropdownSelector, { timeout: 5000 }).then(() => true).catch(() => false);
+                
+                if (hasDropdown) {
+                    console.log(`[RECEITANET-ROBOT] Sugestão encontrada! Clicando no resultado do menu suspenso...`);
+                    await Promise.all([
+                        page.click(dropdownSelector),
+                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+                    ]);
+                } else {
+                    console.log(`[RECEITANET-ROBOT] Pressionando Enter na barra input[name="search"]...`);
+                    await Promise.all([
+                        page.keyboard.press('Enter'),
+                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+                    ]);
+                }
                 
                 loaded = true;
-                console.log(`[RECEITANET-ROBOT] Ficha oficial com cli_id carregada com sucesso: ${page.url()}`);
+                console.log(`[RECEITANET-ROBOT] Ficha oficial com cli_id carregada com sucesso via input[name="search"]: ${page.url()}`);
                 break;
             } catch (err) {
-                console.log(`[RECEITANET-ROBOT WARNING] Termo '${termo}' não abriu o autocomplete no ERP: ${err.message}`);
+                console.log(`[RECEITANET-ROBOT WARNING] Termo '${termo}' no input[name="search"]: ${err.message}`);
             }
         }
 
         if (!loaded) {
-            throw new Error(`Não foi possível localizar o cliente '${login}' no ERP por nenhum termo de busca.`);
+            throw new Error(`Não foi possível localizar o cliente '${login}' no ERP usando input[name="search"].`);
         }
     }
 
