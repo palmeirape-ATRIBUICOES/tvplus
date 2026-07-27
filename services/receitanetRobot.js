@@ -218,31 +218,21 @@ class ReceitanetRobotService {
 
             // Altera o campo cli_login adicionando "suspenso" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.evaluate((loginOriginal) => {
+            const nuevoLogin = `${login}suspenso`;
+            
+            await page.evaluate((targetNuevoLogin) => {
                 const input = document.querySelector('input[name="cli_login"]');
                 if (input) {
-                    input.value = `${loginOriginal}suspenso`;
+                    input.value = targetNuevoLogin;
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                 } else {
                     throw new Error("Campo cli_login não localizado na página para alteração.");
                 }
-            }, login);
+            }, nuevoLogin);
 
-            // Grava o cliente e atualiza o Servidor Radius (botão vermelho) para cortar o sinal na hora
-            console.log(`[RECEITANET-ROBOT] Gravando bloqueio no ReceitaNet + Servidor...`);
-            await Promise.all([
-                page.evaluate(() => {
-                    const buttons = Array.from(document.querySelectorAll('button, input, a'));
-                    const btnServidor = buttons.find(b => b.textContent.trim().includes('Servidor'));
-                    const btnDefault = document.getElementById('GravarCliente') || buttons.find(b => b.textContent.trim().includes('Gravar no ReceitaNet'));
-                    
-                    const btn = btnServidor || btnDefault;
-                    if (btn) btn.click();
-                    else throw new Error("Botão de gravação não localizado.");
-                }),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
-            ]);
+            // Submete o formulário com segurança dentro da tag <form>
+            await this.salvarFormularioCliente(page);
 
             console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (pós-gravação)...`);
             await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_after_save.png'), fullPage: true });
@@ -257,11 +247,26 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT DIAGNOSE] Pós-salvamento URL: ${afterSaveStatus.url}`);
             console.log(`[RECEITANET-ROBOT DIAGNOSE] Pós-salvamento Texto:\n${afterSaveStatus.text}\n=== FIM DO TEXTO ===`);
 
-            // Delay de segurança de 3 segundos para garantir a gravação no banco do ReceitaNet
-            console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
+            console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando alteração diretamente no ERP para '${nuevoLogin}'...`);
+            const verifyUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${nuevoLogin}`;
+            await page.goto(verifyUrl, { waitUntil: 'networkidle2' });
+            
+            const verifyResult = await page.evaluate(() => {
+                const loginInput = document.querySelector('input[name="cli_login"]');
+                const nomeInput = document.querySelector('input[name="cli_nome"]');
+                return {
+                    login: loginInput ? loginInput.value : null,
+                    nome: nomeInput ? nomeInput.value : null
+                };
+            });
+            console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado no ERP: Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
+            
+            if (verifyResult.login !== nuevoLogin) {
+                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a alteração! Esperado login '${nuevoLogin}', mas o ERP retornou '${verifyResult.login}'.`);
+            }
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} bloqueado com sucesso (renomeado para ${login}suspenso e sincronizado com o Servidor)!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} bloqueado com sucesso (renomeado para ${nuevoLogin})!`);
             await browser.close();
             return true;
         } catch (error) {
@@ -326,26 +331,29 @@ class ReceitanetRobotService {
                 }
             }, login);
 
-            // Grava o cliente e atualiza o Servidor Radius (botão vermelho) para liberar o sinal na hora
-            console.log(`[RECEITANET-ROBOT] Gravando reativação no ReceitaNet + Servidor...`);
-            await Promise.all([
-                page.evaluate(() => {
-                    const buttons = Array.from(document.querySelectorAll('button, input, a'));
-                    const btnServidor = buttons.find(b => b.textContent.trim().includes('Servidor'));
-                    const btnDefault = document.getElementById('GravarCliente') || buttons.find(b => b.textContent.trim().includes('Gravar no ReceitaNet'));
-                    
-                    const btn = btnServidor || btnDefault;
-                    if (btn) btn.click();
-                    else throw new Error("Botão de gravação não localizado.");
-                }),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
-            ]);
+            // Submete o formulário com segurança dentro da tag <form>
+            await this.salvarFormularioCliente(page);
 
-            // Delay de segurança de 3 segundos para garantir a gravação no banco do ReceitaNet
-            console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
+            console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando reativação diretamente no ERP para '${login}'...`);
+            const verifyUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}`;
+            await page.goto(verifyUrl, { waitUntil: 'networkidle2' });
+            
+            const verifyResult = await page.evaluate(() => {
+                const loginInput = document.querySelector('input[name="cli_login"]');
+                const nomeInput = document.querySelector('input[name="cli_nome"]');
+                return {
+                    login: loginInput ? loginInput.value : null,
+                    nome: nomeInput ? nomeInput.value : null
+                };
+            });
+            console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado no ERP pós-reativação: Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
+            
+            if (verifyResult.login !== login) {
+                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a reativação! Esperado login '${login}', mas o ERP retornou '${verifyResult.login}'.`);
+            }
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} reativado com sucesso (restaurado de ${login}suspenso e sincronizado com o Servidor)!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} reativado com sucesso!`);
             await browser.close();
             return true;
         } catch (error) {
@@ -356,6 +364,53 @@ class ReceitanetRobotService {
             await browser.close();
             throw error;
         }
+    }
+
+    /**
+     * Submete com segurança o formulário de cadastro/edição do cliente isolando os elementos da tag <form>
+     */
+    async salvarFormularioCliente(page) {
+        console.log(`[RECEITANET-ROBOT] Submetendo formulário do cliente no ERP...`);
+        
+        const formInfo = await page.evaluate(() => {
+            const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
+            if (!form) return { found: false };
+            const buttons = Array.from(form.querySelectorAll('input[type="submit"], input[type="button"], button, a')).map(b => ({
+                id: b.id, name: b.name, value: b.value, text: b.textContent.trim(), tag: b.tagName, type: b.type
+            }));
+            return { found: true, action: form.action, buttons };
+        });
+        console.log(`[RECEITANET-ROBOT DIAGNOSE] FormInfo:`, JSON.stringify(formInfo));
+        
+        await Promise.all([
+            page.evaluate(() => {
+                const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
+                if (form) {
+                    // Procura botão específico de submit dentro do formulário do cliente
+                    const submitBtn = form.querySelector('#GravarCliente, input[name="GravarCliente"], input[name="Gravar"], input[type="submit"], button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.click();
+                        return;
+                    }
+                    
+                    const buttons = Array.from(form.querySelectorAll('input, button, a'));
+                    const btnSave = buttons.find(b => {
+                        const val = (b.value || b.textContent || '').toLowerCase();
+                        return val.includes('gravar') || val.includes('salvar') || val.includes('alterar') || val.includes('incluir');
+                    });
+                    
+                    if (btnSave) {
+                        btnSave.click();
+                        return;
+                    }
+                    
+                    form.submit();
+                } else {
+                    throw new Error("Formulário principal do cliente não encontrado no DOM.");
+                }
+            }),
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+        ]);
     }
 
     /**
