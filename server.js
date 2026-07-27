@@ -379,12 +379,22 @@ const handleSvaAuth = async (req, res) => {
         return res.status(400).json({ success: false, status: "bad_request", msg: "Parâmetros username e password são obrigatórios." });
     }
 
-    const userClean = rawUser.toString().trim().toLowerCase();
-    const passClean = rawPass.toString().trim();
+    let userClean = rawUser.toString().trim().toLowerCase();
+    try {
+        userClean = decodeURIComponent(userClean);
+    } catch (e) {}
+    userClean = userClean.replace(/%40/g, '@').trim();
+
+    let passClean = rawPass.toString().trim();
+    try {
+        passClean = decodeURIComponent(passClean);
+    } catch (e) {}
+    passClean = passClean.trim();
+
     const userWithDomain = userClean.includes('@') ? userClean : `${userClean}@tvplus`;
     const userWithoutDomain = userClean.replace(/@.*$/, '');
 
-    console.log(`[SVA AUTH] Tentativa de login recebida do app: Login='${userClean}' (Variações: '${userWithDomain}', '${userWithoutDomain}'), Senha='${passClean}'`);
+    console.log(`[SVA AUTH] Login decodificado: User='${userClean}' (Com Domínio: '${userWithDomain}', Sem Domínio: '${userWithoutDomain}'), Pass='${passClean}'`);
 
     try {
         const dbClient = require('./database').db;
@@ -405,9 +415,9 @@ const handleSvaAuth = async (req, res) => {
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
                 `SELECT * FROM assinaturas 
-                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ?) 
-                   AND TRIM(senha_tv) = ?`,
-                [userClean, userWithDomain, userWithoutDomain, passClean],
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?) 
+                   AND (TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?)`,
+                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, passClean, passClean],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -457,9 +467,9 @@ const handleSvaAuth = async (req, res) => {
         const teste = await new Promise((resolve, reject) => {
             dbClient.get(
                 `SELECT * FROM testes 
-                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ?) 
+                 WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?) 
                    AND (TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?)`,
-                [userClean, userWithDomain, userWithoutDomain, passClean, passClean],
+                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, passClean, passClean],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
