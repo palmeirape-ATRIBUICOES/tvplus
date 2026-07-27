@@ -616,8 +616,8 @@ function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senh
         return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
 
     } catch (error) {
-        console.error('[SVA AUTH ERROR] Erro na autenticação SVA:', error.message);
-        res.status(500).json({ success: false, status: "error", msg: "Erro interno no servidor." });
+        console.error('[SVA AUTH ERROR]:', error);
+        res.status(500).json({ success: false, status: "error", msg: "Erro interno no servidor.", detalheErro: error.message, stack: error.stack });
     }
 };
 
