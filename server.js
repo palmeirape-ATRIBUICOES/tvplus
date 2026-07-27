@@ -941,4 +941,11 @@ app.post('/api/admin/bot-toggle', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor rodando com sucesso na porta ${PORT}`);
     console.log(`Acesse http://localhost:${PORT} para visualizar a Landing Page.`);
+    
+    // Inicia checagem automática em tempo real de Pix pagos a cada 15 segundos
+    const { verificarPagamentosPendentes } = require('./cron');
+    setInterval(() => {
+        verificarPagamentosPendentes(processarConfirmacaoPagamento);
+    }, 15000);
+    console.log('[PIX POLLING] Monitor em tempo real de pagamentos Pix ativado (a cada 15 segundos).');
 });

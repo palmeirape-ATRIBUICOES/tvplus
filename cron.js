@@ -10,6 +10,36 @@ function capitalizeName(name) {
 }
 
 /**
+ * Checagem automática em tempo real de pagamentos Pix pendentes no Mercado Pago
+ */
+async function verificarPagamentosPendentes(processarConfirmacaoFn) {
+    try {
+        const { db } = require('./database');
+        db.all("SELECT * FROM pagamentos WHERE status = 'pendente'", [], async (err, rows) => {
+            if (err || !rows || rows.length === 0) return;
+            
+            for (const pag of rows) {
+                if (process.env.MOCK_PAYMENT === 'true') continue;
+                
+                try {
+                    const status = await paymentService.verificarStatusPagamento(pag.txid_pix);
+                    if (status === 'approved') {
+                        console.log(`[PIX POLLING OK] Pagamento Pix aprovado detectado pelo Mercado Pago para TXID: ${pag.txid_pix}! Reativando cliente...`);
+                        if (processarConfirmacaoFn) {
+                            await processarConfirmacaoFn(pag.txid_pix);
+                        }
+                    }
+                } catch (errPag) {
+                    // Silencioso em falhas pontuais da API do Mercado Pago
+                }
+            }
+        });
+    } catch (e) {
+        // Ignora erros genéricos de banco de dados no polling
+    }
+}
+
+/**
  * Função principal para checagem de vencimento, envio de cobranças e suspensões automáticas
  */
 async function verificarAssinaturas() {
@@ -114,5 +144,6 @@ console.log('Cron Job de checagem agendado para rodar a cada 5 minutos.');
 
 // Exporta para controle administrativo
 module.exports = {
-    verificarAssinaturas
+    verificarAssinaturas,
+    verificarPagamentosPendentes
 };

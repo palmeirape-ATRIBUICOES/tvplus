@@ -34,10 +34,15 @@ class PaymentService {
             const cleanDoc = (cliente.cpfcnpj || '').replace(/\D/g, '');
             const docType = cleanDoc.length === 14 ? 'CNPJ' : 'CPF';
             
+            const notificationUrl = process.env.RENDER_EXTERNAL_URL ? 
+                `${process.env.RENDER_EXTERNAL_URL}/api/webhook/pix` : 
+                'https://tv-pix-platform.onrender.com/api/webhook/pix';
+
             const response = await axios.post('https://api.mercadopago.com/v1/payments', {
                 transaction_amount: valor,
                 description: `Mensalidade TV - ${cliente.nome}`,
                 payment_method_id: 'pix',
+                notification_url: notificationUrl,
                 payer: {
                     email: cliente.email,
                     first_name: cliente.nome.split(' ')[0] || 'Cliente',
