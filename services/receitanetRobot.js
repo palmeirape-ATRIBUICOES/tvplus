@@ -129,13 +129,11 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 1. Carrega a ficha de edição real do cliente com o cli_id oficial via busca no input[name="search"]
+            // 1. Carrega a ficha oficial do cliente via busca input[name="search"] (permaneça na aba padrão DADOS PESSOAIS)
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
-            // 2. Clica na aba Servidor para revelar o campo cli_login
-            await this.abrirAbaServidor(page);
-
-            // 3. Altera o campo cli_login adicionando "suspenso" diretamente pelo DOM
+            // 2. Na aba padrão DADOS PESSOAIS, localiza o campo cli_login e altera para login + "suspenso"
+            console.log(`[RECEITANET-ROBOT] Alterando campo cli_login na aba DADOS PESSOAIS para '${nuevoLogin}'...`);
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             
             await page.evaluate((targetNuevoLogin) => {
@@ -145,17 +143,16 @@ class ReceitanetRobotService {
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                 } else {
-                    throw new Error("Campo cli_login não localizado na página para alteração.");
+                    throw new Error("Campo cli_login não localizado na aba DADOS PESSOAIS.");
                 }
             }, nuevoLogin);
 
-            // 4. Submete o formulário clicando no botão vermelho 'Gravar no ReceitaNet + Servidor'
+            // 3. Submete o formulário com o botão vermelho 'Gravar no ReceitaNet + Servidor' (com atualizar=1)
             await this.salvarFormularioCliente(page);
 
-            // 5. --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
+            // 4. --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando alteração diretamente no ERP para '${nuevoLogin}'...`);
             await this.abrirFichaClienteReal(page, nuevoLogin, cpf, nome);
-            await this.abrirAbaServidor(page);
 
             const verifyResult = await page.evaluate(() => {
                 const loginInput = document.querySelector('input[name="cli_login"]');
@@ -165,7 +162,7 @@ class ReceitanetRobotService {
                     nome: nomeInput ? nomeInput.value : null
                 };
             });
-            console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado auditado no ERP: Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
+            console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado auditado no ERP (Aba Dados Pessoais): Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
             
             if (verifyResult.login !== nuevoLogin) {
                 throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a alteração! Esperado login '${nuevoLogin}', mas no ERP consta '${verifyResult.login}'.`);
@@ -212,8 +209,8 @@ class ReceitanetRobotService {
             ]);
 
             await this.abrirFichaClienteReal(page, loginSuspenso, cpf, nome);
-            await this.abrirAbaServidor(page);
 
+            console.log(`[RECEITANET-ROBOT] Restaurando campo cli_login na aba DADOS PESSOAIS para '${login}'...`);
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             await page.evaluate((loginOriginal) => {
                 const input = document.querySelector('input[name="cli_login"]');
@@ -222,7 +219,7 @@ class ReceitanetRobotService {
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                 } else {
-                    throw new Error("Campo cli_login não localizado na página para alteração.");
+                    throw new Error("Campo cli_login não localizado na aba DADOS PESSOAIS.");
                 }
             }, login);
 
@@ -231,7 +228,6 @@ class ReceitanetRobotService {
             // --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando reativação diretamente no ERP para '${login}'...`);
             await this.abrirFichaClienteReal(page, login, cpf, nome);
-            await this.abrirAbaServidor(page);
 
             const verifyResult = await page.evaluate(() => {
                 const loginInput = document.querySelector('input[name="cli_login"]');
@@ -398,21 +394,6 @@ class ReceitanetRobotService {
         if (!loaded) {
             throw new Error(`Não foi possível localizar o cliente '${login}' no ERP usando input[name="search"].`);
         }
-    }
-
-    async abrirAbaServidor(page) {
-        console.log(`[RECEITANET-ROBOT] Ativando aba 'Servidor' no formulário...`);
-        await page.evaluate(() => {
-            const elements = Array.from(document.querySelectorAll('a, button, li, span, h4'));
-            const tabServidor = elements.find(el => {
-                const txt = el.textContent.trim();
-                return txt === 'Servidor' || txt === 'Autenticação' || txt === 'Dados Servidor';
-            });
-            if (tabServidor) {
-                tabServidor.click();
-            }
-        });
-        await new Promise(r => setTimeout(r, 1500));
     }
 
     async salvarFormularioCliente(page) {
