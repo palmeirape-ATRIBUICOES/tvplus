@@ -53,7 +53,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Middleware de Autenticação Básica para o Painel Administrativo
 const basicAuth = (req, res, next) => {
-    const authHeader = req.headers.authorization;
+    // Se a requisição NÃO for para rotas administrativas, libera o fluxo imediatamente
+    if (!req.path.startsWith('/api/admin/')) {
+        return next();
+    }
+
+    const authHeader = req.headers.authorization || req.headers.Authorization || req.headers['authorization'];
     if (authHeader) {
         try {
             const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
@@ -65,7 +70,7 @@ const basicAuth = (req, res, next) => {
     
     // Permite que chamadas AJAX (fetch) originadas da própria página admin.html funcionem sem 401
     const referer = req.headers.referer || req.headers.referrer || '';
-    if (referer.includes('/admin.html') || req.path.startsWith('/api/admin/')) {
+    if (referer.includes('/admin.html')) {
         return next();
     }
 
