@@ -624,15 +624,48 @@ app.get('/api/admin/clientes', async (req, res) => {
 app.post('/api/admin/suspender', async (req, res) => {
     const { cliente_id } = req.body;
     try {
-        db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
+        db.get('SELECT a.*, c.nome, c.email, c.telefone, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
             const robot = require('./services/receitanetRobot');
             await robot.bloquearCliente(row.login_tv, row.cpfcnpj, row.nome);
             
-            db.run("UPDATE assinaturas SET status = 'suspensa' WHERE id = ?", [row.id], (err2) => {
+            db.run("UPDATE assinaturas SET status = 'suspensa' WHERE id = ?", [row.id], async (err2) => {
                 if (err2) return res.status(500).json({ error: err2.message });
-                res.status(200).json({ message: 'Cliente suspenso com sucesso no ReceitaNet e no banco local!' });
+
+                // 1. Gera cobrança Pix automática de renovação (R$ 10,00 por padrão)
+                const valorRenovacao = 10.00;
+                let cobranca = { copiaCola: 'PIX-NAO-CONFIGURADO', txid: 'TX' + Date.now() };
+                try {
+                    cobranca = await paymentService.gerarCobrancaPix(valorRenovacao, {
+                        nome: row.nome,
+                        email: row.email,
+                        telefone: row.telefone
+                    });
+                    await helpers.criarPagamento(row.cliente_id, cobranca.txid, valorRenovacao);
+                } catch (pixErr) {
+                    console.error("[SUSPENDER] Aviso: Não foi possível gerar chave Pix dinâmica:", pixErr.message);
+                }
+
+                // 2. Notifica o cliente via WhatsApp informando sobre o bloqueio e fornecendo o Pix
+                const nomeCapitalizado = capitalizeName(row.nome);
+                const mensagemBloqueio = `Olá, *${nomeCapitalizado}*!\n\n` +
+                                         `Notamos que o seu acesso ao aplicativo *SIGNALPLAY* foi suspenso por pendência de pagamento.\n` +
+                                         `Como resultado, o seu login *${row.login_tv}* foi temporariamente bloqueado.\n\n` +
+                                         `Para reativar seu sinal por mais *30 dias* agora mesmo, realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
+                                         `🔑 *Chave Pix (Copia e Cola) para renovação:*\n\`${cobranca.copiaCola}\`\n\n` +
+                                         `⚠️ *Aviso de Uso simultâneo:*\n` +
+                                         `• Seu login permite assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
+                                         `• *Evite usar em mais de 3 aparelhos* para não causar bloqueios automáticos ou travamentos na sua assinatura.\n\n` +
+                                         `Assim que o Pix for pago, o sistema reativará seu sinal automaticamente no ReceitaNet em instantes!`;
+                
+                try {
+                    await whatsappService.enviarMensagem(row.telefone, mensagemBloqueio);
+                } catch (waErr) {
+                    console.error("[SUSPENDER] Aviso: Falha ao enviar WhatsApp:", waErr.message);
+                }
+
+                res.status(200).json({ message: 'Cliente suspenso com sucesso no ReceitaNet e notificado via WhatsApp com o Pix de renovação!' });
             });
         });
     } catch (error) {
