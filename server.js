@@ -474,8 +474,8 @@ const handleSvaAuth = async (req, res) => {
 
             return res.status(200).json({
                 success: false,
-                status: "blocked",
-                msg: "SOLICITAÇÃO DE PAGAMENTO NA TV: Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
+                status: "kicked",
+                msg: "SOLICITAÇÃO DE PAGAMENTO NA TV: Pague o Pix de R$ 10,00 para assinar e liberar seu sinal instantaneamente!",
                 valor: "10.00",
                 pix_copia_e_cola: copiaCola,
                 pix_qr_code_url: qrCodeUrl
@@ -621,11 +621,30 @@ const handleSvaAuth = async (req, res) => {
             
             dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ?", [`%${userWithoutDomain}%`]);
 
+            let pixData = null;
+            try {
+                const cobranca = await paymentService.gerarCobrancaPix(10.00, {
+                    nome: `Teste ${userClean}`,
+                    email: `${userWithoutDomain}@tvplus.com`,
+                    telefone: '5521964422488'
+                });
+                if (cobranca && cobranca.copiaCola) {
+                    pixData = {
+                        copiaCola: cobranca.copiaCola,
+                        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
+                    };
+                }
+            } catch (pixErr) {
+                console.error("[SVA PIX ERROR]:", pixErr.message);
+            }
+
             return res.status(200).json({
                 success: false,
                 status: "kicked",
-                msg: "Seu teste grátis de 3 horas finalizou e o acesso foi encerrado. Assine o plano mensal por apenas R$ 10,00/mês para continuar assistindo!",
-                valor: "10.00"
+                msg: "Seu teste grátis de 3 horas finalizou e o acesso foi encerrado pelo Administrador. Assine o plano mensal por apenas R$ 10,00/mês para continuar assistindo!",
+                valor: "10.00",
+                pix_copia_e_cola: pixData ? pixData.copiaCola : null,
+                pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
             });
         }
 
