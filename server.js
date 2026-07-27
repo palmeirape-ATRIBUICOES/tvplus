@@ -371,12 +371,29 @@ app.post('/api/webhook/pix', async (req, res) => {
  * GET /api/sva/cdntv/auth
  */
 const handleSvaAuth = async (req, res) => {
-    const rawUser = req.body.username || req.body.user || req.body.login || req.query.username || req.query.user || req.query.login || '';
-    const rawPass = req.body.password || req.body.pass || req.body.senha || req.query.password || req.query.pass || req.query.senha || '';
+    let rawUser = req.body.username || req.body.user || req.body.login || req.query.username || req.query.user || req.query.login || '';
+    let rawPass = req.body.password || req.body.pass || req.body.senha || req.query.password || req.query.pass || req.query.senha || '';
+
+    // Suporte nativo para o aplicativo SignalPlay iOS (iPhone / iPad) que envia credenciais no cabeçalho HTTP Authorization
+    if ((!rawUser || !rawPass) && req.headers.authorization) {
+        try {
+            const authHeader = req.headers.authorization;
+            if (authHeader.startsWith('Basic ')) {
+                const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString('utf8').split(':');
+                if (credentials.length >= 2) {
+                    rawUser = credentials[0];
+                    rawPass = credentials.slice(1).join(':');
+                    console.log(`[SVA AUTH iOS BASIC AUTH] Extraído do cabeçalho HTTP do iOS: User='${rawUser}', Pass='${rawPass}'`);
+                }
+            }
+        } catch (e) {
+            console.error('[SVA AUTH iOS HEADER ERROR]:', e.message);
+        }
+    }
 
     if (!rawUser || !rawPass) {
-        console.log(`[SVA AUTH FAIL] Login ou senha ausentes na requisição: Body=${JSON.stringify(req.body)}, Query=${JSON.stringify(req.query)}`);
-        return res.status(400).json({ success: false, status: "bad_request", msg: "Parâmetros username e password são obrigatórios." });
+        console.log(`[SVA AUTH FAIL] Login ou senha ausentes na requisição: Body=${JSON.stringify(req.body)}, Query=${JSON.stringify(req.query)}, Headers=${JSON.stringify(req.headers)}`);
+        return res.status(200).json({ success: false, status: "bad_request", msg: "Parâmetros username e password são obrigatórios." });
     }
 
     let userClean = rawUser.toString().trim().toLowerCase();
@@ -414,7 +431,7 @@ const handleSvaAuth = async (req, res) => {
         if (sessaoDerrubada) {
             console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${userClean}`);
             registrarLogDebugSva(userClean, passClean, 'DERRUBADO_ADMIN', 'Sessão derrubada pelo Administrador.');
-            return res.status(403).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
+            return res.status(200).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
         }
 
         // 0.1 Checa se o Administrador DISPAROU O PIX QR CODE PARA A TELA DA TV DESTE CLIENTE
@@ -422,7 +439,7 @@ const handleSvaAuth = async (req, res) => {
         if (pixForcado) {
             console.log(`[SVA AUTH PIX FORÇADO] 📺 Exibindo Pix QR Code disparado pelo Administrador na tela da TV do usuário: ${userClean}`);
             registrarLogDebugSva(userClean, passClean, 'PIX_TV_FORCADO', 'Pix QR Code forçado na tela da TV.');
-            return res.status(403).json({
+            return res.status(200).json({
                 success: false,
                 status: "blocked",
                 msg: "SOLICITAÇÃO DE PAGAMENTO NA TV: Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
@@ -507,7 +524,7 @@ function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senh
                     console.error("[SVA PIX ERROR]:", pixErr.message);
                 }
 
-                return res.status(403).json({ 
+                return res.status(200).json({ 
                     success: false, 
                     status: "blocked", 
                     msg: "Sua assinatura de TV está vencida. Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
@@ -559,7 +576,7 @@ function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senh
                     console.error("[SVA PIX ERROR]:", pixErr.message);
                 }
 
-                return res.status(403).json({ 
+                return res.status(200).json({ 
                     success: false, 
                     status: "blocked", 
                     msg: "Seu teste grátis de 3 horas expirou! Assine agora por R$ 10,00/mês pagando o Pix abaixo para liberar o sinal instantaneamente!",
