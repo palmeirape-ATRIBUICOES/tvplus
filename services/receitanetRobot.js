@@ -204,6 +204,18 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (ficha carregada)...`);
             await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_edit_loaded.png'), fullPage: true });
 
+            // Diagnóstico de campos preenchidos
+            const formStatus = await page.evaluate(() => {
+                const nomeInput = document.querySelector('input[name="cli_nome"]');
+                const cpfInput = document.querySelector('input[name="cli_cgc"]');
+                return {
+                    nome: nomeInput ? nomeInput.value : null,
+                    cpf: cpfInput ? cpfInput.value : null,
+                    outerHTML: nomeInput ? nomeInput.outerHTML : null
+                };
+            });
+            console.log(`[RECEITANET-ROBOT DIAGNOSE] Ficha carregada: Nome='${formStatus.nome}', CPF='${formStatus.cpf}'`);
+
             // Altera o campo cli_login adicionando "suspenso" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             await page.evaluate((loginOriginal) => {
@@ -234,6 +246,16 @@ class ReceitanetRobotService {
 
             console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (pós-gravação)...`);
             await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_after_save.png'), fullPage: true });
+
+            // Diagnóstico de página pós-salvamento
+            const afterSaveStatus = await page.evaluate(() => {
+                return {
+                    url: window.location.href,
+                    text: document.body.innerText.substring(0, 800)
+                };
+            });
+            console.log(`[RECEITANET-ROBOT DIAGNOSE] Pós-salvamento URL: ${afterSaveStatus.url}`);
+            console.log(`[RECEITANET-ROBOT DIAGNOSE] Pós-salvamento Texto:\n${afterSaveStatus.text}\n=== FIM DO TEXTO ===`);
 
             // Delay de segurança de 3 segundos para garantir a gravação no banco do ReceitaNet
             console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
