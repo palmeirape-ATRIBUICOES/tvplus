@@ -5,9 +5,6 @@ const RECEITANET_LOGIN_URL = 'https://sistema.receitanet.net/';
 const CADASTRO_CLIENTE_URL = 'https://sistema.receitanet.net/clientes_cadastro.php';
 
 class ReceitanetRobotService {
-    /**
-     * Automatiza o login no painel, cria o cliente com as credenciais SVA e associa o plano CDNTV
-     */
     async cadastrarEAtivarTV(cliente, loginTv, senhaTv) {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
@@ -132,8 +129,8 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // 1. Carrega a ficha de edição real do cliente (obtém o cli_id na URL via busca por autocomplete)
-            await this.abrirFichaClienteReal(page, login, cpf);
+            // 1. Carrega a ficha de edição real do cliente com o cli_id oficial
+            await this.abrirFichaClienteReal(page, login, cpf, nome);
 
             // 2. Clica na aba Servidor para revelar o campo cli_login
             await this.abrirAbaServidor(page);
@@ -157,7 +154,7 @@ class ReceitanetRobotService {
 
             // 5. --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando alteração diretamente no ERP para '${nuevoLogin}'...`);
-            await this.abrirFichaClienteReal(page, nuevoLogin, cpf);
+            await this.abrirFichaClienteReal(page, nuevoLogin, cpf, nome);
             await this.abrirAbaServidor(page);
 
             const verifyResult = await page.evaluate(() => {
@@ -214,8 +211,7 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            // Carrega a ficha do cliente suspenso usando a busca do autocomplete
-            await this.abrirFichaClienteReal(page, loginSuspenso, cpf);
+            await this.abrirFichaClienteReal(page, loginSuspenso, cpf, nome);
             await this.abrirAbaServidor(page);
 
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
@@ -230,12 +226,11 @@ class ReceitanetRobotService {
                 }
             }, login);
 
-            // Submete o formulário clicando no botão vermelho 'Gravar no ReceitaNet + Servidor'
             await this.salvarFormularioCliente(page);
 
             // --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
             console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando reativação diretamente no ERP para '${login}'...`);
-            await this.abrirFichaClienteReal(page, login, cpf);
+            await this.abrirFichaClienteReal(page, login, cpf, nome);
             await this.abrirAbaServidor(page);
 
             const verifyResult = await page.evaluate(() => {
@@ -296,7 +291,7 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            await this.abrirFichaClienteReal(page, login, cpf);
+            await this.abrirFichaClienteReal(page, login, cpf, nome);
 
             console.log(`[RECEITANET-ROBOT] Acessando tela de rescisão...`);
             await Promise.all([
@@ -338,32 +333,49 @@ class ReceitanetRobotService {
         }
     }
 
-    async abrirFichaClienteReal(page, login, cpf) {
-        console.log(`[RECEITANET-ROBOT] Buscando cliente via autocomplete para carregar o cli_id verdadeiro...`);
+    /**
+     * Carrega a ficha de edição real do cliente abrindo a URL parametrizada por cli_id via busca no autocomplete verde
+     */
+    async abrirFichaClienteReal(page, login, cpf, nome) {
+        console.log(`[RECEITANET-ROBOT] Buscando cliente no campo verde de autocomplete do ERP...`);
         await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
         
         const searchSelector = 'input[placeholder*="Nome/Login"], input[placeholder*="Digite o Nome"], #pesquisa';
         await page.waitForSelector(searchSelector, { timeout: 10000 });
-        await page.click(searchSelector);
         
-        await page.evaluate((sel) => { document.querySelector(sel).value = ''; }, searchSelector);
+        const termos = [login];
+        if (nome) termos.push(nome.split(' ')[0]);
+        if (cpf) termos.push(cpf);
         
-        const cpfLimpo = cpf ? cpf.replace(/\D/g, '') : '';
-        const termoBusca = (cpfLimpo && cpfLimpo.length >= 11) ? cpfLimpo : login;
-        console.log(`[RECEITANET-ROBOT] Pesquisando termo '${termoBusca}' no campo verde de busca do ERP...`);
-        
-        await page.type(searchSelector, termoBusca);
-        
+        let loaded = false;
         const dropdownSelector = 'ul.ui-autocomplete li.ui-menu-item, .ui-menu-item, .autocomplete-suggestion';
-        await page.waitForSelector(dropdownSelector, { timeout: 10000 });
-        
-        console.log(`[RECEITANET-ROBOT] Clicando no resultado do cliente no autocomplete...`);
-        await Promise.all([
-            page.click(dropdownSelector),
-            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
-        ]);
-        
-        console.log(`[RECEITANET-ROBOT] Ficha de edição do cliente carregada com sucesso (URL real com cli_id): ${page.url()}`);
+
+        for (const termo of termos) {
+            try {
+                console.log(`[RECEITANET-ROBOT] Pesquisando termo '${termo}' no campo verde...`);
+                await page.click(searchSelector);
+                await page.evaluate((sel) => { document.querySelector(sel).value = ''; }, searchSelector);
+                await page.type(searchSelector, termo);
+                
+                await page.waitForSelector(dropdownSelector, { timeout: 5000 });
+                
+                console.log(`[RECEITANET-ROBOT] Sugestão encontrada! Clicando no resultado para '${termo}'...`);
+                await Promise.all([
+                    page.click(dropdownSelector),
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 25000 })
+                ]);
+                
+                loaded = true;
+                console.log(`[RECEITANET-ROBOT] Ficha oficial com cli_id carregada com sucesso: ${page.url()}`);
+                break;
+            } catch (err) {
+                console.log(`[RECEITANET-ROBOT WARNING] Termo '${termo}' não abriu o autocomplete no ERP: ${err.message}`);
+            }
+        }
+
+        if (!loaded) {
+            throw new Error(`Não foi possível localizar o cliente '${login}' no ERP por nenhum termo de busca.`);
+        }
     }
 
     async abrirAbaServidor(page) {
