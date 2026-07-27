@@ -46,19 +46,17 @@ class WhatsappService {
                     targetUrl = `${targetUrl}/send-text`;
                 }
 
-                // Obtém o Client Token da variável WHATSAPP_CLIENT_TOKEN ou usa o WHATSAPP_API_TOKEN
-                const clientToken = (process.env.WHATSAPP_CLIENT_TOKEN || process.env.WHATSAPP_API_TOKEN || '').trim();
-
                 const zapiHeaders = { 
                     'Content-Type': 'application/json' 
                 };
 
-                if (clientToken) {
-                    zapiHeaders['Client-Token'] = clientToken;
-                    zapiHeaders['client-token'] = clientToken;
+                // Envia o cabeçalho Client-Token APENAS se a variável WHATSAPP_CLIENT_TOKEN estiver definida no Render
+                const clientTokenSecret = process.env.WHATSAPP_CLIENT_TOKEN ? process.env.WHATSAPP_CLIENT_TOKEN.trim() : null;
+                if (clientTokenSecret) {
+                    zapiHeaders['Client-Token'] = clientTokenSecret;
                 }
 
-                console.log(`[WHATSAPP Z-API] Disparando para Z-API na URL: ${targetUrl} (Client-Token enviado: ${clientToken ? 'SIM' : 'NÃO'})`);
+                console.log(`[WHATSAPP Z-API] Disparando para Z-API na URL: ${targetUrl} (Client-Token enviado: ${clientTokenSecret ? 'SIM' : 'NÃO'})`);
                 
                 response = await axios.post(targetUrl, {
                     phone: foneDestinatario,
