@@ -277,7 +277,7 @@ class ReceitanetRobotService {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando exclusão completa do login: ${login} (CPF: ${cpf}, Nome: ${nome})`);
+        console.log(`[RECEITANET-ROBOT] Iniciando exclusão e rescisão completa do login: ${login}`);
         
         const launchOptions = {
             headless: true,
@@ -307,43 +307,47 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            await this.abrirFichaClienteReal(page, login, cpf, nome);
+            const rescisaoUrl = `https://sistema.receitanet.net/clientes_rescisao.php?login=${encodeURIComponent(login)}`;
+            console.log(`[RECEITANET-ROBOT] Abrindo URL direta de rescisão do teste no ERP: ${rescisaoUrl}...`);
+            await page.goto(rescisaoUrl, { waitUntil: 'networkidle2' });
 
-            console.log(`[RECEITANET-ROBOT] Acessando tela de rescisão...`);
-            await Promise.all([
-                page.evaluate(() => {
-                    const btn = Array.from(document.querySelectorAll('button, input, a')).find(b => b.textContent.trim().includes('Rescisão'));
-                    if (btn) btn.click();
-                    else throw new Error("Botão/aba 'Rescisão' não encontrado.");
-                }),
-                page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {})
-            ]);
+            const hasSelect = await page.waitForSelector('select[name="cancelamento_motivo"]', { timeout: 10000 }).then(() => true).catch(() => false);
+            if (!hasSelect) {
+                console.log(`[RECEITANET-ROBOT] O login '${login}' não necessita de rescisão ou já foi excluído do ERP.`);
+                await browser.close();
+                return true;
+            }
 
-            console.log(`[RECEITANET-ROBOT] Selecionando motivo 'cancelado chip'...`);
-            await page.waitForSelector('select', { timeout: 10000 });
+            console.log(`[RECEITANET-ROBOT] Selecionando motivo 'Cancelado Chip' para a conta de teste ${login}...`);
             await page.evaluate(() => {
-                const selects = Array.from(document.querySelectorAll('select'));
-                const selectMotivo = selects.find(s => Array.from(s.options).some(o => o.text.toLowerCase().includes('chip')));
+                const selectMotivo = document.querySelector('select[name="cancelamento_motivo"]');
                 if (selectMotivo) {
-                    const opt = Array.from(selectMotivo.options).find(o => o.text.toLowerCase().includes('chip'));
-                    selectMotivo.value = opt.value;
-                    selectMotivo.dispatchEvent(new Event('change'));
+                    const opt = Array.from(selectMotivo.options).find(o => o.text.toLowerCase().includes('chip') || o.value === '13');
+                    if (opt) {
+                        selectMotivo.value = opt.value;
+                        selectMotivo.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }
             });
 
-            console.log(`[RECEITANET-ROBOT] Confirmando rescisão contratual...`);
-            await page.evaluate(() => {
-                const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
-                const btnGravar = buttons.find(b => b.textContent.trim().includes('Gravar') || b.textContent.trim().includes('Salvar') || b.textContent.trim().includes('Confirmar'));
-                if (btnGravar) btnGravar.click();
-            });
+            console.log(`[RECEITANET-ROBOT] Submetendo rescisão e efetuando baixa definitiva do cadastro no ERP...`);
+            await Promise.all([
+                page.evaluate(() => {
+                    const form = document.querySelector('form');
+                    if (form) form.submit();
+                    else {
+                        const btn = Array.from(document.querySelectorAll('button, input[type="submit"]')).find(b => b.textContent.includes('Gravar') || b.textContent.includes('Calcular'));
+                        if (btn) btn.click();
+                    }
+                }),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+            ]);
 
-            await new Promise(r => setTimeout(r, 4000));
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} excluído e contrato rescindido no ReceitaNet!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] Cliente de teste ${login} excluído e rescindido com sucesso do ReceitaNet ERP!`);
             await browser.close();
             return true;
         } catch (error) {
-            console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente:`, error.message);
+            console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente de teste:`, error.message);
             await browser.close();
             throw error;
         }
