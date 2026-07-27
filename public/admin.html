@@ -407,6 +407,35 @@
             </div>
         </div>
 
+        <!-- Tabela de Testes Grátis de 3 Horas Emitidos -->
+        <div class="card" style="border-top: 3px solid #eab308;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2><i class="fa-solid fa-vial-circle-check" style="color: #eab308;"></i> Testes Grátis de 3 Horas Emitidos</h2>
+                <button class="btn-secondary" onclick="carregarTestes()" style="font-size: 12px; padding: 6px 12px;">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar Lista de Testes
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="testesTable">
+                    <thead>
+                        <tr>
+                            <th>Telefone WhatsApp</th>
+                            <th>Usuário de Teste (TV)</th>
+                            <th>Senha TV</th>
+                            <th>Emissão</th>
+                            <th>Expiração (3 Horas)</th>
+                            <th>Status</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="testesTableBody">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Terminal de Logs -->
         <div class="card">
             <h2><i class="fa-solid fa-terminal"></i> Console de Respostas & Logs</h2>
@@ -815,10 +844,117 @@
             }
         }
 
+        // Carrega a tabela de Testes Grátis de 3 Horas
+        async function carregarTestes() {
+            const tbody = document.getElementById('testesTableBody');
+            try {
+                const res = await fetch('/api/admin/testes');
+                const testes = await res.json();
+                
+                tbody.innerHTML = '';
+                if (!testes || testes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhum teste grátis emitido ainda.</td></tr>';
+                    return;
+                }
+
+                const agora = new Date();
+
+                testes.forEach(t => {
+                    const tr = document.createElement('tr');
+
+                    // Telefone
+                    const tdTel = document.createElement('td');
+                    tdTel.innerHTML = `<i class="fa-brands fa-whatsapp" style="color:#22c55e;"></i> +${t.telefone}`;
+                    tr.appendChild(tdTel);
+
+                    // Login TV
+                    const tdLogin = document.createElement('td');
+                    tdLogin.style.fontWeight = '700';
+                    tdLogin.style.color = '#60efff';
+                    tdLogin.textContent = t.login_tv;
+                    tr.appendChild(tdLogin);
+
+                    // Senha TV
+                    const tdSenha = document.createElement('td');
+                    tdSenha.textContent = t.senha_tv;
+                    tr.appendChild(tdSenha);
+
+                    // Data Criação
+                    const tdCriacao = document.createElement('td');
+                    tdCriacao.textContent = formatarData(t.data_criacao);
+                    tr.appendChild(tdCriacao);
+
+                    // Data Expiração
+                    const tdExp = document.createElement('td');
+                    tdExp.textContent = formatarData(t.data_expiracao);
+                    tr.appendChild(tdExp);
+
+                    // Status
+                    const tdStatus = document.createElement('td');
+                    const expData = new Date(t.data_expiracao);
+                    if (t.status === 'ativo' && expData > agora) {
+                        const minsRestantes = Math.round((expData - agora) / (1000 * 60));
+                        tdStatus.innerHTML = `<span class="badge badge-ativa"><i class="fa-solid fa-clock"></i> Ativo (${minsRestantes}m restantes)</span>`;
+                    } else {
+                        tdStatus.innerHTML = `<span class="badge badge-vencida"><i class="fa-solid fa-circle-xmark"></i> Expirado</span>`;
+                    }
+                    tr.appendChild(tdStatus);
+
+                    // Ação
+                    const tdAcao = document.createElement('td');
+                    if (t.status === 'ativo' && expData > agora) {
+                        const btnExcluir = document.createElement('button');
+                        btnExcluir.className = 'btn-danger btn-table';
+                        btnExcluir.innerHTML = `<i class="fa-solid fa-ban"></i> Expirar Agora`;
+                        btnExcluir.onclick = () => excluirTeste(t.id);
+                        tdAcao.appendChild(btnExcluir);
+                    } else {
+                        tdAcao.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">Finalizado</span>`;
+                    }
+                    tr.appendChild(tdAcao);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Erro ao carregar testes: ${e.message}</td></tr>`;
+            }
+        }
+
+        // Cancelar/Expirar teste manualmente
+        async function excluirTeste(id) {
+            if (!confirm('Deseja realmente expirar este teste grátis imediatamente?')) return;
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `Enviando comando para expirar teste ID ${id}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/admin/excluir-teste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    logBox.textContent = `[SUCESSO] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+                    carregarTestes();
+                } else {
+                    logBox.textContent = `[ERRO] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch (e) {
+                logBox.textContent = `[ERRO] ${e.message}`;
+                logBox.style.color = '#ef4444';
+            }
+        }
+
         // Carrega os dados na inicialização e inicia o monitor de logs
         carregarDados();
         carregarConversasBot();
+        carregarTestes();
         setInterval(carregarLogsServidor, 2500);
+        setInterval(carregarTestes, 10000);
         carregarLogsServidor();
     </script>
 </body>

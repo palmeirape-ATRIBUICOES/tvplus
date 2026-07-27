@@ -379,6 +379,9 @@ const handleSvaAuth = async (req, res) => {
 
     try {
         const dbClient = require('./database').db;
+        const agora = new Date();
+
+        // 1. Busca em assinaturas pagas
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
                 'SELECT * FROM assinaturas WHERE login_tv = ? AND senha_tv = ?',
@@ -390,21 +393,42 @@ const handleSvaAuth = async (req, res) => {
             );
         });
 
-        if (!assinatura) {
-            console.log(`[SVA AUTH FAIL] Conta não cadastrada localmente: ${username}`);
-            return res.status(401).json({ success: false, status: "not_found", msg: "Conta de TV não localizada." });
+        if (assinatura) {
+            const vencimento = new Date(assinatura.data_vencimento);
+            if (assinatura.status === 'ativa' && vencimento > agora) {
+                console.log(`[SVA AUTH OK] Acesso autorizado para cliente pago: ${username} (Expira em: ${assinatura.data_vencimento})`);
+                return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
+            } else {
+                console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${username}`);
+                return res.status(403).json({ success: false, status: "blocked", msg: "Sua assinatura de TV está suspensa ou vencida." });
+            }
         }
 
-        const agora = new Date();
-        const vencimento = new Date(assinatura.data_vencimento);
+        // 2. Se não encontrou em assinaturas, busca na tabela de testes grátis de 3 horas
+        const teste = await new Promise((resolve, reject) => {
+            dbClient.get(
+                'SELECT * FROM testes WHERE login_tv = ? AND senha_tv = ?',
+                [username, password],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
 
-        if (assinatura.status === 'ativa' && vencimento > agora) {
-            console.log(`[SVA AUTH OK] Acesso autorizado para: ${username} (Expira em: ${assinatura.data_vencimento})`);
-            return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
-        } else {
-            console.log(`[SVA AUTH BLOCKED] Conta bloqueada ou vencida: ${username} (Status: ${assinatura.status} | Venceu: ${assinatura.data_vencimento})`);
-            return res.status(403).json({ success: false, status: "blocked", msg: "Sua assinatura de TV está suspensa ou vencida." });
+        if (teste) {
+            const expiracaoTeste = new Date(teste.data_expiracao);
+            if (teste.status === 'ativo' && expiracaoTeste > agora) {
+                console.log(`[SVA AUTH OK] Acesso autorizado para TESTE GRÁTIS: ${username} (Validade até: ${teste.data_expiracao})`);
+                return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso (Teste Grátis de 3 Horas)." });
+            } else {
+                console.log(`[SVA AUTH BLOCKED] Teste grátis expirado: ${username}`);
+                return res.status(403).json({ success: false, status: "blocked", msg: "Seu teste grátis de 3 horas expirou." });
+            }
         }
+
+        console.log(`[SVA AUTH FAIL] Credenciais de TV não encontradas: ${username}`);
+        return res.status(401).json({ success: false, status: "not_found", msg: "Credenciais de acesso inválidas!" });
 
     } catch (error) {
         console.error('[SVA AUTH ERROR] Erro na autenticação SVA:', error.message);
@@ -884,6 +908,43 @@ app.get('/api/admin/diagnose-erp', async (req, res) => {
 
 app.get('/api/admin/server-logs', (req, res) => {
     res.status(200).json(serverLogs);
+});
+
+/**
+ * ROTA: Listar todos os testes grátis de 3 horas gerados
+ * GET /api/admin/testes
+ */
+app.get('/api/admin/testes', async (req, res) => {
+    try {
+        db.all('SELECT * FROM testes ORDER BY id DESC', [], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(200).json(rows || []);
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Expirar/Cancelar teste grátis manualmente
+ * POST /api/admin/excluir-teste
+ */
+app.post('/api/admin/excluir-teste', async (req, res) => {
+    const { id } = req.body;
+    try {
+        db.get('SELECT * FROM testes WHERE id = ?', [id], async (err, row) => {
+            if (err || !row) return res.status(404).json({ error: 'Teste não localizado.' });
+
+            await helpers.marcarTesteExpirado(row.id);
+
+            const receitanetQueue = require('./services/receitanetQueue');
+            receitanetQueue.adicionarTarefa('SUSPENDER', { loginTv: row.login_tv });
+
+            res.status(200).json({ message: `Teste ${row.login_tv} expirado e enfileirado para suspensão!` });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 /**
