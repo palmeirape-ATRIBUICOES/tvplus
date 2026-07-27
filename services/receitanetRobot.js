@@ -40,13 +40,16 @@ class ReceitanetRobotService {
 
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.type('input[name="cli_login"]', loginTv);
-            await page.type('input[name="cli_senha"]', senhaTv);
-            await page.type('input[name="cli_nome"]', cliente.nome);
-            await page.type('input[name="cli_cgc"]', cliente.cpfcnpj);
+            await page.type('input[name="cli_login"]', (loginTv || '').toString());
+            await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
+            await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Teste').toString());
+            
+            const cpfValor = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
+            await page.type('input[name="cli_cgc"]', cpfValor);
 
+            const emailValor = (cliente.email || `${loginTv}@email.com`).toString();
             try {
-                await page.type('input[name="cli_email"]', cliente.email);
+                await page.type('input[name="cli_email"]', emailValor);
             } catch (e) {}
 
             await Promise.all([
@@ -168,6 +171,10 @@ class ReceitanetRobotService {
             await browser.close();
             throw error;
         }
+    }
+
+    async suspenderCliente(login, cpf, nome) {
+        return await this.bloquearCliente(login, cpf, nome);
     }
 
     async reativarCliente(login, cpf, nome) {
