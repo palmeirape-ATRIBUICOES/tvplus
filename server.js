@@ -533,9 +533,46 @@ app.get('/api/sva/generic/auth', handleSvaAuth);
 
 
 /**
- * ROTA DE SUPORTE: Simulação manual de pagamento (Apenas em ambiente de teste ou com MOCK ativo)
- * POST /api/simular-pagamento
+ * ROTA: Gerar Pix QR Code de Teste/Renovação direto pelo Painel Admin
+ * POST /api/admin/gerar-pix-teste
  */
+app.post('/api/admin/gerar-pix-teste', async (req, res) => {
+    const { login_tv, cliente_id } = req.body;
+    try {
+        const valor = 10.00;
+        const cobranca = await paymentService.gerarCobrancaPix(valor, {
+            nome: login_tv || 'Cliente TV',
+            email: `${login_tv || 'cliente'}@tvplus.com`,
+            telefone: '5521964422488'
+        });
+
+        let targetClienteId = cliente_id;
+        if (!targetClienteId && login_tv) {
+            const dbClient = require('./database').db;
+            const row = await new Promise(resolve => {
+                dbClient.get('SELECT cliente_id FROM assinaturas WHERE login_tv = ?', [login_tv], (e, r) => resolve(r));
+            });
+            if (row) targetClienteId = row.cliente_id;
+        }
+
+        if (targetClienteId) {
+            await helpers.criarPagamento(targetClienteId, cobranca.txid, valor);
+        }
+
+        const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`;
+
+        res.status(200).json({
+            success: true,
+            txid: cobranca.txid,
+            valor: valor,
+            copiaCola: cobranca.copiaCola,
+            qrCodeUrl: qrCodeUrl
+        });
+    } catch (error) {
+        console.error('[ADMIN GERAR PIX ERROR]:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
 app.post('/api/simular-pagamento', async (req, res) => {
     const { txid } = req.body;
     

@@ -472,6 +472,40 @@
         </div>
     </div>
 
+    <!-- Modal Interativo do Pix QR Code da TV -->
+    <div id="pixModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-glow); width: 100%; max-width: 450px; border-radius: 16px; padding: 25px; text-align: center; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+            <button type="button" onclick="fecharModalPix()" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h3 style="color: var(--success); font-size: 18px; margin-bottom: 10px;">
+                <i class="fa-solid fa-qrcode"></i> Pix QR Code da TV (Simulador de Pagamento)
+            </h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;" id="pixModalUserDesc">
+                Escaneie o QR Code abaixo pelo aplicativo do banco para simular o pagamento do cliente.
+            </p>
+
+            <!-- Container da Imagem do QR Code -->
+            <div style="background: #fff; padding: 15px; border-radius: 12px; display: inline-block; margin-bottom: 15px;">
+                <img id="pixModalQrImg" src="" alt="Pix QR Code" style="width: 220px; height: 220px; display: block;">
+            </div>
+
+            <!-- Campo Copia e Cola -->
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="pixModalCopiaCola" readonly style="width: 100%; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 11px; font-family: monospace; text-align: center; margin-bottom: 8px;">
+                <button type="button" class="btn-secondary" onclick="copiarPixModal()" style="width: 100%; font-size: 13px; padding: 8px;">
+                    <i class="fa-solid fa-copy"></i> Copiar Chave Pix Copia e Cola
+                </button>
+            </div>
+
+            <!-- Botão de Simulação de Pagamento Real-Time -->
+            <button type="button" class="btn-success" onclick="simularAprovacaoPixModal()" style="width: 100%; padding: 12px; font-weight: 700; font-size: 14px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);">
+                <i class="fa-solid fa-bolt"></i> ⚡ Simular Pagamento Pix (Aprovar na Hora)
+            </button>
+        </div>
+    </div>
+
     <script>
         // Função para formatar data
         function formatarData(dataStr) {
@@ -577,8 +611,19 @@
                         btnInstructions.onclick = () => gerenciarCliente(c.cliente_id, 'enviar-instrucoes');
                         tdActions.appendChild(btnInstructions);
 
+                        // Botão Gerar / Testar Pix QR Code TV
+                        const btnPix = document.createElement('button');
+                        btnPix.type = 'button';
+                        btnPix.className = 'btn-secondary btn-table';
+                        btnPix.style.backgroundColor = '#059669';
+                        btnPix.style.color = '#fff';
+                        btnPix.innerHTML = `<i class="fa-solid fa-qrcode"></i> Pix QR Code`;
+                        btnPix.onclick = () => abrirModalPix(c.login_tv, c.cliente_id);
+                        tdActions.appendChild(btnPix);
+
                         // Botão Excluir Contrato & Cliente
                         const btnExcluir = document.createElement('button');
+                        btnExcluir.type = 'button';
                         btnExcluir.className = 'btn-danger btn-table';
                         btnExcluir.style.backgroundColor = '#b91c1c';
                         btnExcluir.innerHTML = `<i class="fa-solid fa-trash-can"></i> Excluir`;
@@ -1096,6 +1141,86 @@
             } catch (e) {
                 logBox.textContent = `[ERRO] ${e.message}`;
                 logBox.style.color = '#ef4444';
+            }
+        }
+
+        // Abre o Modal do Pix QR Code da TV
+        let currentModalTxid = null;
+
+        async function abrirModalPix(loginTv = '', clienteId = null) {
+            const modal = document.getElementById('pixModal');
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `[GERANDO PIX 📱] Gerando cobrança Pix de R$ 10,00 para ${loginTv || 'cliente'}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/admin/gerar-pix-teste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login_tv: loginTv, cliente_id: clienteId })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    currentModalTxid = data.txid;
+                    document.getElementById('pixModalUserDesc').textContent = `Cobrança de R$ 10,00 (30 dias) gerada para: ${loginTv || 'Cliente TV'}`;
+                    document.getElementById('pixModalQrImg').src = data.qrCodeUrl;
+                    document.getElementById('pixModalCopiaCola').value = data.copiaCola;
+                    modal.style.display = 'flex';
+
+                    logBox.textContent = `[PIX GERADO 📱] QR Code Pix gerado para ${loginTv}. TXID: ${data.txid}`;
+                    logBox.style.color = '#00ff80';
+                } else {
+                    alert('Erro ao gerar Pix: ' + (data.error || 'Falha na requisição'));
+                }
+            } catch (e) {
+                alert('Erro ao conectar ao servidor: ' + e.message);
+            }
+        }
+
+        function fecharModalPix() {
+            document.getElementById('pixModal').style.display = 'none';
+        }
+
+        function copiarPixModal() {
+            const input = document.getElementById('pixModalCopiaCola');
+            input.select();
+            document.execCommand('copy');
+            alert('Chave Pix Copia e Cola copiada para a área de transferência!');
+        }
+
+        // Simula o pagamento em tempo real (Dispara aprovação instantânea)
+        async function simularAprovacaoPixModal() {
+            if (!currentModalTxid) {
+                alert('Nenhum Pix ativo no modal.');
+                return;
+            }
+
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `[SIMULANDO PIX ⚡] Aprovando pagamento TXID: ${currentModalTxid}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/simular-pagamento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ txid: currentModalTxid })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    logBox.textContent = `[PIX APROVADO ⚡] ${data.message} Conta reativada por +30 dias!`;
+                    logBox.style.color = '#00ff80';
+                    alert('🎉 Pagamento Pix aprovado com sucesso! A assinatura foi renovada por +30 dias e a conexão foi reativada!');
+                    fecharModalPix();
+                    carregarDados();
+                    carregarSessoes();
+                    carregarTestes();
+                } else {
+                    alert('Erro na aprovação: ' + (data.error || 'Falha na requisição'));
+                }
+            } catch (e) {
+                alert('Erro na simulação: ' + e.message);
             }
         }
 
