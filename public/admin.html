@@ -1181,6 +1181,14 @@
 
                     logBox.textContent = `[PIX GERADO 📱] QR Code Pix gerado para ${loginTv}. TXID: ${data.txid}`;
                     logBox.style.color = '#00ff80';
+                } else {
+                    alert('Erro ao gerar Pix: ' + (data.error || 'Falha na requisição'));
+                }
+            } catch (e) {
+                alert('Erro ao conectar ao servidor: ' + e.message);
+            }
+        }
+
         // Dispara o Pix QR Code diretamente para a tela da TV do cliente logado
         async function enviarPixTv(login_tv) {
             if (!confirm(`Deseja realmente enviar o QR Code Pix de R$ 10,00 diretamente para a TELA DA TV do cliente ${login_tv} em tempo real?`)) return;
