@@ -29,29 +29,37 @@ class PaymentService {
         }
 
         try {
-            console.log(`[PAYMENT REAL] Gerando cobrança Pix no Mercado Pago de R$ ${valor.toFixed(2)}`);
-            
-            const cleanDoc = (cliente.cpfcnpj || '').replace(/\D/g, '');
+            const cleanDoc = (cliente.cpfcnpj || '').toString().replace(/\D/g, '');
             const docType = cleanDoc.length === 14 ? 'CNPJ' : 'CPF';
-            
+
             const notificationUrl = process.env.RENDER_EXTERNAL_URL ? 
                 `${process.env.RENDER_EXTERNAL_URL}/api/webhook/pix` : 
                 'https://tv-pix-platform.onrender.com/api/webhook/pix';
 
+            // Garantia de email válido aceito pelas regras estritas do Mercado Pago
+            const rawEmail = (cliente.email || '').toString().trim().toLowerCase();
+            const isValidEmailFormat = rawEmail.includes('@') && rawEmail.includes('.') && !rawEmail.endsWith('@tvplus') && !rawEmail.endsWith('@tvplus.com');
+            const targetEmail = isValidEmailFormat ? rawEmail : 'cliente.tvplus.oficial@gmail.com';
+
+            const payerObj = {
+                email: targetEmail,
+                first_name: (cliente.nome || 'Cliente').toString().split(' ')[0] || 'Cliente',
+                last_name: (cliente.nome || 'Cliente').toString().split(' ').slice(1).join(' ') || 'TV'
+            };
+
+            if (cleanDoc && cleanDoc.length >= 11) {
+                payerObj.identification = {
+                    type: docType,
+                    number: cleanDoc
+                };
+            }
+
             const response = await axios.post('https://api.mercadopago.com/v1/payments', {
                 transaction_amount: valor,
-                description: `Mensalidade TV - ${cliente.nome}`,
+                description: `Mensalidade TV - ${cliente.nome || 'Cliente'}`,
                 payment_method_id: 'pix',
                 notification_url: notificationUrl,
-                payer: {
-                    email: cliente.email,
-                    first_name: cliente.nome.split(' ')[0] || 'Cliente',
-                    last_name: cliente.nome.split(' ').slice(1).join(' ') || 'Silva',
-                    identification: {
-                        type: docType,
-                        number: cleanDoc
-                    }
-                }
+                payer: payerObj
             }, {
                 headers: {
                     'Authorization': `Bearer ${MP_TOKEN}`,
