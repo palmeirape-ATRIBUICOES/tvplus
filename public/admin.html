@@ -367,6 +367,32 @@
             </div>
         </div>
 
+        <!-- Tabela de Atendimento IA / Humano -->
+        <div class="card" style="border-top: 3px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2><i class="fa-brands fa-whatsapp" style="color: #22c55e;"></i> Atendimento WhatsApp & Intervenção Humana</h2>
+                <button class="btn-secondary" onclick="carregarConversasBot()" style="font-size: 12px; padding: 6px 12px;">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar Status do Bot
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="botConversasTable">
+                    <thead>
+                        <tr>
+                            <th>Telefone WhatsApp</th>
+                            <th>Modo de Atendimento</th>
+                            <th>Última Interação</th>
+                            <th>Controle de Intervenção</th>
+                        </tr>
+                    </thead>
+                    <tbody id="botConversasTableBody">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Terminal de Logs -->
         <div class="card">
             <h2><i class="fa-solid fa-terminal"></i> Console de Respostas & Logs</h2>
@@ -653,8 +679,95 @@
             }
         }
 
+        // Carrega lista de conversas do Bot IA e Modo Humano
+        async function carregarConversasBot() {
+            const tbody = document.getElementById('botConversasTableBody');
+            try {
+                const res = await fetch('/api/admin/conversas-bot');
+                const conversas = await res.json();
+                
+                if (!Array.isArray(conversas) || conversas.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Nenhuma conversa registrada ainda no WhatsApp.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                conversas.forEach(c => {
+                    const tr = document.createElement('tr');
+                    
+                    // Telefone
+                    const tdTel = document.createElement('td');
+                    tdTel.innerHTML = `<strong>+${c.telefone}</strong>`;
+                    tr.appendChild(tdTel);
+
+                    // Modo
+                    const tdModo = document.createElement('td');
+                    if (c.modo === 'IA') {
+                        tdModo.innerHTML = `<span class="status-badge ativa" style="background:rgba(34, 197, 94, 0.2); color:#4ade80;"><i class="fa-solid fa-robot"></i> 🤖 Robô IA Ativo</span>`;
+                    } else {
+                        tdModo.innerHTML = `<span class="status-badge suspensa" style="background:rgba(239, 68, 68, 0.2); color:#f87171;"><i class="fa-solid fa-headset"></i> 👨‍💻 Atendimento Humano (Robô Pausado)</span>`;
+                    }
+                    tr.appendChild(tdModo);
+
+                    // Última Interação
+                    const tdData = document.createElement('td');
+                    tdData.textContent = formatarData(c.ultima_interacao);
+                    tr.appendChild(tdData);
+
+                    // Ações
+                    const tdAcoes = document.createElement('td');
+                    if (c.modo === 'IA') {
+                        const btnHumano = document.createElement('button');
+                        btnHumano.className = 'btn-danger btn-table';
+                        btnHumano.innerHTML = `<i class="fa-solid fa-headset"></i> Assumir (Mudar p/ Humano)`;
+                        btnHumano.onclick = () => alternarModoBot(c.telefone, 'HUMANO');
+                        tdAcoes.appendChild(btnHumano);
+                    } else {
+                        const btnIA = document.createElement('button');
+                        btnIA.className = 'btn-success btn-table';
+                        btnIA.innerHTML = `<i class="fa-solid fa-robot"></i> Reativar Robô IA`;
+                        btnIA.onclick = () => alternarModoBot(c.telefone, 'IA');
+                        tdAcoes.appendChild(btnIA);
+                    }
+                    tr.appendChild(tdAcoes);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--danger);">Erro ao carregar conversas do bot: ${e.message}</td></tr>`;
+            }
+        }
+
+        // Alterna entre modo IA e HUMANO
+        async function alternarModoBot(telefone, novoModo) {
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `Alterando modo do bot para '${novoModo}' no número +${telefone}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/admin/bot-toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefone, modo: novoModo })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    logBox.textContent = `[SUCESSO] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+                    carregarConversasBot();
+                } else {
+                    logBox.textContent = `[ERRO] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch (e) {
+                logBox.textContent = `[ERRO] ${e.message}`;
+                logBox.style.color = '#ef4444';
+            }
+        }
+
         // Carrega os dados na inicialização e inicia o monitor de logs
         carregarDados();
+        carregarConversasBot();
         setInterval(carregarLogsServidor, 2500);
         carregarLogsServidor();
     </script>

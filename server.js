@@ -649,15 +649,16 @@ app.post('/api/admin/suspender', async (req, res) => {
             const mensagemBloqueio = `Olá, *${nomeCapitalizado}*!\n\n` +
                                      `Notamos que o seu acesso ao aplicativo *SIGNALPLAY* foi suspenso por pendência de pagamento.\n` +
                                      `Como resultado, o seu login *${row.login_tv}* foi temporariamente bloqueado.\n\n` +
-                                     `Para reativar seu sinal por mais *30 dias* agora mesmo, realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
-                                     `🔑 *Chave Pix (Copia e Cola) para renovação:*\n\`${cobranca.copiaCola}\`\n\n` +
-                                     `⚠️ *Aviso de Uso simultâneo:*\n` +
-                                     `• Seu login permite assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
-                                     `• *Evite usar em mais de 3 aparelhos* para não causar bloqueios automáticos ou travamentos na sua assinatura.\n\n` +
+                                     `Para reativar seu sinal por mais *30 dias* agora mesmo (com até 3 telas simultâneas), copie a chave Pix enviada na mensagem abaixo e pague no app do seu banco!\n\n` +
                                      `Assim que o Pix for pago, o sistema reativará seu sinal automaticamente em instantes!`;
             
             console.log(`[SUSPENDER WA IMEDIATO] Disparando notificação de bloqueio via WhatsApp para ${row.telefone}...`);
-            whatsappService.enviarMensagem(row.telefone, mensagemBloqueio).catch(waErr => {
+            whatsappService.enviarMensagem(row.telefone, mensagemBloqueio).then(() => {
+                // Envia o Pix Copia e Cola em mensagem separada para facilidade de cópia do cliente
+                if (cobranca && cobranca.copiaCola) {
+                    whatsappService.enviarMensagem(row.telefone, cobranca.copiaCola);
+                }
+            }).catch(waErr => {
                 console.error("[SUSPENDER WA ERROR] Falha no disparo do WhatsApp:", waErr.message);
             });
 
@@ -852,6 +853,71 @@ app.get('/api/admin/diagnose-erp', async (req, res) => {
 
 app.get('/api/admin/server-logs', (req, res) => {
     res.status(200).json(serverLogs);
+});
+
+/**
+ * WEBHOOK: Recebe todas as mensagens que chegam no WhatsApp via Z-API
+ * POST /api/webhook/whatsapp
+ */
+app.post('/api/webhook/whatsapp', async (req, res) => {
+    try {
+        const body = req.body;
+        console.log(`[WEBHOOK WHATSAPP] Notificação recebida:`, JSON.stringify(body).substring(0, 300));
+
+        // Z-API payload de mensagem recebida
+        const phone = body.phone || body.from || (body.data && body.data.phone);
+        const isGroup = body.isGroup || (body.data && body.data.isGroup);
+        const fromMe = body.fromMe || (body.data && body.data.fromMe);
+        
+        // Texto da mensagem recebida
+        const text = body.text ? body.text.message : 
+                     (body.message ? body.message : 
+                     (body.data && body.data.message ? body.data.message : ''));
+
+        // Ignora grupos e mensagens enviadas por nós mesmos
+        if (!isGroup && !fromMe && phone && text) {
+            const aiChatbotService = require('./services/aiChatbot');
+            aiChatbotService.processarMensagemEntrada(phone, text).catch(err => {
+                console.error("[WEBHOOK WHATSAPP ERROR] Erro no processamento da mensagem:", err.message);
+            });
+        }
+
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error('[WEBHOOK WHATSAPP ERROR]:', error.message);
+        res.status(200).send('OK');
+    }
+});
+
+/**
+ * ROTA ADMIN: Listar estado de todas as conversas do Bot (IA vs Humano)
+ * GET /api/admin/conversas-bot
+ */
+app.get('/api/admin/conversas-bot', async (req, res) => {
+    try {
+        const conversas = await helpers.listarConversasBot();
+        res.status(200).json(conversas);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA ADMIN: Alternar estado de atendimento entre 'IA' e 'HUMANO'
+ * POST /api/admin/bot-toggle
+ */
+app.post('/api/admin/bot-toggle', async (req, res) => {
+    const { telefone, modo } = req.body; // modo: 'IA' ou 'HUMANO'
+    if (!telefone || !modo) {
+        return res.status(400).json({ error: 'Telefone e modo são obrigatórios.' });
+    }
+
+    try {
+        await helpers.definirModoBot(telefone, modo);
+        res.status(200).json({ message: `Modo do robô alterado para ${modo} com sucesso para +${telefone}.` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Inicia o servidor Express

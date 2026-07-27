@@ -44,33 +44,31 @@ async function verificarAssinaturas() {
                 // Salva a cobrança Pix gerada
                 await helpers.criarPagamento(assinatura.cliente_id, cobranca.txid, valorRenovacao);
 
-                // 4. Envia mensagem via WhatsApp informando sobre o bloqueio e fornecendo o Pix
+                // 4. Envia mensagem via WhatsApp informando sobre o bloqueio e fornecendo o Pix em mensagem separada
                 const nomeCapitalizado = capitalizeName(assinatura.nome);
                 const mensagemBloqueio = `Olá, *${nomeCapitalizado}*!\n\n` +
                                          `Notamos que o seu período de acesso ao aplicativo *SIGNALPLAY* expirou e o pagamento de renovação não foi identificado.\n` +
                                          `Como resultado, o seu login *${assinatura.login_tv}* foi suspenso temporariamente.\n\n` +
-                                         `Para reativar seu sinal por mais *30 dias* agora mesmo, realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
-                                         `🔑 *Chave Pix (Copia e Cola) para renovação:*\n\`${cobranca.copiaCola}\`\n\n` +
-                                         `⚠️ *Aviso de Uso simultâneo:*\n` +
-                                         `• Seu login permite assistir em *ATÉ 3 aparelhos ao mesmo tempo*.\n` +
-                                         `• *Evite usar em mais de 3 aparelhos* para não causar bloqueios automáticos ou travamentos na sua assinatura.\n\n` +
+                                         `Para reativar seu sinal por mais *30 dias* agora mesmo (com até 3 telas simultâneas), copie a chave Pix enviada na mensagem abaixo e pague no app do seu banco!\n\n` +
                                          `Assim que o Pix for pago, o sistema ativará seu sinal automaticamente em instantes!`;
                 
                 await whatsappService.enviarMensagem(assinatura.telefone, mensagemBloqueio);
+                
+                // Mensagem dedicada exclusiva com o código Pix Copia e Cola para facilidade do cliente
+                if (cobranca && cobranca.copiaCola) {
+                    await whatsappService.enviarMensagem(assinatura.telefone, cobranca.copiaCola);
+                }
             }
         }
 
-        // --- 2. ALERTA PREVENTIVO DE VENCIMENTO (Apenas para assinaturas pagas vencendo em breve) ---
-        // Busca assinaturas ativas com vencimento próximo (daqui a 3 dias) que ainda não receberam alerta.
-        // Ignoramos testes de 4 horas aqui para não perturbar no meio do teste curto.
+        // --- 2. ALERTA PREVENTIVO DE VENCIMENTO ---
         const expirando = await helpers.buscarAssinaturasExpirando(3);
         
-        // Filtra para mandar alerta apenas para assinaturas que duraram mais de 24 horas (ou seja, não são trials de 4h)
         const expirandoFiltradas = expirando.filter(a => {
             const inicio = new Date(a.data_inicio);
             const venc = new Date(a.data_vencimento);
             const diffHours = (venc - inicio) / (1000 * 60 * 60);
-            return diffHours > 24; // Apenas se a duração for maior que 1 dia
+            return diffHours > 24;
         });
 
         console.log(`[CRON WORKER] Assinaturas regulares expirando em breve para aviso: ${expirandoFiltradas.length}`);
@@ -78,7 +76,6 @@ async function verificarAssinaturas() {
         for (const assinatura of expirandoFiltradas) {
             console.log(`[CRON WORKER] Enviando alerta preventivo de renovação para ${assinatura.nome}...`);
             
-            // Gera cobrança Pix preventiva
             const valorCobranca = 10.00;
             const cobranca = await paymentService.gerarCobrancaPix(valorCobranca, {
                 nome: assinatura.nome,
@@ -92,12 +89,11 @@ async function verificarAssinaturas() {
             const dataVencStr = new Date(assinatura.data_vencimento).toLocaleDateString('pt-BR');
             const mensagemCobranca = `Olá, *${nomeCapitalizado}*!\n\n` +
                                      `Lembramos que sua assinatura do aplicativo *SIGNALPLAY* expira no dia *${dataVencStr}*.\n` +
-                                     `Para continuar assistindo sem nenhuma interrupção (com acesso em até 3 aparelhos simultâneos), realize o pagamento do Pix de R$ 10,00 abaixo:\n\n` +
-                                     `🔑 *Chave Pix (Copia e Cola) para renovação:*\n\`${cobranca.copiaCola}\`\n\n` +
-                                     `Após a confirmação do pagamento, sua assinatura será renovada de forma automática!`;
+                                     `Para continuar assistindo sem nenhuma interrupção, copie o Pix enviado na próxima mensagem e pague no app do seu banco!`;
 
             const enviado = await whatsappService.enviarMensagem(assinatura.telefone, mensagemCobranca);
-            if (enviado) {
+            if (enviado && cobranca && cobranca.copiaCola) {
+                await whatsappService.enviarMensagem(assinatura.telefone, cobranca.copiaCola);
                 await helpers.marcarAvisoEnviado(assinatura.id);
             }
         }
