@@ -375,6 +375,20 @@
                     <i class="fa-solid fa-rotate-right"></i> Atualizar Status do Bot
                 </button>
             </div>
+
+            <!-- Caixa de Teste e Diagnóstico do Robô de IA -->
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glow); padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                <h3 style="font-size: 14px; color: var(--success); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-vial-circle-check"></i> Testador / Simulador Direto da IA (Diagnóstico 24/7)
+                </h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <input type="text" id="testBotPhone" placeholder="DDD + Número (ex: 21964422488)" value="21964422488" style="flex: 1; min-width: 200px; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+                    <input type="text" id="testBotMsg" placeholder="Mensagem para testar (ex: oi, valores, instalar)" value="oi" style="flex: 2; min-width: 250px; padding: 10px 14px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: #fff;">
+                    <button class="btn-success" onclick="testarRoboIA()" style="padding: 10px 20px; font-weight: 700; border-radius: 8px; cursor: pointer;">
+                        <i class="fa-solid fa-paper-plane"></i> Simular Mensagem do Cliente
+                    </button>
+                </div>
+            </div>
             
             <div class="table-responsive">
                 <table id="botConversasTable">
@@ -761,6 +775,42 @@
                 }
             } catch (e) {
                 logBox.textContent = `[ERRO] ${e.message}`;
+                logBox.style.color = '#ef4444';
+            }
+        }
+
+        // Simula mensagem e dispara a IA para teste de diagnóstico 24/7
+        async function testarRoboIA() {
+            const telefone = document.getElementById('testBotPhone').value;
+            const mensagem = document.getElementById('testBotMsg').value;
+            const logBox = document.getElementById('logOutput');
+
+            if (!mensagem) {
+                alert('Digite uma mensagem para simular!');
+                return;
+            }
+
+            logBox.textContent = `[DIAGNÓSTICO IA] Simulando mensagem "${mensagem}" do número +${telefone}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/admin/test-bot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefone, mensagem })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    logBox.textContent = `[SUCESSO TESTE IA] ${data.detalhe}\nResultado: ${JSON.stringify(data, null, 2)}`;
+                    logBox.style.color = '#00ff80';
+                    carregarConversasBot();
+                } else {
+                    logBox.textContent = `[ERRO TESTE IA] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch (e) {
+                logBox.textContent = `[ERRO TESTE IA] ${e.message}`;
                 logBox.style.color = '#ef4444';
             }
         }

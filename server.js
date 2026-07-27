@@ -863,13 +863,44 @@ app.get('/api/admin/server-logs', (req, res) => {
 });
 
 /**
+ * ROTA DE DIAGNÓSTICO: Simular mensagem do WhatsApp recebida e testar resposta da IA
+ * POST /api/admin/test-bot
+ */
+app.post('/api/admin/test-bot', async (req, res) => {
+    const { telefone, mensagem } = req.body;
+    const testPhone = telefone ? telefone.replace(/\D/g, '') : '5521964422488';
+    const testMsg = mensagem || 'oi';
+
+    console.log(`[TESTE ROBÔ IA] Simulando mensagem recebida de +${testPhone}: "${testMsg}"`);
+
+    try {
+        const aiChatbotService = require('./services/aiChatbot');
+        const estado = await helpers.obterEstadoBot(testPhone);
+        
+        // Executa o processamento do chatbot
+        await aiChatbotService.processarMensagemEntrada(testPhone, testMsg);
+
+        res.status(200).json({
+            status: 'sucesso',
+            mensagemSimulada: testMsg,
+            telefone: testPhone,
+            modoAtual: estado ? estado.modo : 'IA',
+            detalhe: 'Mensagem processada pelo robô IA. Verifique o console de logs ou o celular registrado!'
+        });
+    } catch (error) {
+        console.error('[TESTE ROBÔ IA ERROR]:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * WEBHOOK: Recebe todas as mensagens que chegam no WhatsApp via Z-API
  * POST /api/webhook/whatsapp
  */
 app.post('/api/webhook/whatsapp', async (req, res) => {
     try {
         const body = req.body || {};
-        console.log(`[WEBHOOK WHATSAPP] Notificação recebida:`, JSON.stringify(body).substring(0, 500));
+        console.log(`[WEBHOOK WHATSAPP RECEBIDO] Full Body:`, JSON.stringify(body));
 
         // Extração infalível de número de telefone (remove sufixos como @c.us e caracteres não-numéricos)
         let rawPhone = body.phone || body.from || body.chatId || body.sender || body.participant ||
@@ -900,10 +931,10 @@ app.post('/api/webhook/whatsapp', async (req, res) => {
             });
         }
 
-        res.status(200).send('OK');
+        res.status(200).json({ status: 'success', message: 'Webhook recebido com sucesso' });
     } catch (error) {
         console.error('[WEBHOOK WHATSAPP ERROR]:', error.message);
-        res.status(200).send('OK');
+        res.status(200).json({ status: 'error', message: error.message });
     }
 });
 
