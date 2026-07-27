@@ -104,13 +104,28 @@ function initDb() {
                             senha_tv TEXT NOT NULL,
                             data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
                             data_expiracao DATETIME NOT NULL,
-                            status TEXT DEFAULT 'ativo', -- 'ativo', 'expirado'
+                            status TEXT DEFAULT 'ativo',
                             aviso_expiracao_enviado INTEGER DEFAULT 0
                         )
                     `, (errTeste) => {
                         if (errTeste) return reject(errTeste);
-                        console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes) verificadas/criadas com sucesso.');
-                        resolve();
+
+                        // Tabela de Sessões Ativas & Telemetria em Tempo Real (Quem está logado / assistindo)
+                        db.run(`
+                            CREATE TABLE IF NOT EXISTS sessoes_ativas (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                login_tv TEXT UNIQUE NOT NULL,
+                                dispositivo TEXT,
+                                ip_origem TEXT,
+                                canal_atual TEXT DEFAULT 'Sinal Digital Live',
+                                ultimo_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                status TEXT DEFAULT 'ONLINE'
+                            )
+                        `, (errSessao) => {
+                            if (errSessao) return reject(errSessao);
+                            console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes, sessoes_ativas) verificadas com sucesso.');
+                            resolve();
+                        });
                     });
                 });
             });
@@ -305,6 +320,59 @@ const dbHelpers = {
         await dbRun(`
             UPDATE testes SET status = 'excluido', aviso_expiracao_enviado = 1 WHERE id = ?
         `, [id]).catch(() => {});
+    },
+
+    // Telemetria & Monitor de Conexões em Tempo Real
+    async registrarPingSessao(loginTv, dispositivo = 'SignalPlay App', ip = '127.0.0.1', canal = 'Canais ao Vivo Ultra HD') {
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS sessoes_ativas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login_tv TEXT UNIQUE NOT NULL,
+                dispositivo TEXT,
+                ip_origem TEXT,
+                canal_atual TEXT DEFAULT 'Sinal Digital Live',
+                ultimo_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'ONLINE'
+            )
+        `).catch(() => {});
+
+        // Insere ou atualiza o ping mais recente mantendo o status se for DERRUBADO
+        await dbRun(`
+            INSERT INTO sessoes_ativas (login_tv, dispositivo, ip_origem, canal_atual, status, ultimo_ping)
+            VALUES (?, ?, ?, ?, 'ONLINE', CURRENT_TIMESTAMP)
+            ON CONFLICT(login_tv) DO UPDATE SET 
+                dispositivo = excluded.dispositivo,
+                ip_origem = excluded.ip_origem,
+                canal_atual = excluded.canal_atual,
+                ultimo_ping = CURRENT_TIMESTAMP
+        `, [loginTv, dispositivo, ip, canal]);
+    },
+
+    async obterSessoesAtivas() {
+        await dbRun(`
+            CREATE TABLE IF NOT EXISTS sessoes_ativas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login_tv TEXT UNIQUE NOT NULL,
+                dispositivo TEXT,
+                ip_origem TEXT,
+                canal_atual TEXT DEFAULT 'Sinal Digital Live',
+                ultimo_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'ONLINE'
+            )
+        `).catch(() => {});
+
+        return await dbAll('SELECT * FROM sessoes_ativas ORDER BY ultimo_ping DESC').catch(() => []);
+    },
+
+    async derrubarSessao(loginTv) {
+        await dbRun(`
+            UPDATE sessoes_ativas SET status = 'DERRUBADO', ultimo_ping = CURRENT_TIMESTAMP WHERE login_tv = ?
+        `, [loginTv]).catch(() => {});
+    },
+
+    async verificarSessaoDerrubada(loginTv) {
+        const sessao = await dbGet('SELECT * FROM sessoes_ativas WHERE login_tv = ?', [loginTv]).catch(() => null);
+        return sessao && sessao.status === 'DERRUBADO';
     },
 
     // Clientes

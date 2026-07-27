@@ -436,6 +436,35 @@
             </div>
         </div>
 
+        <!-- Monitor de Conexões Ativas & Telemetria em Tempo Real -->
+        <div class="card" style="border-top: 3px solid #3b82f6;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2><i class="fa-solid fa-tower-broadcast" style="color: #3b82f6;"></i> Monitor de Conexões Ativas & Telemetria (Live Stream)</h2>
+                <button class="btn-secondary" onclick="carregarSessoes()" style="font-size: 12px; padding: 6px 12px;">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar Conexões
+                </button>
+            </div>
+            
+            <div class="table-responsive">
+                <table id="sessoesTable">
+                    <thead>
+                        <tr>
+                            <th>Usuário TV</th>
+                            <th>Status de Conexão</th>
+                            <th>Conteúdo / Transmissão</th>
+                            <th>Dispositivo / App</th>
+                            <th>IP de Origem</th>
+                            <th>Último Ping (Keep-Alive)</th>
+                            <th>Ação Administrativa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessoesTableBody">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Terminal de Logs -->
         <div class="card">
             <h2><i class="fa-solid fa-terminal"></i> Console de Respostas & Logs</h2>
@@ -949,12 +978,127 @@
             }
         }
 
+        // Carrega a tabela de Sessões Ativas & Telemetria em Tempo Real
+        async function carregarSessoes() {
+            const tbody = document.getElementById('sessoesTableBody');
+            try {
+                const res = await fetch('/api/admin/sessoes');
+                const sessoes = await res.json();
+                
+                tbody.innerHTML = '';
+                if (!sessoes || sessoes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Nenhuma conexão de streaming detectada no momento.</td></tr>';
+                    return;
+                }
+
+                const agora = new Date();
+
+                sessoes.forEach(s => {
+                    const tr = document.createElement('tr');
+
+                    // Usuário TV
+                    const tdLogin = document.createElement('td');
+                    tdLogin.style.fontWeight = '700';
+                    tdLogin.style.color = '#60efff';
+                    tdLogin.textContent = s.login_tv;
+                    tr.appendChild(tdLogin);
+
+                    // Status (ONLINE / DERRUBADO / OFFLINE)
+                    const tdStatus = document.createElement('td');
+                    const pingData = new Date(s.ultimo_ping);
+                    const diffSegundos = Math.round((agora - pingData) / 1000);
+
+                    if (s.status === 'DERRUBADO') {
+                        tdStatus.innerHTML = `<span class="badge badge-vencida"><i class="fa-solid fa-ban"></i> DERRUBADO</span>`;
+                    } else if (diffSegundos < 120) { // Considera ONLINE se respondeu ping nos últimos 2 minutos
+                        tdStatus.innerHTML = `<span class="badge badge-ativa"><i class="fa-solid fa-signal"></i> 🟢 ONLINE (Assistindo agora)</span>`;
+                    } else {
+                        tdStatus.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:#ccc;"><i class="fa-solid fa-moon"></i> ⚪ OFFLINE</span>`;
+                    }
+                    tr.appendChild(tdStatus);
+
+                    // Conteúdo / Transmissão
+                    const tdCanal = document.createElement('td');
+                    tdCanal.innerHTML = `<i class="fa-solid fa-play" style="color:#22c55e;"></i> ${s.canal_atual || 'Sinal ao Vivo'}`;
+                    tr.appendChild(tdCanal);
+
+                    // Dispositivo / App
+                    const tdDisp = document.createElement('td');
+                    tdDisp.style.fontSize = '12px';
+                    const dispNome = s.dispositivo.includes('iPhone') ? '🍏 iPhone (iOS)' :
+                                     s.dispositivo.includes('Android') ? '🤖 Android (TV/Celular)' :
+                                     s.dispositivo.includes('Mozilla') ? '💻 PC / Navegador Web' : s.dispositivo;
+                    tdDisp.textContent = dispNome;
+                    tr.appendChild(tdDisp);
+
+                    // IP de Origem
+                    const tdIp = document.createElement('td');
+                    tdIp.style.fontFamily = 'monospace';
+                    tdIp.textContent = s.ip_origem || '127.0.0.1';
+                    tr.appendChild(tdIp);
+
+                    // Último Ping
+                    const tdPing = document.createElement('td');
+                    tdPing.textContent = formatarData(s.ultimo_ping);
+                    tr.appendChild(tdPing);
+
+                    // Ação Administrativa (Derrubar Conexão)
+                    const tdAcao = document.createElement('td');
+                    if (s.status !== 'DERRUBADO' && diffSegundos < 120) {
+                        const btnKick = document.createElement('button');
+                        btnKick.className = 'btn-danger btn-table';
+                        btnKick.innerHTML = `<i class="fa-solid fa-bolt"></i> ⚡ Derrubar Conexão`;
+                        btnKick.onclick = () => derrubarSessao(s.login_tv);
+                        tdAcao.appendChild(btnKick);
+                    } else {
+                        tdAcao.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">Sem conexão ativa</span>`;
+                    }
+                    tr.appendChild(tdAcao);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Erro ao carregar conexões: ${e.message}</td></tr>`;
+            }
+        }
+
+        // Derrubar / Desconectar sessão de um usuário em tempo real
+        async function derrubarSessao(login_tv) {
+            if (!confirm(`Deseja realmente DERRUBAR e interromper a transmissão do usuário ${login_tv} imediatamente?`)) return;
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `[INTERRUPÇÃO ⚡] Derrubando conexão de ${login_tv}...`;
+            logBox.style.color = '#eab308';
+
+            try {
+                const res = await fetch('/api/admin/derrubar-sessao', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login_tv })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    logBox.textContent = `[DERRUBADO ⚡] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+                    carregarSessoes();
+                } else {
+                    logBox.textContent = `[ERRO] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch (e) {
+                logBox.textContent = `[ERRO] ${e.message}`;
+                logBox.style.color = '#ef4444';
+            }
+        }
+
         // Carrega os dados na inicialização e inicia o monitor de logs
         carregarDados();
         carregarConversasBot();
         carregarTestes();
+        carregarSessoes();
         setInterval(carregarLogsServidor, 2500);
         setInterval(carregarTestes, 10000);
+        setInterval(carregarSessoes, 5000);
         carregarLogsServidor();
     </script>
 </body>

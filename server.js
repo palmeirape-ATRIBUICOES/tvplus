@@ -381,6 +381,17 @@ const handleSvaAuth = async (req, res) => {
         const dbClient = require('./database').db;
         const agora = new Date();
 
+        // 0. Checa se o Administrador clicou para DERRUBAR ESTA CONEXÃO
+        const sessaoDerrubada = await helpers.verificarSessaoDerrubada(username);
+        if (sessaoDerrubada) {
+            console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${username}`);
+            return res.status(403).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
+        }
+
+        // Captura telemetria da conexão (Dispositivo, IP, Horário)
+        const dispositivo = req.headers['user-agent'] || 'SignalPlay App';
+        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+
         // 1. Busca em assinaturas pagas
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
@@ -397,6 +408,7 @@ const handleSvaAuth = async (req, res) => {
             const vencimento = new Date(assinatura.data_vencimento);
             if (assinatura.status === 'ativa' && vencimento > agora) {
                 console.log(`[SVA AUTH OK] Acesso autorizado para cliente pago: ${username} (Expira em: ${assinatura.data_vencimento})`);
+                await helpers.registrarPingSessao(username, dispositivo, ip, 'Canais digitais e Filmes HD');
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
             } else {
                 console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${username}`);
@@ -420,6 +432,7 @@ const handleSvaAuth = async (req, res) => {
             const expiracaoTeste = new Date(teste.data_expiracao);
             if (teste.status === 'ativo' && expiracaoTeste > agora) {
                 console.log(`[SVA AUTH OK] Acesso autorizado para TESTE GRÁTIS: ${username} (Validade até: ${teste.data_expiracao})`);
+                await helpers.registrarPingSessao(username, dispositivo, ip, 'Teste Grátis 3 Horas');
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso (Teste Grátis de 3 Horas)." });
             } else {
                 console.log(`[SVA AUTH BLOCKED] Teste grátis expirado: ${username}`);
@@ -944,6 +957,42 @@ app.post('/api/admin/excluir-teste', async (req, res) => {
 
             res.status(200).json({ message: `Teste ${row.login_tv} removido do Painel Admin e enfileirado para exclusão completa no ERP!` });
         });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Listar todas as sessões ativas e telemetria de clientes logados
+ * GET /api/admin/sessoes
+ */
+app.get('/api/admin/sessoes', async (req, res) => {
+    try {
+        const sessoes = await helpers.obterSessoesAtivas();
+        res.status(200).json(sessoes || []);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Derrubar / Interromper conexão de um cliente em tempo real (Kick)
+ * POST /api/admin/derrubar-sessao
+ */
+app.post('/api/admin/derrubar-sessao', async (req, res) => {
+    const { login_tv } = req.body;
+    if (!login_tv) return res.status(400).json({ error: 'Login do usuário é obrigatório.' });
+
+    try {
+        // 1. Invalida a sessão no banco SQLite para forçar HTTP 403 Forbidden no próximo ping do app
+        await helpers.derrubarSessao(login_tv);
+
+        // 2. Enfileira o bloqueio/alteração no ReceitaNet ERP em segundo plano
+        const receitanetQueue = require('./services/receitanetQueue');
+        receitanetQueue.adicionarTarefa('SUSPENDER', { loginTv: login_tv });
+
+        console.log(`[DERRUBAR SESSÃO] ⚡ Conexão do usuário ${login_tv} foi encerrada pelo Administrador!`);
+        res.status(200).json({ message: `Conexão do usuário ${login_tv} foi derrubada com sucesso! O aplicativo será desconectado no próximo ping.` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
