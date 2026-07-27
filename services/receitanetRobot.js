@@ -370,42 +370,43 @@ class ReceitanetRobotService {
      * Submete com segurança o formulário de cadastro/edição do cliente isolando os elementos da tag <form>
      */
     async salvarFormularioCliente(page) {
-        console.log(`[RECEITANET-ROBOT] Submetendo formulário com parâmetro de salvamento 'atualizar=1' (Gravar no ReceitaNet)...`);
+        console.log(`[RECEITANET-ROBOT] Submetendo formulário via AJAX com parâmetro 'atualizar=1'...`);
         
-        await Promise.all([
-            page.evaluate(() => {
-                const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
-                if (form) {
-                    // Garante que o parâmetro obrigatório do PHP 'atualizar=1' exista no formulário
-                    let inputAtualizar = form.querySelector('input[name="atualizar"]');
-                    if (!inputAtualizar) {
-                        inputAtualizar = document.createElement('input');
-                        inputAtualizar.type = 'hidden';
-                        inputAtualizar.name = 'atualizar';
-                        inputAtualizar.value = '1';
-                        form.appendChild(inputAtualizar);
-                    } else {
-                        inputAtualizar.value = '1';
-                    }
-                    
-                    // Localiza o botão exato do ReceitaNet: <button type="submit" name="atualizar" value="1" class="btn btn-primary">Gravar no ReceitaNet</button>
-                    const btnAtualizar = form.querySelector('button[name="atualizar"], button[value="1"], button.btn-primary') ||
-                                         Array.from(form.querySelectorAll('button, input[type="submit"]')).find(b => {
-                                             const txt = (b.textContent || b.value || '').trim();
-                                             return txt.includes('Gravar no ReceitaNet') || txt.includes('Gravar');
-                                         });
-                    
-                    if (btnAtualizar) {
-                        btnAtualizar.click();
-                    } else {
-                        form.submit();
-                    }
+        await page.evaluate(() => {
+            const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
+            if (form) {
+                // Garante que o parâmetro obrigatório do PHP 'atualizar=1' exista no formulário
+                let inputAtualizar = form.querySelector('input[name="atualizar"]');
+                if (!inputAtualizar) {
+                    inputAtualizar = document.createElement('input');
+                    inputAtualizar.type = 'hidden';
+                    inputAtualizar.name = 'atualizar';
+                    inputAtualizar.value = '1';
+                    form.appendChild(inputAtualizar);
                 } else {
-                    throw new Error("Formulário principal do cliente não encontrado no DOM.");
+                    inputAtualizar.value = '1';
                 }
-            }),
-            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
-        ]);
+                
+                // Localiza o botão exato do ReceitaNet e clica
+                const btnAtualizar = form.querySelector('button[name="atualizar"], button[value="1"], button.btn-primary') ||
+                                     Array.from(form.querySelectorAll('button, input[type="submit"]')).find(b => {
+                                         const txt = (b.textContent || b.value || '').trim();
+                                         return txt.includes('Gravar no ReceitaNet') || txt.includes('Gravar');
+                                     });
+                
+                if (btnAtualizar) {
+                    btnAtualizar.click();
+                } else {
+                    form.submit();
+                }
+            } else {
+                throw new Error("Formulário principal do cliente não encontrado no DOM.");
+            }
+        });
+
+        // Aguarda 5 segundos para a requisição de background AJAX processar no servidor do ReceitaNet
+        console.log(`[RECEITANET-ROBOT] Aguardando processamento da gravação assíncrona (AJAX)...`);
+        await new Promise(r => setTimeout(r, 5000));
     }
 
     /**
