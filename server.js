@@ -861,21 +861,31 @@ app.get('/api/admin/server-logs', (req, res) => {
  */
 app.post('/api/webhook/whatsapp', async (req, res) => {
     try {
-        const body = req.body;
-        console.log(`[WEBHOOK WHATSAPP] Notificação recebida:`, JSON.stringify(body).substring(0, 300));
+        const body = req.body || {};
+        console.log(`[WEBHOOK WHATSAPP] Notificação recebida:`, JSON.stringify(body).substring(0, 400));
 
-        // Z-API payload de mensagem recebida
-        const phone = body.phone || body.from || (body.data && body.data.phone);
-        const isGroup = body.isGroup || (body.data && body.data.isGroup);
-        const fromMe = body.fromMe || (body.data && body.data.fromMe);
+        // Extração flexível de telefone do payload Z-API
+        const phone = body.phone || body.from || (body.data && body.data.phone) || body.participant;
+        const isGroup = body.isGroup === true || (body.data && body.data.isGroup === true);
         
-        // Texto da mensagem recebida
-        const text = body.text ? body.text.message : 
-                     (body.message ? body.message : 
-                     (body.data && body.data.message ? body.data.message : ''));
+        // Extração flexível do texto da mensagem do Z-API
+        let text = '';
+        if (typeof body.text === 'string') {
+            text = body.text;
+        } else if (body.text && typeof body.text === 'object' && body.text.message) {
+            text = body.text.message;
+        } else if (typeof body.message === 'string') {
+            text = body.message;
+        } else if (typeof body.body === 'string') {
+            text = body.body;
+        } else if (body.data && typeof body.data.message === 'string') {
+            text = body.data.message;
+        }
 
-        // Ignora grupos e mensagens enviadas por nós mesmos
-        if (!isGroup && !fromMe && phone && text) {
+        console.log(`[WEBHOOK WHATSAPP ANALISE] Telefone: ${phone}, Grupo: ${isGroup}, Texto: "${text}"`);
+
+        // Processa apenas se houver número e texto válido e não for grupo
+        if (!isGroup && phone && text) {
             const aiChatbotService = require('./services/aiChatbot');
             aiChatbotService.processarMensagemEntrada(phone, text).catch(err => {
                 console.error("[WEBHOOK WHATSAPP ERROR] Erro no processamento da mensagem:", err.message);
