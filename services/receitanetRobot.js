@@ -204,12 +204,12 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Salvando screenshot de diagnóstico (ficha carregada)...`);
             await page.screenshot({ path: path.join(__dirname, '..', 'public', 'debug_edit_loaded.png'), fullPage: true });
 
-            // Altera o campo cli_login adicionando "_SUSPENSO" diretamente pelo DOM (100% imune a problemas de teclado headless)
+            // Altera o campo cli_login adicionando "suspenso" diretamente pelo DOM (100% imune a problemas de teclado headless)
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             await page.evaluate((loginOriginal) => {
                 const input = document.querySelector('input[name="cli_login"]');
                 if (input) {
-                    input.value = `${loginOriginal}_SUSPENSO`;
+                    input.value = `${loginOriginal}suspenso`;
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                 } else {
@@ -239,7 +239,7 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} bloqueado com sucesso (renomeado para ${login}_SUSPENSO e sincronizado com o Servidor)!`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${login} bloqueado com sucesso (renomeado para ${login}suspenso e sincronizado com o Servidor)!`);
             await browser.close();
             return true;
         } catch (error) {
@@ -287,7 +287,7 @@ class ReceitanetRobotService {
             ]);
 
             // Acessa diretamente a ficha de edição do cliente suspenso via login na URL
-            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}_SUSPENSO`;
+            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${login}suspenso`;
             console.log(`[RECEITANET-ROBOT] Acessando diretamente ficha do cliente suspenso em: ${editUrl}`);
             await page.goto(editUrl, { waitUntil: 'networkidle2' });
 
@@ -323,7 +323,7 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Aguardando gravação física no ERP...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${login} reativado com sucesso (restaurado de ${login}_SUSPENSO e sincronizado com o Servidor)!`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${login} reativado com sucesso (restaurado de ${login}suspenso e sincronizado com o Servidor)!`);
             await browser.close();
             return true;
         } catch (error) {
