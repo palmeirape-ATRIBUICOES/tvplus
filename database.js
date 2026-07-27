@@ -213,6 +213,11 @@ const dbHelpers = {
     // Testes Grátis de 3 Horas (Validação e Geração Sequencial)
     async obterTestePorTelefone(telefone) {
         let fone = telefone.replace(/\D/g, '');
+        // Exceção de Desenvolvedor: O número 21964422488 tem permissão para testes infinitos
+        if (fone.includes('21964422488')) {
+            return null;
+        }
+
         await dbRun(`
             CREATE TABLE IF NOT EXISTS testes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,11 +231,17 @@ const dbHelpers = {
             )
         `).catch(() => {});
 
-        return await dbGet('SELECT * FROM testes WHERE telefone = ?', [fone]).catch(() => null);
+        return await dbGet("SELECT * FROM testes WHERE telefone = ? AND status != 'excluido'", [fone]).catch(() => null);
     },
 
     async criarNovoTeste(telefone) {
         let fone = telefone.replace(/\D/g, '');
+        
+        // Se for o número de testes do desenvolvedor (21964422488), remove testes antigos para permitir inserção sem conflito
+        if (fone.includes('21964422488')) {
+            await dbRun('DELETE FROM testes WHERE telefone LIKE "%21964422488%"').catch(() => {});
+        }
+
         await dbRun(`
             CREATE TABLE IF NOT EXISTS testes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
