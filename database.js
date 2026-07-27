@@ -384,17 +384,33 @@ const dbHelpers = {
 
     async forcarPixNaTv(loginTv, pixData) {
         const payloadStr = typeof pixData === 'object' ? JSON.stringify(pixData) : pixData;
+        const loginClean = (loginTv || '').toString().trim().toLowerCase();
+        const loginSemDominio = loginClean.replace(/@.*$/, '');
+        const loginComDominio = loginClean.includes('@') ? loginClean : `${loginClean}@tvplus`;
+
         await dbRun(`
             INSERT INTO sessoes_ativas (login_tv, status, pix_forcado, ultimo_ping)
             VALUES (?, 'ONLINE', ?, CURRENT_TIMESTAMP)
             ON CONFLICT(login_tv) DO UPDATE SET 
                 pix_forcado = excluded.pix_forcado,
                 ultimo_ping = CURRENT_TIMESTAMP
-        `, [loginTv, payloadStr]).catch(() => {});
+        `, [loginComDominio, payloadStr]).catch(() => {});
+
+        await dbRun(`
+            UPDATE sessoes_ativas SET pix_forcado = ? WHERE login_tv LIKE ? OR REPLACE(login_tv, '@tvplus', '') = ?
+        `, [payloadStr, `%${loginSemDominio}%`, loginSemDominio]).catch(() => {});
     },
 
     async obterPixForcado(loginTv) {
-        const sessao = await dbGet('SELECT pix_forcado FROM sessoes_ativas WHERE login_tv = ?', [loginTv]).catch(() => null);
+        const loginClean = (loginTv || '').toString().trim().toLowerCase();
+        const loginSemDominio = loginClean.replace(/@.*$/, '');
+        const sessao = await dbGet(`
+            SELECT pix_forcado FROM sessoes_ativas 
+            WHERE (login_tv LIKE ? OR REPLACE(login_tv, '@tvplus', '') = ?) 
+              AND pix_forcado IS NOT NULL AND pix_forcado != ''
+            LIMIT 1
+        `, [`%${loginSemDominio}%`, loginSemDominio]).catch(() => null);
+
         if (sessao && sessao.pix_forcado) {
             try {
                 return JSON.parse(sessao.pix_forcado);
@@ -406,7 +422,11 @@ const dbHelpers = {
     },
 
     async limparPixForcado(loginTv) {
-        await dbRun('UPDATE sessoes_ativas SET pix_forcado = NULL WHERE login_tv = ?', [loginTv]).catch(() => {});
+        const loginClean = (loginTv || '').toString().trim().toLowerCase();
+        const loginSemDominio = loginClean.replace(/@.*$/, '');
+        await dbRun(`
+            UPDATE sessoes_ativas SET pix_forcado = NULL WHERE login_tv LIKE ? OR REPLACE(login_tv, '@tvplus', '') = ?
+        `, [`%${loginSemDominio}%`, loginSemDominio]).catch(() => {});
     },
 
     // Clientes

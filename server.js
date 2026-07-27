@@ -620,6 +620,57 @@ app.get('/api/sva/generic/auth', handleSvaAuth);
 
 
 /**
+ * ROTA ADMIN: Disparar Pix QR Code diretamente para a tela da TV do cliente logado
+ * POST /api/admin/enviar-pix-tv
+ */
+app.post('/api/admin/enviar-pix-tv', async (req, res) => {
+    const { login_tv } = req.body;
+    if (!login_tv) {
+        return res.status(400).json({ error: 'O login_tv é obrigatório.' });
+    }
+
+    try {
+        const valor = 10.00;
+        const loginSemDominio = login_tv.replace(/@.*$/, '');
+        const cobranca = await paymentService.gerarCobrancaPix(valor, {
+            nome: `Cliente ${login_tv}`,
+            email: `${loginSemDominio}@tvplus.com`,
+            telefone: '5521964422488'
+        });
+
+        const pixData = {
+            txid: cobranca.txid,
+            valor: '10.00',
+            copiaCola: cobranca.copiaCola,
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
+        };
+
+        // Salva a solicitação de Pix forçado no banco para exibição imediata na TV
+        await helpers.forcarPixNaTv(login_tv, pixData);
+
+        // Registra o pagamento pendente para o cliente correspondente se existir
+        const dbClient = require('./database').db;
+        const clienteRow = await new Promise(resolve => {
+            dbClient.get('SELECT cliente_id FROM assinaturas WHERE login_tv LIKE ? OR REPLACE(login_tv, "@tvplus", "") = ?', [`%${loginSemDominio}%`, loginSemDominio], (e, r) => resolve(r));
+        });
+
+        if (clienteRow && clienteRow.cliente_id) {
+            await helpers.criarPagamento(clienteRow.cliente_id, cobranca.txid, valor);
+        }
+
+        console.log(`[ADMIN ENVIAR PIX TV] 📺 Pix de R$ 10,00 disparado para a tela da TV do usuário: ${login_tv}`);
+        res.status(200).json({
+            success: true,
+            message: `Pix QR Code de R$ 10,00 enviado com sucesso para a tela da TV de ${login_tv}!`,
+            pixData
+        });
+    } catch (error) {
+        console.error('[ADMIN ENVIAR PIX TV ERROR]:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * ROTA: Gerar Pix QR Code de Teste/Renovação direto pelo Painel Admin
  * POST /api/admin/gerar-pix-teste
  */
