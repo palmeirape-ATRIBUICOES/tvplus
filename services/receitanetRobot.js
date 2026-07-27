@@ -540,7 +540,7 @@ class ReceitanetRobotService {
                     const elements = Array.from(document.querySelectorAll('a, td, span'));
                     const match = elements.find(el => {
                         const txt = el.textContent.trim();
-                        return txt === targetLogin || txt === `${targetLogin}_SUSPENSO`;
+                        return txt === targetLogin || txt === `${targetLogin}suspenso`;
                     });
                     
                     if (match) {
