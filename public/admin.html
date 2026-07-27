@@ -465,6 +465,34 @@
             </div>
         </div>
 
+        <!-- Depurador de Tentativas de Login SVA -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2 style="margin: 0; color: #a855f7;"><i class="fa-solid fa-bug"></i> 🔍 Depurador de Tentativas de Login do Aplicativo (Tempo Real)</h2>
+                <button type="button" class="btn-secondary" onclick="carregarSvaDebugLogs()"><i class="fa-solid fa-rotate-right"></i> Atualizar Logs de Login</button>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">
+                Veja exatamente qual Usuário e Senha o cliente digitou no celular, TV ou navegador, a senha que está cadastrada no banco e corrija divergências em 1 clique!
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Horário</th>
+                            <th>Usuário Digitado no App</th>
+                            <th>Senha Digitada no App</th>
+                            <th>Senha Esperada no Banco</th>
+                            <th>Resultado</th>
+                            <th>Ação Rápida (Corrigir)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="svaDebugTableBody">
+                        <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Aguardando tentativas de login do aplicativo...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Terminal de Logs -->
         <div class="card">
             <h2><i class="fa-solid fa-terminal"></i> Console de Respostas & Logs</h2>
@@ -1269,14 +1297,111 @@
             }
         }
 
+        // Carrega o histórico de depuração de tentativas de login SVA
+        async function carregarSvaDebugLogs() {
+            const tbody = document.getElementById('svaDebugTableBody');
+            try {
+                const res = await fetch('/api/admin/sva-debug-logs');
+                const logs = await res.json();
+                if (!logs || logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Nenhuma tentativa de login registrada ainda. Tente logar no aplicativo para visualizar o diagnóstico.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                logs.forEach(log => {
+                    const tr = document.createElement('tr');
+
+                    // Horário
+                    const tdTime = document.createElement('td');
+                    tdTime.textContent = formatarData(log.timestamp);
+                    tr.appendChild(tdTime);
+
+                    // Usuário enviado
+                    const tdUser = document.createElement('td');
+                    tdUser.style.fontWeight = '700';
+                    tdUser.style.color = '#60efff';
+                    tdUser.textContent = log.loginEnviado || '-';
+                    tr.appendChild(tdUser);
+
+                    // Senha enviada pelo app
+                    const tdPassSent = document.createElement('td');
+                    tdPassSent.style.fontFamily = 'monospace';
+                    tdPassSent.textContent = log.senhaEnviada || '-';
+                    tr.appendChild(tdPassSent);
+
+                    // Senha esperada no banco
+                    const tdPassExpected = document.createElement('td');
+                    tdPassExpected.style.fontFamily = 'monospace';
+                    tdPassExpected.style.color = '#22c55e';
+                    tdPassExpected.textContent = log.senhaCadastrada || '-';
+                    tr.appendChild(tdPassExpected);
+
+                    // Resultado / Status
+                    const tdStatus = document.createElement('td');
+                    if (log.status === 'SUCESSO') {
+                        tdStatus.innerHTML = `<span class="badge badge-ativa"><i class="fa-solid fa-check"></i> SUCESSO</span>`;
+                    } else if (log.status === 'FALHA_SENHA') {
+                        tdStatus.innerHTML = `<span class="badge badge-vencida"><i class="fa-solid fa-triangle-exclamation"></i> SENHA INCORRETA</span>`;
+                    } else {
+                        tdStatus.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:#ccc;">${log.status}</span>`;
+                    }
+                    tr.appendChild(tdStatus);
+
+                    // Ação rápida (Corrigir senha para a digitada no app)
+                    const tdAcao = document.createElement('td');
+                    if (log.status === 'FALHA_SENHA' && log.senhaEnviada) {
+                        const btnFix = document.createElement('button');
+                        btnFix.type = 'button';
+                        btnFix.className = 'btn-secondary btn-table';
+                        btnFix.style.backgroundColor = '#a855f7';
+                        btnFix.style.color = '#fff';
+                        btnFix.innerHTML = `<i class="fa-solid fa-wrench"></i> Corrigir Senha p/ '${log.senhaEnviada}'`;
+                        btnFix.onclick = () => corrigirSenhaCliente(log.loginEnviado, log.senhaEnviada);
+                        tdAcao.appendChild(btnFix);
+                    } else {
+                        tdAcao.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">${log.detalhes || '-'}</span>`;
+                    }
+                    tr.appendChild(tdAcao);
+
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error("Erro ao carregar debug logs:", e);
+            }
+        }
+
+        async function corrigirSenhaCliente(loginTv, novaSenha) {
+            if (!confirm(`Deseja atualizar a senha do usuário ${loginTv} para '${novaSenha}' no banco local?`)) return;
+            try {
+                const res = await fetch('/api/admin/atualizar-senha-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login_tv: loginTv, nova_senha: novaSenha })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    carregarDados();
+                    carregarSvaDebugLogs();
+                } else {
+                    alert('Erro: ' + data.error);
+                }
+            } catch (e) {
+                alert('Erro de conexão: ' + e.message);
+            }
+        }
+
         // Carrega os dados na inicialização e inicia o monitor de logs
         carregarDados();
         carregarConversasBot();
         carregarTestes();
         carregarSessoes();
+        carregarSvaDebugLogs();
         setInterval(carregarLogsServidor, 2500);
         setInterval(carregarTestes, 10000);
         setInterval(carregarSessoes, 5000);
+        setInterval(carregarSvaDebugLogs, 3000);
         carregarLogsServidor();
     </script>
 </body>

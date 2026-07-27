@@ -395,11 +395,15 @@ const handleSvaAuth = async (req, res) => {
     } catch (e) {}
     passClean = passClean.trim();
 
+    const passOnlyDigits = passClean.replace(/\D/g, '');
+    const passPadded = passOnlyDigits.length > 0 && passOnlyDigits.length < 11 ? passOnlyDigits.padStart(11, '0') : passOnlyDigits;
+    const passNoLeadingZero = passClean.replace(/^0+/, '');
+
     const userWithDomain = userClean.includes('@') ? userClean : `${userClean}@tvplus`;
     const userWithoutDomain = userClean.replace(/@.*$/, '').replace(/[\s\+].*$/, '').trim();
     const userLikePattern = `%${userWithoutDomain}%`;
 
-    console.log(`[SVA AUTH] Login normalizado: User='${userClean}' (Com Domínio: '${userWithDomain}', Sem Domínio: '${userWithoutDomain}'), Pass='${passClean}'`);
+    console.log(`[SVA AUTH] Login normalizado: User='${userClean}' (Com Domínio: '${userWithDomain}', Sem Domínio: '${userWithoutDomain}'), Pass='${passClean}' (Variações dígitos: '${passOnlyDigits}', '${passPadded}', '${passNoLeadingZero}')`);
 
     try {
         const dbClient = require('./database').db;
@@ -409,6 +413,7 @@ const handleSvaAuth = async (req, res) => {
         const sessaoDerrubada = await helpers.verificarSessaoDerrubada(userWithDomain) || await helpers.verificarSessaoDerrubada(userWithoutDomain);
         if (sessaoDerrubada) {
             console.log(`[SVA AUTH DERRUBADO] ⚡ Conexão interrompida pelo Administrador para o login: ${userClean}`);
+            registrarLogDebugSva(userClean, passClean, 'DERRUBADO_ADMIN', 'Sessão derrubada pelo Administrador.');
             return res.status(403).json({ success: false, status: "kicked", msg: "Sua conexão foi encerrada pelo Administrador do sistema." });
         }
 
@@ -416,6 +421,7 @@ const handleSvaAuth = async (req, res) => {
         const pixForcado = await helpers.obterPixForcado(userWithDomain) || await helpers.obterPixForcado(userWithoutDomain);
         if (pixForcado) {
             console.log(`[SVA AUTH PIX FORÇADO] 📺 Exibindo Pix QR Code disparado pelo Administrador na tela da TV do usuário: ${userClean}`);
+            registrarLogDebugSva(userClean, passClean, 'PIX_TV_FORCADO', 'Pix QR Code forçado na tela da TV.');
             return res.status(403).json({
                 success: false,
                 status: "blocked",
@@ -430,13 +436,24 @@ const handleSvaAuth = async (req, res) => {
         const dispositivo = req.headers['user-agent'] || 'SignalPlay App';
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
-        // 1. Busca em assinaturas pagas (Suporta todas as variações de login com ou sem @tvplus)
+        // 1. Busca em assinaturas pagas (Suporta variações de login e variações de senha)
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
                 `SELECT * FROM assinaturas 
                  WHERE (LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ? OR LOWER(TRIM(login_tv)) LIKE ?) 
-                   AND (TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?)`,
-                [userClean, userWithDomain, userWithoutDomain, userWithoutDomain, userLikePattern, passClean, passClean],
+                   AND (
+                       TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ? 
+                    OR TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ? 
+                    OR TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?
+                    OR TRIM(senha_tv) = ? OR CAST(senha_tv AS TEXT) = ?
+                   )`,
+                [
+                    userClean, userWithDomain, userWithoutDomain, userWithoutDomain, userLikePattern, 
+                    passClean, passClean, 
+                    passOnlyDigits, passOnlyDigits, 
+                    passPadded, passPadded, 
+                    passNoLeadingZero, passNoLeadingZero
+                ],
                 (err, row) => {
                     if (err) reject(err);
                     else resolve(row);
@@ -444,14 +461,33 @@ const handleSvaAuth = async (req, res) => {
             );
         });
 
+// Armazena em memória as últimas 50 tentativas de login do aplicativo com diagnóstico completo
+const svaDebugLogs = [];
+
+function registrarLogDebugSva(loginEnviado, senhaEnviada, status, detalhes, senhaCadastrada = null) {
+    const entry = {
+        id: Date.now(),
+        timestamp: new Date().toISOString(),
+        loginEnviado,
+        senhaEnviada,
+        status,
+        detalhes,
+        senhaCadastrada
+    };
+    svaDebugLogs.unshift(entry);
+    if (svaDebugLogs.length > 50) svaDebugLogs.pop();
+}
+
         if (assinatura) {
             const vencimento = new Date(assinatura.data_vencimento);
             if (assinatura.status === 'ativa' && vencimento > agora) {
                 console.log(`[SVA AUTH OK] Acesso autorizado para cliente pago: ${assinatura.login_tv} (Expira em: ${assinatura.data_vencimento})`);
                 await helpers.registrarPingSessao(userWithDomain, dispositivo, ip, 'Canais digitais e Filmes HD');
+                registrarLogDebugSva(userClean, passClean, 'SUCESSO', 'Acesso autorizado (Cliente Ativo).', assinatura.senha_tv);
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
             } else {
                 console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${assinatura.login_tv}`);
+                registrarLogDebugSva(userClean, passClean, 'VENCIDO', 'Conta de cliente vencida.', assinatura.senha_tv);
                 
                 // Gera cobrança Pix de renovação instantânea para exibição direta no app da TV
                 let pixData = null;
@@ -1066,6 +1102,45 @@ app.get('/api/admin/diagnose-erp', async (req, res) => {
 
 app.get('/api/admin/server-logs', (req, res) => {
     res.status(200).json(serverLogs);
+});
+
+/**
+ * ROTA: Retorna as últimas 50 tentativas de login SVA registradas no servidor com diagnóstico completo
+ * GET /api/admin/sva-debug-logs
+ */
+app.get('/api/admin/sva-debug-logs', (req, res) => {
+    res.status(200).json(svaDebugLogs);
+});
+
+/**
+ * ROTA: Atualiza a senha de um cliente ou teste no banco local em 1 clique
+ * POST /api/admin/atualizar-senha-cliente
+ */
+app.post('/api/admin/atualizar-senha-cliente', async (req, res) => {
+    const { login_tv, nova_senha } = req.body;
+    if (!login_tv || !nova_senha) {
+        return res.status(400).json({ error: 'Login e nova senha são obrigatórios.' });
+    }
+
+    try {
+        const dbClient = require('./database').db;
+        const passClean = nova_senha.toString().trim();
+
+        // Atualiza na tabela assinaturas
+        await new Promise(resolve => {
+            dbClient.run('UPDATE assinaturas SET senha_tv = ? WHERE login_tv LIKE ? OR REPLACE(login_tv, "@tvplus", "") LIKE ?', [passClean, `%${login_tv}%`, `%${login_tv}%`], resolve);
+        });
+
+        // Atualiza na tabela testes
+        await new Promise(resolve => {
+            dbClient.run('UPDATE testes SET senha_tv = ? WHERE login_tv LIKE ? OR REPLACE(login_tv, "@tvplus", "") LIKE ?', [passClean, `%${login_tv}%`, `%${login_tv}%`], resolve);
+        });
+
+        console.log(`[ADMIN SENHA ATUALIZADA] 🔑 Senha do usuário '${login_tv}' alterada para '${passClean}' com sucesso.`);
+        res.status(200).json({ success: true, message: `Senha do usuário '${login_tv}' atualizada para '${passClean}'!` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 /**
