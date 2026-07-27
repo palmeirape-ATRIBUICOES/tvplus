@@ -292,7 +292,7 @@ const dbHelpers = {
 
     async marcarTesteExpirado(id) {
         await dbRun(`
-            UPDATE testes SET status = 'expirado', aviso_expiracao_enviado = 1 WHERE id = ?
+            UPDATE testes SET status = 'excluido', aviso_expiracao_enviado = 1 WHERE id = ?
         `, [id]).catch(() => {});
     },
 

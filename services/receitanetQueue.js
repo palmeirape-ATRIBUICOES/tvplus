@@ -48,6 +48,8 @@ class ReceitanetQueueService {
                 await receitanetRobot.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             } else if (task.tipo === 'SUSPENDER') {
                 await receitanetRobot.suspenderCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
+            } else if (task.tipo === 'EXCLUIR_COMPLETO') {
+                await receitanetRobot.excluirCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             }
             console.log(`[RECEITANET WORKER SUCESSO] ✅ Tarefa ${task.jobId} (${task.tipo}) finalizada com sucesso!`);
         } catch (error) {

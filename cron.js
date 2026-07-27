@@ -52,13 +52,13 @@ async function verificarTestesExpirados() {
         for (const teste of testesExpirados) {
             console.log(`[CRON TESTES] Expirando teste ID ${teste.id} (${teste.login_tv}) para o número +${teste.telefone}...`);
 
-            // 1. Marcar como expirado no banco local para não notificar novamente
+            // 1. Marcar como expirado/excluído no banco local para limpar a visão do admin
             await helpers.marcarTesteExpirado(teste.id);
 
-            // 2. Chama o robô do ReceitaNet ERP em segundo plano para excluir/suspender o teste (adiciona 'suspenso')
-            const robot = require('./services/receitanetRobot');
-            robot.suspenderCliente(teste.login_tv).catch(err => {
-                console.error(`[CRON TESTES ROBOT ERROR] Erro ao suspender teste ${teste.login_tv} no ERP:`, err.message);
+            // 2. Chama a fila do ReceitaNet ERP em segundo plano para EXCLUIR E RESCINDIR TOTALMENTE o teste no ERP
+            const receitanetQueue = require('./services/receitanetQueue');
+            receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', {
+                loginTv: teste.login_tv
             });
 
             // 3. Envia mensagem via WhatsApp informando a expiração e o link para cadastro e compra de R$ 10

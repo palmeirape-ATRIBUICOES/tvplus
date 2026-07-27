@@ -911,12 +911,12 @@ app.get('/api/admin/server-logs', (req, res) => {
 });
 
 /**
- * ROTA: Listar todos os testes grátis de 3 horas gerados
+ * ROTA: Listar todos os testes grátis de 3 horas ativos (oculta testes excluídos)
  * GET /api/admin/testes
  */
 app.get('/api/admin/testes', async (req, res) => {
     try {
-        db.all('SELECT * FROM testes ORDER BY id DESC', [], (err, rows) => {
+        db.all("SELECT * FROM testes WHERE status != 'excluido' ORDER BY id DESC", [], (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.status(200).json(rows || []);
         });
@@ -926,7 +926,7 @@ app.get('/api/admin/testes', async (req, res) => {
 });
 
 /**
- * ROTA: Expirar/Cancelar teste grátis manualmente
+ * ROTA: Expirar e Excluir teste grátis do Admin e do ERP
  * POST /api/admin/excluir-teste
  */
 app.post('/api/admin/excluir-teste', async (req, res) => {
@@ -935,12 +935,14 @@ app.post('/api/admin/excluir-teste', async (req, res) => {
         db.get('SELECT * FROM testes WHERE id = ?', [id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Teste não localizado.' });
 
+            // Marca como excluído no banco local para remover da tabela do Admin (mas retém o número de WhatsApp travado contra novos testes)
             await helpers.marcarTesteExpirado(row.id);
 
+            // Enfileira a exclusão completa/rescisão do teste no ReceitaNet ERP em segundo plano
             const receitanetQueue = require('./services/receitanetQueue');
-            receitanetQueue.adicionarTarefa('SUSPENDER', { loginTv: row.login_tv });
+            receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', { loginTv: row.login_tv });
 
-            res.status(200).json({ message: `Teste ${row.login_tv} expirado e enfileirado para suspensão!` });
+            res.status(200).json({ message: `Teste ${row.login_tv} removido do Painel Admin e enfileirado para exclusão completa no ERP!` });
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
