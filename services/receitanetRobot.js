@@ -147,7 +147,7 @@ class ReceitanetRobotService {
                 }
             }, nuevoLogin);
 
-            // 3. Clica fisicamente no botão 'Gravar no ReceitaNet' para disparar a submissão nativa
+            // 3. Clica no botão exato via XPath fornecido pelo usuário
             await this.salvarFormularioCliente(page);
 
             // 4. --- AUDITORIA DE CONFIRMAÇÃO DIRETA NO ERP ---
@@ -335,7 +335,6 @@ class ReceitanetRobotService {
     async abrirFichaClienteReal(page, login, cpf, nome) {
         console.log(`[RECEITANET-ROBOT] Acessando ficha de cadastro do cliente: ${login}...`);
         
-        // 1. Tenta a URL direta por login
         const directUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(login)}`;
         console.log(`[RECEITANET-ROBOT] Abrindo URL direta do cadastro: ${directUrl}`);
         await page.goto(directUrl, { waitUntil: 'networkidle2' });
@@ -346,7 +345,6 @@ class ReceitanetRobotService {
             return;
         }
 
-        // 2. Se não carregou o input diretamente, pesquisa na barra principal input[name="search"]
         console.log(`[RECEITANET-ROBOT] Pesquisando cliente na barra principal input[name="search"]...`);
         const searchSelector = 'input[name="search"], input[placeholder="Nome/Login/Tel./CPF"]';
         await page.waitForSelector(searchSelector, { timeout: 10000 });
@@ -360,7 +358,6 @@ class ReceitanetRobotService {
             page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
         ]);
 
-        // Se cair na tabela de listagem do /novo, clica na linha do cliente
         if (!page.url().includes('clientes_cadastro.php')) {
             console.log(`[RECEITANET-ROBOT] Clicando no link do cliente na tabela de resultados...`);
             await page.evaluate((loginTarget) => {
@@ -376,16 +373,50 @@ class ReceitanetRobotService {
     }
 
     /**
-     * Clica no botão 'Gravar no ReceitaNet' via Puppeteer nativo (simula o clique do mouse com o evento name="atualizar")
+     * Clica no botão exato via XPath fornecido pelo usuário:
+     * /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]
      */
     async salvarFormularioCliente(page) {
-        console.log(`[RECEITANET-ROBOT] Executando clique nativo no botão 'Gravar no ReceitaNet'...`);
+        console.log(`[RECEITANET-ROBOT] Clicando no botão exato via XPath: /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]...`);
         
-        const saveButtonSelector = 'button[name="atualizar"], button.btn-primary, button.btn-danger';
-        await page.waitForSelector(saveButtonSelector, { timeout: 10000 });
-        
-        // Clique nativo do Puppeteer dispara o envio do botão name="atualizar" value="1"
-        await page.click(saveButtonSelector);
+        await page.evaluate(() => {
+            // Garante parâmetro atualizar=1 no formulário se necessário
+            const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
+            if (form) {
+                let inputAtualizar = form.querySelector('input[name="atualizar"]');
+                if (!inputAtualizar) {
+                    inputAtualizar = document.createElement('input');
+                    inputAtualizar.type = 'hidden';
+                    inputAtualizar.name = 'atualizar';
+                    inputAtualizar.value = '1';
+                    form.appendChild(inputAtualizar);
+                } else {
+                    inputAtualizar.value = '1';
+                }
+            }
+
+            // Executa o XPath exato fornecido pelo usuário
+            const xpathResult = document.evaluate('/html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            let btn = xpathResult.singleNodeValue;
+            
+            if (!btn) {
+                console.log("[RECEITANET-ROBOT DOM] XPath específico não retornou nó, buscando botões de gravação...");
+                const buttons = Array.from(document.querySelectorAll('form button, button'));
+                btn = buttons.find(b => {
+                    const txt = (b.textContent || b.value || '').trim();
+                    return txt.includes('Gravar no ReceitaNet') || txt.includes('Gravar');
+                }) || document.querySelector('button[name="atualizar"], button.btn-danger, button.btn-primary');
+            }
+            
+            if (btn) {
+                btn.scrollIntoView();
+                btn.click();
+            } else if (form) {
+                form.submit();
+            } else {
+                throw new Error("Botão de gravação não localizado no DOM.");
+            }
+        });
 
         console.log(`[RECEITANET-ROBOT] Aguardando processamento da gravação assíncrona (5 segundos)...`);
         await new Promise(r => setTimeout(r, 5000));
