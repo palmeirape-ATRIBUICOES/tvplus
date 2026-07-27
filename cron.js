@@ -91,40 +91,49 @@ async function verificarAssinaturas() {
 
         for (const assinatura of vencidas) {
             const dataVenc = new Date(assinatura.data_vencimento);
-            console.log(`[CRON WORKER] Bloqueando acesso de: ${assinatura.login_tv} (Venceu em: ${dataVenc.toLocaleString('pt-BR')})`);
+            console.log(`[CRON WORKER] Bloqueando e suspendendo acesso de: ${assinatura.login_tv} (Venceu em: ${dataVenc.toLocaleString('pt-BR')})`);
             
-            // 1. Executa suspensão (controle local)
-            const bloqueado = await tvPanelService.bloquearCliente(assinatura.login_tv);
+            // 1. Atualiza o status local para 'suspensa' e força a derrubada da sessão na TV
+            await helpers.atualizarStatusAssinatura(assinatura.id, 'suspensa');
             
-            if (bloqueado) {
-                // 2. Atualiza o status local para suspensa
-                await helpers.atualizarStatusAssinatura(assinatura.id, 'suspensa');
-                
-                // 3. Gera cobrança Pix automática de renovação (R$ 10,00 por padrão)
-                const valorRenovacao = 10.00;
-                const cobranca = await paymentService.gerarCobrancaPix(valorRenovacao, {
+            const loginSemDominio = (assinatura.login_tv || '').replace(/@.*$/, '');
+            const { db } = require('./database');
+            db.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ? OR REPLACE(login_tv, '@tvplus', '') = ?", [`%${loginSemDominio}%`, loginSemDominio]);
+
+            // 2. Enfileira a suspensão no ReceitaNet ERP em segundo plano
+            const receitanetQueue = require('./services/receitanetQueue');
+            receitanetQueue.adicionarTarefa('SUSPENDER', {
+                loginTv: assinatura.login_tv,
+                cpf: assinatura.cpfcnpj,
+                nome: assinatura.nome
+            });
+
+            // 3. Gera cobrança Pix automática de renovação (R$ 10,00)
+            const valorRenovacao = 10.00;
+            let cobranca = null;
+            try {
+                cobranca = await paymentService.gerarCobrancaPix(valorRenovacao, {
                     nome: assinatura.nome,
                     email: assinatura.email,
                     telefone: assinatura.telefone
                 });
-
-                // Salva a cobrança Pix gerada
                 await helpers.criarPagamento(assinatura.cliente_id, cobranca.txid, valorRenovacao);
+            } catch (pErr) {
+                console.error("[CRON PIX ERROR]:", pErr.message);
+            }
 
-                // 4. Envia mensagem via WhatsApp informando sobre o bloqueio e fornecendo o Pix em mensagem separada
-                const nomeCapitalizado = capitalizeName(assinatura.nome);
-                const mensagemBloqueio = `Olá, *${nomeCapitalizado}*!\n\n` +
-                                         `Notamos que o seu período de acesso ao aplicativo *SIGNALPLAY* expirou e o pagamento de renovação não foi identificado.\n` +
-                                         `Como resultado, o seu login *${assinatura.login_tv}* foi suspenso temporariamente.\n\n` +
-                                         `Para reativar seu sinal por mais *30 dias* agora mesmo (com até 3 telas simultâneas), copie a chave Pix enviada na mensagem abaixo e pague no app do seu banco!\n\n` +
-                                         `Assim que o Pix for pago, o sistema ativará seu sinal automaticamente em instantes!`;
-                
-                await whatsappService.enviarMensagem(assinatura.telefone, mensagemBloqueio);
-                
-                // Mensagem dedicada exclusiva com o código Pix Copia e Cola para facilidade do cliente
-                if (cobranca && cobranca.copiaCola) {
-                    await whatsappService.enviarMensagem(assinatura.telefone, cobranca.copiaCola);
-                }
+            // 4. Envia mensagem via WhatsApp informando sobre o bloqueio e o Pix Copia e Cola
+            const nomeCapitalizado = capitalizeName(assinatura.nome);
+            const mensagemBloqueio = `Olá, *${nomeCapitalizado}*!\n\n` +
+                                     `Notamos que o seu período de acesso ao aplicativo *SIGNALPLAY* expirou e o pagamento de renovação não foi identificado.\n` +
+                                     `Como resultado, o seu login *${assinatura.login_tv}* foi suspenso temporariamente.\n\n` +
+                                     `Para reativar seu sinal por mais *30 dias* agora mesmo (com até 3 telas simultâneas), copie a chave Pix enviada na mensagem abaixo e pague no app do seu banco!\n\n` +
+                                     `Assim que o Pix for pago, o sistema ativará seu sinal automaticamente em instantes!`;
+            
+            await whatsappService.enviarMensagem(assinatura.telefone, mensagemBloqueio);
+            
+            if (cobranca && cobranca.copiaCola) {
+                await whatsappService.enviarMensagem(assinatura.telefone, cobranca.copiaCola);
             }
         }
 

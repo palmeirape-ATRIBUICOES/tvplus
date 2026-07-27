@@ -519,10 +519,12 @@ const handleSvaAuth = async (req, res) => {
                 registrarLogDebugSva(userClean, passClean, 'SUCESSO', 'Acesso autorizado (Cliente Ativo).', assinatura.senha_tv);
                 return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
             } else {
-                console.log(`[SVA AUTH BLOCKED] Conta de cliente bloqueada ou vencida: ${assinatura.login_tv}`);
+                console.log(`[SVA AUTH KICKED] Conta de cliente bloqueada ou vencida: ${assinatura.login_tv}`);
                 registrarLogDebugSva(userClean, passClean, 'VENCIDO', 'Conta de cliente vencida.', assinatura.senha_tv);
                 
-                // Gera cobrança Pix de renovação instantânea para exibição direta no app da TV
+                // Força o encerramento da sessão em tempo real no banco para cortar o sinal na TV
+                dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ?", [`%${userWithoutDomain}%`]);
+
                 let pixData = null;
                 try {
                     const cobranca = await paymentService.gerarCobrancaPix(10.00, {
@@ -542,8 +544,8 @@ const handleSvaAuth = async (req, res) => {
 
                 return res.status(200).json({ 
                     success: false, 
-                    status: "blocked", 
-                    msg: "Sua assinatura de TV está vencida. Pague o Pix de R$ 10,00 para renovar por +30 dias instantaneamente!",
+                    status: "kicked", 
+                    msg: "Sua assinatura de TV está vencida. O sinal foi suspenso. Pague o Pix abaixo de R$ 10,00 para reativar instantaneamente por +30 dias!",
                     valor: "10.00",
                     pix_copia_e_cola: pixData ? pixData.copiaCola : null,
                     pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
