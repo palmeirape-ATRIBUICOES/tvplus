@@ -1060,7 +1060,7 @@
 
                     if (s.status === 'DERRUBADO') {
                         tdStatus.innerHTML = `<span class="badge badge-vencida"><i class="fa-solid fa-ban"></i> DERRUBADO</span>`;
-                    } else if (diffSegundos < 120) { // Considera ONLINE se respondeu ping nos últimos 2 minutos
+                    } else if (s.status === 'ONLINE' && diffSegundos < 45) { // Considera ONLINE se respondeu ping nos últimos 45 segundos
                         tdStatus.innerHTML = `<span class="badge badge-ativa"><i class="fa-solid fa-signal"></i> 🟢 ONLINE (Assistindo agora)</span>`;
                     } else {
                         tdStatus.innerHTML = `<span class="badge" style="background:rgba(255,255,255,0.1); color:#ccc;"><i class="fa-solid fa-moon"></i> ⚪ OFFLINE</span>`;

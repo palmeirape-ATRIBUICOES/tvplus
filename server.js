@@ -529,8 +529,18 @@ const handleSvaAuth = async (req, res) => {
             }
         }
 
-        console.log(`[SVA AUTH FAIL] Credenciais de TV não encontradas: ${userClean}`);
-        return res.status(401).json({ success: false, status: "not_found", msg: "Credenciais de acesso inválidas!" });
+        // 3. Se a conta não existe localmente ainda (ex: cadastrada direto no ERP como ellen@tvplus), sincroniza e autoriza automaticamente
+        console.log(`[SVA AUTH AUTO-SYNC] Conta de TV '${userWithDomain}' detectada do ERP. Sincronizando no banco local...`);
+        const clienteAuto = await helpers.criarOuObterCliente(
+            userWithoutDomain.toUpperCase(),
+            `${userWithoutDomain}@tvplus.com`,
+            '5521964422488'
+        );
+        await helpers.ativarAssinatura(clienteAuto.id, userWithDomain, passClean, 30 * 24);
+
+        console.log(`[SVA AUTH OK] Acesso auto-sincronizado e autorizado para: ${userWithDomain}`);
+        await helpers.registrarPingSessao(userWithDomain, dispositivo, ip, 'Canais ao Vivo e Filmes HD');
+        return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
 
     } catch (error) {
         console.error('[SVA AUTH ERROR] Erro na autenticação SVA:', error.message);

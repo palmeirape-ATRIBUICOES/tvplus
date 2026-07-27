@@ -360,9 +360,13 @@ const dbHelpers = {
                 ip_origem TEXT,
                 canal_atual TEXT DEFAULT 'Sinal Digital Live',
                 ultimo_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
-                status TEXT DEFAULT 'ONLINE'
+                status TEXT DEFAULT 'ONLINE',
+                pix_forcado TEXT
             )
         `).catch(() => {});
+
+        // Marca como OFFLINE se o último ping de transmissão foi há mais de 45 segundos
+        await dbRun("UPDATE sessoes_ativas SET status = 'OFFLINE' WHERE status = 'ONLINE' AND (julianday('now') - julianday(ultimo_ping)) * 86400 > 45").catch(() => {});
 
         return await dbAll('SELECT * FROM sessoes_ativas ORDER BY ultimo_ping DESC').catch(() => []);
     },
