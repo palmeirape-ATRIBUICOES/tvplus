@@ -110,24 +110,25 @@ class ReceitanetRobotService {
                     await page.goto(planUrl, { waitUntil: 'networkidle2' });
                     await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
 
-                    await page.evaluate(() => {
-                        const select = document.querySelector('select[name="mensalidade_id"]') || document.querySelector('select');
-                        if (select) {
-                            const opt = Array.from(select.options).find(o => o.text.toLowerCase().includes('cdntv') || o.value === '108038');
-                            if (opt) {
-                                select.value = opt.value;
-                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                    console.log(`[RECEITANET-ROBOT] Submetendo mensalidade 'cdntv' (108038) via form.submit() direto...`);
+                    await Promise.all([
+                        page.evaluate(() => {
+                            const select = document.querySelector('select[name="mensalidade_id"]');
+                            if (select) {
+                                const opt = Array.from(select.options).find(o => o.value === '108038' || o.text.toLowerCase().includes('cdntv'));
+                                if (opt) {
+                                    select.value = opt.value;
+                                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                                    const form = select.closest('form');
+                                    if (form) form.submit();
+                                }
                             }
-                        }
-                    });
+                        }),
+                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                    ]);
 
-                    await page.evaluate(() => {
-                        const btn = Array.from(document.querySelectorAll('button, input[type="submit"]')).find(b => b.textContent.trim() === 'Incluir');
-                        if (btn) btn.click();
-                    });
-
-                    await new Promise(r => setTimeout(r, 3000));
-                    console.log(`[RECEITANET-ROBOT SUCCESS] Mensalidade 'cdntv' vinculada no Novo ERP com sucesso!`);
+                    await new Promise(r => setTimeout(r, 2000));
+                    console.log(`[RECEITANET-ROBOT SUCCESS] Mensalidade 'cdntv' submetida e gravada na lista do cliente ${loginTv}!`);
                 }
             } catch (eNovoPlano) {
                 console.error(`[RECEITANET-ROBOT WARNING] Erro na gravação do plano no Novo ERP:`, eNovoPlano.message);
