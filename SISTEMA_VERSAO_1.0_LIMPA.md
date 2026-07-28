@@ -138,6 +138,28 @@ RECEITANET_ADMIN_PASS=sua_senha_admin
 
 ---
 
+## 🤖 Criação e exclusão de cadastros via robô
+
+Abaixo está o passo a passo exato e imutável que o robô Puppeteer executa para realizar as tarefas de criação (vinculação de plano) e exclusão definitiva de clientes no ReceitaNet ERP:
+
+### 1. Fluxo de Criação de Cadastro e Vinculação de Planos (WhatsApp / Trial):
+1. **Dados Iniciais:** O robô insere os dados de cadastro fornecidos (Login, Senha, Nome, CPF/CNPJ, Celular, etc.) na página de criação de novos clientes (`clientes_cadastro.php`) e clica em **Incluir**.
+2. **Abertura e Planos:** Imediatamente após a inclusão (com a tela recarregada na ficha de edição), o robô clica no botão azul **"Planos"** (classe `btn bg-blue btn-app`) localizado logo abaixo do nome do cliente no topo da ficha.
+3. **Seleção de Mensalidade:** Na tela de planos de cobrança (`/novo/financeiros/clientes/planos/ID`), o robô busca e seleciona no select `mensalidade_id` a opção que contém exatamente **`CDNTV-R$0,00`** na descrição.
+4. **Confirmação:** Após selecionar, o robô clica no botão **Incluir** (submetendo o formulário diretamente via `form.submit()`) para registrar e ativar o plano de cobrança.
+
+### 2. Fluxo de Exclusão Definitiva de Cadastro (Admin / Expirados):
+1. **Abertura da Ficha:** O robô abre a ficha do cliente alvo direto na URL de cadastro (`clientes_cadastro.php?cli_login=...`).
+2. **Aba Rescisão:** Clica na aba/botão **"Rescisão"** no menu do cliente para ir à tela de cancelamento de contrato.
+3. **Motivo do Cancelamento:** No select de motivos, escolhe a opção contendo **"Cancelado Chip"** (ID `13`).
+4. **Detalhes da Baixa:** Digita exatamente a palavra **"OK"** no campo de texto de observação/detalhe da rescisão.
+5. **Calcular:** Clica no botão **"Calcular"**. O robô captura e fecha imediatamente em segundo plano a nova aba do navegador aberta por esse botão.
+6. **Retorno e Recarga:** O robô retorna à ficha de cadastro do cliente (`clientes_cadastro.php?cli_login=...`) e executa um recarregamento da página (`reload`).
+7. **Botão Excluir:** Com a página recarregada pós-rescisão, o botão físico de **"Excluir"** (ID `Excluir`) torna-se visível. O robô clica no botão, aceita o alerta de confirmação e exclui o cadastro por completo do banco de dados do ERP.
+
+---
+
 ## 🏁 Conclusão
 
 Esta **VERSÃO 1.0 LIMPA** representa o estado perfeitamente funcional, estável e testado do sistema. Todas as integrações (ERP, Pix, WhatsApp, IA e Painel Admin) encontram-se operacionais e prontas para uso comercial.
+
