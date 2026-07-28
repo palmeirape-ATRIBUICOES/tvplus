@@ -273,22 +273,32 @@ const dbHelpers = {
             )
         `).catch(() => {});
 
-        // Se for o número de testes do desenvolvedor (21964422488), arquiva o registro anterior alterando o telefone único
+        // Remove qualquer registro prévio associado ao número (ou ao número do desenvolvedor) para evitar colisão de chave única de telefone no SQLite
         if (fone.includes('21964422488')) {
-            await dbRun('UPDATE testes SET telefone = ?, status = "excluido" WHERE telefone LIKE "%21964422488%"', [`${fone}_old_${Date.now()}`]).catch(() => {});
+            await dbRun('DELETE FROM testes WHERE telefone LIKE "%21964422488%"').catch(() => {});
+        } else {
+            await dbRun('DELETE FROM testes WHERE telefone = ?', [fone]).catch(() => {});
         }
 
-        // Obtém o maior número sequencial de teste já criado (ex: se o último foi teste1@tvplus, o próximo será teste2@tvplus)
-        const lastTestRow = await dbGet("SELECT login_tv, id FROM testes WHERE login_tv LIKE 'teste%' ORDER BY id DESC LIMIT 1").catch(() => null);
+        // Sequenciador persistente global de testes (ex: teste203@tvplus, teste204@tvplus...)
+        await dbRun(`CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT)`).catch(() => {});
+        const seqRow = await dbGet('SELECT valor FROM configuracoes WHERE chave = "ultimo_teste_num"').catch(() => null);
+        
         let nextNum = 1;
-        if (lastTestRow && lastTestRow.login_tv) {
-            const match = lastTestRow.login_tv.match(/teste(\d+)/i);
-            if (match && match[1]) {
-                nextNum = parseInt(match[1], 10) + 1;
-            } else if (lastTestRow.id) {
-                nextNum = lastTestRow.id + 1;
+        if (seqRow && seqRow.valor) {
+            nextNum = parseInt(seqRow.valor, 10) + 1;
+        } else {
+            // Se ainda não existir na tabela configuracoes, calcula a partir do histórico existente
+            const lastTestRow = await dbGet("SELECT login_tv, id FROM testes WHERE login_tv LIKE 'teste%' ORDER BY id DESC LIMIT 1").catch(() => null);
+            if (lastTestRow && lastTestRow.login_tv) {
+                const match = lastTestRow.login_tv.match(/teste(\d+)/i);
+                if (match && match[1]) nextNum = parseInt(match[1], 10) + 1;
+                else if (lastTestRow.id) nextNum = lastTestRow.id + 1;
             }
         }
+
+        // Salva o novo número sequencial no banco
+        await dbRun('INSERT INTO configuracoes (chave, valor) VALUES ("ultimo_teste_num", ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor', [nextNum.toString()]).catch(() => {});
 
         const loginTeste = `teste${nextNum}@tvplus`;
         
