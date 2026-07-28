@@ -1073,6 +1073,9 @@
             } catch (e) {
                 logBox.textContent = `[ERRO] ${e.message}`;
                 logBox.style.color = '#ef4444';
+            }
+        }
+
         // Registrar / Sincronizar qualquer login de teste manualmente no painel
         async function executarCriarTesteManual() {
             const input = document.getElementById('inputManualTestLogin');
@@ -1244,6 +1247,8 @@
             }
             await derrubarSessao(login);
             if (input) input.value = '';
+        }
+
         // Limpa o histórico de sessões/conexões antigas do banco
         async function limparSessoesAntigas() {
             if (!confirm("Deseja expurgar todo o histórico de conexões antigas do Monitor?")) return;
