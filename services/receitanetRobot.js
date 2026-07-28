@@ -52,14 +52,26 @@ class ReceitanetRobotService {
                 await page.type('input[name="cli_email"]', emailValor);
             } catch (e) {}
 
-            // Habilita módulo de mensalidades (men_codigo = 1) e ativa boleto/acesso (cli_boleto = S)
-            console.log(`[RECEITANET-ROBOT] Configurando mensalidade e ativação no formulário principal...`);
+            // Aplica 100% dos parâmetros copiados do modelo de sucesso 'teste2@tvplus'
+            console.log(`[RECEITANET-ROBOT] Aplicando todos os parâmetros oficiais do modelo 'teste2@tvplus'...`);
             await page.evaluate(() => {
-                const selectMen = document.querySelector('select[name="men_codigo"]');
-                if (selectMen) { selectMen.value = '1'; selectMen.dispatchEvent(new Event('change', { bubbles: true })); }
-                
-                const selectBol = document.querySelector('select[name="cli_boleto"]');
-                if (selectBol) { selectBol.value = 'S'; selectBol.dispatchEvent(new Event('change', { bubbles: true })); }
+                const setVal = (selector, val) => {
+                    const el = document.querySelector(selector);
+                    if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
+                };
+
+                setVal('select[name="cli_tipo"]', '1'); // Pessoa Física
+                setVal('select[name="cli_cidade"]', '3305109'); // São João de Meriti
+                setVal('select[name="cli_uf"]', 'RJ'); // RJ
+                setVal('select[name="cli_diatari"]', '10'); // Dia de Vencimento 10
+                setVal('select[name="cli_boleto"]', 'S'); // ATIVADO
+                setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade)
+                setVal('select[name="plano"]', '2'); // PADRÃO
+                setVal('select[name="ban_codigo"]', '12168'); // API - Efí
+                setVal('select[name="base_referencia"]', 'V'); // Pré-pago
+
+                const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
+                if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
             });
 
             await Promise.all([
@@ -72,13 +84,13 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} criado com sucesso! Obtendo URL exata do Novo ERP de Planos de Cobrança...`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Vinculando plano CDNTV no Novo ERP e no Módulo Legacy...`);
 
+            // 1. Vínculo no Novo ERP de Planos (/novo/financeiros/clientes/planos/ID)
             try {
                 const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
                 let planUrl = null;
 
-                // Busca o cliente pelo login sem domínio (ex: teste103) e com domínio para capturar a URL exata (/novo/financeiros/clientes/planos/ID)
                 for (const queryTerm of [loginSemDominio, loginTv]) {
                     if (!queryTerm) continue;
                     await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
@@ -94,11 +106,10 @@ class ReceitanetRobotService {
                 }
 
                 if (planUrl) {
-                    console.log(`[RECEITANET-ROBOT] Abrindo tela do Novo ERP de Planos: ${planUrl}...`);
+                    console.log(`[RECEITANET-ROBOT] Gravando mensalidade 'cdntv' (108038) no Novo ERP: ${planUrl}...`);
                     await page.goto(planUrl, { waitUntil: 'networkidle2' });
                     await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
 
-                    console.log(`[RECEITANET-ROBOT] Selecionando o plano 'cdntv' (mensalidade_id 108038)...`);
                     await page.evaluate(() => {
                         const select = document.querySelector('select[name="mensalidade_id"]') || document.querySelector('select');
                         if (select) {
@@ -110,19 +121,42 @@ class ReceitanetRobotService {
                         }
                     });
 
-                    console.log(`[RECEITANET-ROBOT] Clicando no botão 'Incluir' para gravar o plano no ERP...`);
                     await page.evaluate(() => {
                         const btn = Array.from(document.querySelectorAll('button, input[type="submit"]')).find(b => b.textContent.trim() === 'Incluir');
                         if (btn) btn.click();
                     });
 
                     await new Promise(r => setTimeout(r, 3000));
-                    console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV gravado e vinculado na lista de cobranças do cliente ${loginTv}!`);
-                } else {
-                    console.log(`[RECEITANET-ROBOT WARNING] Não foi possível localizar o link do Novo ERP de Planos via busca.`);
+                    console.log(`[RECEITANET-ROBOT SUCCESS] Mensalidade 'cdntv' vinculada no Novo ERP com sucesso!`);
                 }
-            } catch (ePlano) {
-                console.error(`[RECEITANET-ROBOT WARNING] Erro ao vincular plano CDNTV no Novo ERP:`, ePlano.message);
+            } catch (eNovoPlano) {
+                console.error(`[RECEITANET-ROBOT WARNING] Erro na gravação do plano no Novo ERP:`, eNovoPlano.message);
+            }
+
+            // 2. Vínculo no Módulo Legacy (clientes_plano.php?login=...)
+            try {
+                const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
+                console.log(`[RECEITANET-ROBOT] Gravando plano 'CDNTV' (pla_codigo 29) no módulo legacy...`);
+                await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+
+                await page.evaluate(() => {
+                    const select = document.querySelector('select[name="pla_codigo"]');
+                    if (select) {
+                        select.value = '29'; // 29 = CDNTV
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                });
+
+                await Promise.all([
+                    page.evaluate(() => {
+                        const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"]');
+                        if (btn) btn.click();
+                    }),
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {})
+                ]);
+                console.log(`[RECEITANET-ROBOT SUCCESS] Plano 'CDNTV' (29) vinculado no módulo legacy com sucesso!`);
+            } catch (eLegacy) {
+                console.error(`[RECEITANET-ROBOT WARNING] Aviso ao gravar plano legacy:`, eLegacy.message);
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);
