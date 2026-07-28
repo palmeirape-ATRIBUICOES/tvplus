@@ -507,23 +507,22 @@ const dbHelpers = {
         `, [`%${loginSemDominio}%`, loginSemDominio]).catch(() => {});
     },
 
-    // Blacklist Permanente de Logins Excluídos
+    // Blacklist Permanente de Logins Excluídos e Chaves CDNTV (gen...)
     async adicionarBlacklist(loginTv, motivo = 'Excluído pelo Administrador') {
         const loginClean = (loginTv || '').toString().trim().toLowerCase();
         const loginSemDominio = loginClean.replace(/@.*$/, '');
-        const loginComDominio = loginClean.includes('@') ? loginClean : `${loginClean}@tvplus`;
+        const loginComDominioTvPlus = loginClean.includes('@') ? loginClean : `${loginSemDominio}@tvplus`;
+        const loginComDominioCdn = loginClean.includes('@') ? loginClean : `${loginSemDominio}@cdn.tv.br`;
 
-        await dbRun(`
-            INSERT INTO blacklist_logins (login_tv, motivo)
-            VALUES (?, ?)
-            ON CONFLICT(login_tv) DO UPDATE SET motivo = excluded.motivo, data_bloqueio = CURRENT_TIMESTAMP
-        `, [loginComDominio, motivo]).catch(() => {});
+        const loginsToBlacklist = [loginClean, loginSemDominio, loginComDominioTvPlus, loginComDominioCdn];
 
-        await dbRun(`
-            INSERT INTO blacklist_logins (login_tv, motivo)
-            VALUES (?, ?)
-            ON CONFLICT(login_tv) DO UPDATE SET motivo = excluded.motivo, data_bloqueio = CURRENT_TIMESTAMP
-        `, [loginSemDominio, motivo]).catch(() => {});
+        for (const l of loginsToBlacklist) {
+            await dbRun(`
+                INSERT INTO blacklist_logins (login_tv, motivo)
+                VALUES (?, ?)
+                ON CONFLICT(login_tv) DO UPDATE SET motivo = excluded.motivo, data_bloqueio = CURRENT_TIMESTAMP
+            `, [l, motivo]).catch(() => {});
+        }
     },
 
     async verificarBlacklist(loginTv) {
@@ -531,8 +530,11 @@ const dbHelpers = {
         const loginSemDominio = loginClean.replace(/@.*$/, '');
         const row = await dbGet(`
             SELECT * FROM blacklist_logins 
-            WHERE LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?
-        `, [loginClean, `%${loginSemDominio}%`, loginSemDominio]).catch(() => null);
+            WHERE LOWER(TRIM(login_tv)) = ? 
+               OR LOWER(TRIM(login_tv)) = ? 
+               OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?
+               OR REPLACE(LOWER(TRIM(login_tv)), '@cdn.tv.br', '') = ?
+        `, [loginClean, loginSemDominio, loginSemDominio, loginSemDominio]).catch(() => null);
         return row ? true : false;
     },
 
