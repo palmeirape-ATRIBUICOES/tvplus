@@ -126,8 +126,40 @@ function initDb() {
                             if (errSessao) return reject(errSessao);
                             // Adiciona coluna pix_forcado se não existir
                             db.run("ALTER TABLE sessoes_ativas ADD COLUMN pix_forcado TEXT", () => {});
-                            console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes, sessoes_ativas) verificadas com sucesso.');
-                            resolve();
+                            
+                            // Tabela para Coleta de Cadastro no WhatsApp
+                            db.run(`
+                                CREATE TABLE IF NOT EXISTS coleta_cadastro (
+                                    telefone TEXT PRIMARY KEY,
+                                    login_tv TEXT,
+                                    senha_tv TEXT,
+                                    etapa TEXT,
+                                    nome TEXT,
+                                    cpf TEXT,
+                                    cep TEXT,
+                                    endereco TEXT,
+                                    numero TEXT,
+                                    bairro TEXT,
+                                    cidade TEXT,
+                                    uf TEXT,
+                                    email TEXT
+                                )
+                            `, (errColeta) => {
+                                if (errColeta) return reject(errColeta);
+                                
+                                // Tabela de Blacklist de Logins Excluídos
+                                db.run(`
+                                    CREATE TABLE IF NOT EXISTS blacklist_logins (
+                                        login_tv TEXT PRIMARY KEY,
+                                        data_bloqueio DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                        motivo TEXT
+                                    )
+                                `, (errBlacklist) => {
+                                    if (errBlacklist) return reject(errBlacklist);
+                                    console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes, sessoes_ativas, coleta_cadastro, blacklist_logins) verificadas com sucesso.');
+                                    resolve();
+                                });
+                            });
                         });
                     });
                 });
@@ -181,6 +213,10 @@ const dbHelpers = {
         `).catch(() => {});
 
         if (fone.includes('21964422488')) {
+            let row = await dbGet('SELECT * FROM conversas_bot WHERE telefone = ?', [fone]).catch(() => null);
+            if (row && row.modo === 'CADASTRO_COLETA') {
+                return row;
+            }
             await dbRun('UPDATE conversas_bot SET modo = "IA" WHERE telefone LIKE "%21964422488%"').catch(() => {});
             return { telefone: fone, modo: 'IA', historico: '[]' };
         }
@@ -465,6 +501,35 @@ const dbHelpers = {
         await dbRun(`
             UPDATE sessoes_ativas SET pix_forcado = NULL WHERE login_tv LIKE ? OR REPLACE(login_tv, '@tvplus', '') = ?
         `, [`%${loginSemDominio}%`, loginSemDominio]).catch(() => {});
+    },
+
+    // Blacklist Permanente de Logins Excluídos
+    async adicionarBlacklist(loginTv, motivo = 'Excluído pelo Administrador') {
+        const loginClean = (loginTv || '').toString().trim().toLowerCase();
+        const loginSemDominio = loginClean.replace(/@.*$/, '');
+        const loginComDominio = loginClean.includes('@') ? loginClean : `${loginClean}@tvplus`;
+
+        await dbRun(`
+            INSERT INTO blacklist_logins (login_tv, motivo)
+            VALUES (?, ?)
+            ON CONFLICT(login_tv) DO UPDATE SET motivo = excluded.motivo, data_bloqueio = CURRENT_TIMESTAMP
+        `, [loginComDominio, motivo]).catch(() => {});
+
+        await dbRun(`
+            INSERT INTO blacklist_logins (login_tv, motivo)
+            VALUES (?, ?)
+            ON CONFLICT(login_tv) DO UPDATE SET motivo = excluded.motivo, data_bloqueio = CURRENT_TIMESTAMP
+        `, [loginSemDominio, motivo]).catch(() => {});
+    },
+
+    async verificarBlacklist(loginTv) {
+        const loginClean = (loginTv || '').toString().trim().toLowerCase();
+        const loginSemDominio = loginClean.replace(/@.*$/, '');
+        const row = await dbGet(`
+            SELECT * FROM blacklist_logins 
+            WHERE LOWER(TRIM(login_tv)) = ? OR LOWER(TRIM(login_tv)) = ? OR REPLACE(LOWER(TRIM(login_tv)), '@tvplus', '') = ?
+        `, [loginClean, `%${loginSemDominio}%`, loginSemDominio]).catch(() => null);
+        return row ? true : false;
     },
 
     // Clientes

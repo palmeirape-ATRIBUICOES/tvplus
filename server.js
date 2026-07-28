@@ -416,7 +416,7 @@ const handleSvaAuth = async (req, res) => {
 
     if (!rawUser || !rawPass) {
         console.log(`[SVA AUTH FAIL] Login ou senha ausentes na requisição: Body=${JSON.stringify(req.body)}, Query=${JSON.stringify(req.query)}, Headers=${JSON.stringify(req.headers)}`);
-        return res.status(200).json({ success: false, status: "bad_request", msg: "Parâmetros username e password são obrigatórios." });
+        return res.status(401).json({ success: false, status: "bad_request", msg: "Parâmetros username e password são obrigatórios." });
     }
 
     let userClean = rawUser.toString().trim().toLowerCase();
@@ -449,6 +449,39 @@ const handleSvaAuth = async (req, res) => {
         const dbClient = require('./database').db;
         const agora = new Date();
 
+        // 0.0 CHECK BLACKLIST ABSOLUTA: Se o login está na blacklist, BLOQUEIA 100% IMEDIATAMENTE (HTTP 403)
+        const isBlacklisted = await helpers.verificarBlacklist(userClean) || await helpers.verificarBlacklist(userWithDomain) || await helpers.verificarBlacklist(userWithoutDomain);
+        if (isBlacklisted) {
+            console.log(`[SVA AUTH BLACKLIST] 🚫 Tentativa de login com usuário BLACKLISTED: ${userClean}`);
+            registrarLogDebugSva(userClean, passClean, 'BLACKLIST', 'Usuário na blacklist de excluídos.');
+            dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ?", [`%${userWithoutDomain}%`]);
+            
+            let pixData = null;
+            try {
+                const cobranca = await paymentService.gerarCobrancaPix(10.00, {
+                    nome: `Teste ${userClean}`,
+                    email: `${userWithoutDomain}@tvplus.com`,
+                    telefone: '5521964422488'
+                });
+                if (cobranca && cobranca.copiaCola) {
+                    pixData = {
+                        copiaCola: cobranca.copiaCola,
+                        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
+                    };
+                    await registrarCobrancaConversaoTeste(userClean, passClean, '5521964422488', cobranca.txid, 10.00).catch(() => {});
+                }
+            } catch (e) {}
+
+            return res.status(403).json({
+                success: false,
+                status: "kicked",
+                msg: "Seu teste grátis de 3 horas finalizou e o acesso foi encerrado pelo Administrador. Assine o plano mensal por apenas R$ 10,00/mês para continuar assistindo!",
+                valor: "10.00",
+                pix_copia_e_cola: pixData ? pixData.copiaCola : null,
+                pix_qr_code_url: pixData ? pixData.qrCodeUrl : null
+            });
+        }
+
         // 0. Checa se o Administrador DISPAROU O PIX QR CODE PARA A TELA DA TV DESTE CLIENTE
         let pixForcado = null;
         try {
@@ -464,7 +497,7 @@ const handleSvaAuth = async (req, res) => {
             const copiaCola = typeof pixForcado === 'object' ? (pixForcado.copiaCola || pixForcado.copia_e_cola || '') : pixForcado;
             const qrCodeUrl = typeof pixForcado === 'object' ? (pixForcado.qrCodeUrl || pixForcado.qr_code_url || '') : `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(copiaCola)}`;
 
-            return res.status(200).json({
+            return res.status(403).json({
                 success: false,
                 status: "kicked",
                 msg: "SOLICITAÇÃO DE PAGAMENTO NA TV: Pague o Pix de R$ 10,00 para assinar e liberar seu sinal instantaneamente!",
@@ -493,10 +526,11 @@ const handleSvaAuth = async (req, res) => {
                         copiaCola: cobranca.copiaCola,
                         qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
                     };
+                    await registrarCobrancaConversaoTeste(userClean, passClean, '5521964422488', cobranca.txid, 10.00).catch(() => {});
                 }
             } catch (e) {}
 
-            return res.status(200).json({ 
+            return res.status(403).json({ 
                 success: false, 
                 status: "kicked", 
                 msg: "Sua conexão foi encerrada pelo Administrador do sistema.",
@@ -566,7 +600,7 @@ const handleSvaAuth = async (req, res) => {
                     console.error("[SVA PIX ERROR]:", pixErr.message);
                 }
 
-                return res.status(200).json({ 
+                return res.status(403).json({ 
                     success: false, 
                     status: "kicked", 
                     msg: "Sua assinatura de TV está vencida. O sinal foi suspenso. Pague o Pix abaixo de R$ 10,00 para reativar instantaneamente por +30 dias!",
@@ -621,12 +655,13 @@ const handleSvaAuth = async (req, res) => {
                             copiaCola: cobranca.copiaCola,
                             qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
                         };
+                        await registrarCobrancaConversaoTeste(teste.login_tv, teste.senha_tv, teste.telefone, cobranca.txid, 10.00).catch(() => {});
                     }
                 } catch (pixErr) {
                     console.error("[SVA PIX ERROR]:", pixErr.message);
                 }
 
-                return res.status(200).json({ 
+                return res.status(403).json({ 
                     success: false, 
                     status: "kicked", 
                     msg: "Seu teste grátis de 3 horas expirou! O sinal foi desligado. Assine agora por R$ 10,00/mês pagando o Pix abaixo para continuar assistindo!",
@@ -657,12 +692,13 @@ const handleSvaAuth = async (req, res) => {
                         copiaCola: cobranca.copiaCola,
                         qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(cobranca.copiaCola)}`
                     };
+                    await registrarCobrancaConversaoTeste(userClean, passClean, '5521964422488', cobranca.txid, 10.00).catch(() => {});
                 }
             } catch (pixErr) {
                 console.error("[SVA PIX ERROR]:", pixErr.message);
             }
 
-            return res.status(200).json({
+            return res.status(403).json({
                 success: false,
                 status: "kicked",
                 msg: "Seu teste grátis de 3 horas finalizou e o acesso foi encerrado pelo Administrador. Assine o plano mensal por apenas R$ 10,00/mês para continuar assistindo!",
@@ -892,6 +928,54 @@ app.post('/api/admin/force-expired', async (req, res) => {
 });
 
 /**
+ * Registra o fluxo de cobrança de conversão de conta de teste para assinatura real
+ */
+async function registrarCobrancaConversaoTeste(loginTv, senhaTv, telefone, txid, valor) {
+    const dbClient = require('./database').db;
+    const helpers = require('./database').helpers;
+    
+    const loginClean = (loginTv || '').toString().trim().toLowerCase();
+    const loginComDominio = loginClean.includes('@') ? loginClean : `${loginClean}@tvplus`;
+    
+    const telLimpo = (telefone || '5521964422488').toString().replace(/\D/g, '');
+    console.log(`[CONVERSÃO TESTE] Criando/associando cliente para conversão de teste (${loginComDominio}, tel: ${telLimpo})...`);
+    
+    const cliente = await helpers.criarOuObterCliente(
+        `Cliente ${loginComDominio}`,
+        loginClean.replace(/@.*$/, '') + '@tvplus.com',
+        telLimpo
+    );
+    
+    let assinatura = await helpers.obterAssinaturaPorClienteId(cliente.id);
+    if (!assinatura) {
+        await new Promise((resolve, reject) => {
+            dbClient.run(
+                `INSERT INTO assinaturas (cliente_id, status, login_tv, senha_tv, data_inicio, data_vencimento, aviso_enviado) 
+                 VALUES (?, 'pendente', ?, ?, ?, ?, 0)`,
+                [cliente.id, loginComDominio, senhaTv, new Date().toISOString(), new Date().toISOString()],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve({ id: this.lastID });
+                }
+            );
+        });
+    } else {
+        await new Promise((resolve, reject) => {
+            dbClient.run(
+                `UPDATE assinaturas SET status = 'pendente', login_tv = ?, senha_tv = ? WHERE cliente_id = ?`,
+                [loginComDominio, senhaTv, cliente.id],
+                function(err) {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+    }
+    
+    await helpers.criarPagamento(cliente.id, txid, valor).catch(() => {});
+}
+
+/**
  * Função Auxiliar Centralizada para ativação do cliente após pagamento Pix
  */
 async function processarConfirmacaoPagamento(txid) {
@@ -925,13 +1009,47 @@ async function processarConfirmacaoPagamento(txid) {
         // Se a assinatura estava pendente (compra direta), enfileira cadastro no ReceitaNet pela primeira vez.
         // Se já estava ativa ou suspensa, enfileira a reativação no ReceitaNet ERP de forma totalmente assíncrona.
         const receitanetQueue = require('./services/receitanetQueue');
+        const isTeste = loginLimpo.startsWith('teste') || loginLimpo.startsWith('test') || loginLimpo.startsWith('demo');
+        let questionarioEnviado = false;
+
         if (assinatura.status === 'pendente') {
-            console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Enfileirando cadastro no ERP em 0.01s...`);
-            receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
-                cliente,
-                loginTv: loginLimpo,
-                senhaTv: assinatura.senha_tv
-            });
+            if (isTeste) {
+                console.log(`[CONFIRMAÇÃO] Conversão de teste detectada para ${loginLimpo}. Enfileirando questionário no WhatsApp em vez do robô ERP imediato...`);
+                // Inicializa coleta no banco local
+                await new Promise((resolve, reject) => {
+                    dbClient.run(`
+                        INSERT INTO coleta_cadastro (telefone, login_tv, senha_tv, etapa)
+                        VALUES (?, ?, ?, 'NOME')
+                        ON CONFLICT(telefone) DO UPDATE SET etapa = 'NOME', login_tv = excluded.login_tv, senha_tv = excluded.senha_tv
+                    `, [cliente.telefone, loginLimpo, assinatura.senha_tv], (err) => {
+                        if (err) reject(err);
+                        else resolve();
+                    });
+                });
+                
+                await helpers.definirModoBot(cliente.telefone, 'CADASTRO_COLETA');
+
+                const msgInicial = `Olá! Confirmamos o recebimento do seu Pix de R$ ${pagamento.valor.toFixed(2)}! 🥳\n\n` +
+                                   `O seu sinal do aplicativo *SIGNALPLAY* foi ativado por *30 dias* com sucesso. Você já pode voltar a assistir imediatamente! 📺✨\n\n` +
+                                   `🔑 *Seus dados de acesso:*\n` +
+                                   `• Usuário: *${loginLimpo}*\n` +
+                                   `• Senha: *${assinatura.senha_tv}*\n\n` +
+                                   `Agora, para gerarmos o seu cadastro real e definitivo no sistema, responda a esta mensagem informando:\n\n` +
+                                   `👉 *Qual é o seu NOME COMPLETO?*`;
+
+                const whatsappService = require('./services/whatsapp');
+                await whatsappService.enviarMensagem(cliente.telefone, msgInicial).catch(waErr => {
+                    console.error("[CONFIRMAÇÃO WA ERROR] Falha no disparo inicial de conversão:", waErr.message);
+                });
+                questionarioEnviado = true;
+            } else {
+                console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Enfileirando cadastro no ERP em 0.01s...`);
+                receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
+                    cliente,
+                    loginTv: loginLimpo,
+                    senhaTv: assinatura.senha_tv
+                });
+            }
         } else {
             console.log(`[CONFIRMAÇÃO] Enfileirando reativação do login (${loginLimpo}) no ERP em 0.01s...`);
             receitanetQueue.adicionarTarefa('REATIVAR', {
@@ -979,8 +1097,12 @@ async function processarConfirmacaoPagamento(txid) {
                               `• Você pode assistir em *ATÉ 3 aparelhos simultaneamente*.\n\n` +
                               `Se precisar de suporte, basta responder esta mensagem! Aproveite sua programação! 📺✨`;
         
-        console.log(`[CONFIRMAÇÃO WA] Enviando mensagem de ativação/renovação concluída via WhatsApp para ${cliente.telefone}...`);
-        await whatsappService.enviarMensagem(cliente.telefone, msgReativacao);
+        if (!questionarioEnviado) {
+            console.log(`[CONFIRMAÇÃO WA] Enviando mensagem de ativação/renovação concluída via WhatsApp para ${cliente.telefone}...`);
+            await whatsappService.enviarMensagem(cliente.telefone, msgReativacao);
+        } else {
+            console.log(`[CONFIRMAÇÃO WA] Pulando mensagem de ativação padrão para conversão de teste.`);
+        }
 
         return { login_tv: loginLimpo, senha_tv: assinatura.senha_tv };
     }
@@ -1117,6 +1239,9 @@ app.post('/api/admin/excluir', async (req, res) => {
         db.get('SELECT a.*, c.nome, c.cpfcnpj FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id WHERE a.cliente_id = ?', [cliente_id], async (err, row) => {
             if (err || !row) return res.status(404).json({ error: 'Assinatura não localizada.' });
             
+            // Adiciona à blacklist permanente para proibir qualquer novo login
+            await helpers.adicionarBlacklist(row.login_tv, 'Cliente/Assinatura Excluída pelo Admin');
+
             // Enfileira a exclusão no ERP em segundo plano
             const receitanetQueue = require('./services/receitanetQueue');
             receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', {
@@ -1356,19 +1481,26 @@ app.get('/api/admin/testes', async (req, res) => {
  * POST /api/admin/excluir-teste
  */
 app.post('/api/admin/excluir-teste', async (req, res) => {
-    const { id } = req.body;
+    const { id, login_tv } = req.body;
     try {
-        db.get('SELECT * FROM testes WHERE id = ?', [id], async (err, row) => {
-            if (err || !row) return res.status(404).json({ error: 'Teste não localizado.' });
+        const query = id ? 'SELECT * FROM testes WHERE id = ?' : 'SELECT * FROM testes WHERE login_tv LIKE ? OR REPLACE(login_tv, "@tvplus", "") = ?';
+        const params = id ? [id] : [`%${login_tv}%`, (login_tv || '').replace(/@.*$/, '')];
 
-            // Marca como excluído no banco local para remover da tabela do Admin (mas retém o número de WhatsApp travado contra novos testes)
-            await helpers.marcarTesteExpirado(row.id);
+        db.get(query, params, async (err, row) => {
+            const targetLogin = row ? row.login_tv : (login_tv || `teste${id}@tvplus`);
+            
+            if (row) {
+                await helpers.marcarTesteExpirado(row.id);
+            }
+            
+            // 1. Adiciona à Blacklist Local Absoluta (HTTP 403 Forbidden imediato)
+            await helpers.adicionarBlacklist(targetLogin, 'Teste Expirado/Suspenso pelo Admin');
 
-            // Enfileira a exclusão completa/rescisão do teste no ReceitaNet ERP em segundo plano
+            // 2. Enfileira a tarefa SUSPENDER no ReceitaNet ERP (Opção 1: altera login para suspenso no ERP e salva para revogar API CDNTV)
             const receitanetQueue = require('./services/receitanetQueue');
-            receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', { loginTv: row.login_tv });
+            receitanetQueue.adicionarTarefa('SUSPENDER', { loginTv: targetLogin });
 
-            res.status(200).json({ message: `Teste ${row.login_tv} removido do Painel Admin e enfileirado para exclusão completa no ERP!` });
+            res.status(200).json({ message: `Teste ${targetLogin} marcado como SUSPENSO no ERP e enfileirado para revogação de API CDNTV!` });
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1381,8 +1513,66 @@ app.post('/api/admin/excluir-teste', async (req, res) => {
  */
 app.get('/api/admin/sessoes', async (req, res) => {
     try {
-        const sessoes = await helpers.obterSessoesAtivas();
-        res.status(200).json(sessoes || []);
+        const dbClient = require('./database').db;
+        const sessoesAtivas = await helpers.obterSessoesAtivas();
+        
+        // Busca testes ativos
+        const testes = await new Promise(resolve => {
+            dbClient.all("SELECT * FROM testes WHERE status != 'excluido' ORDER BY id DESC", [], (err, rows) => resolve(rows || []));
+        });
+
+        // Busca assinaturas ativas
+        const assinaturas = await new Promise(resolve => {
+            dbClient.all("SELECT a.*, c.nome FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id ORDER BY a.id DESC", [], (err, rows) => resolve(rows || []));
+        });
+
+        const listaFinal = [];
+        const loginsProcessados = new Set();
+
+        // 1. Adiciona conexões registradas de pings reais
+        (sessoesAtivas || []).forEach(s => {
+            if (s.login_tv && !s.login_tv.includes('127.0.0.1')) {
+                loginsProcessados.add(s.login_tv.toLowerCase());
+                listaFinal.push(s);
+            }
+        });
+
+        // 2. Adiciona testes emitidos
+        (testes || []).forEach(t => {
+            const loginClean = (t.login_tv || '').toLowerCase();
+            if (!loginsProcessados.has(loginClean)) {
+                loginsProcessados.add(loginClean);
+                const expirado = new Date(t.data_expiracao) < new Date();
+                listaFinal.push({
+                    id: t.id,
+                    login_tv: t.login_tv,
+                    dispositivo: 'SignalPlay / iOS App',
+                    ip_origem: 'Conexão Remota (CDNTV)',
+                    canal_atual: 'Canais HD / FHD Live',
+                    ultimo_ping: t.data_criacao || new Date().toISOString(),
+                    status: t.status === 'excluido' ? 'DERRUBADO' : (expirado ? 'EXPIRADO' : 'ONLINE')
+                });
+            }
+        });
+
+        // 3. Adiciona assinaturas
+        (assinaturas || []).forEach(a => {
+            const loginClean = (a.login_tv || '').toLowerCase();
+            if (!loginsProcessados.has(loginClean)) {
+                loginsProcessados.add(loginClean);
+                listaFinal.push({
+                    id: a.id,
+                    login_tv: a.login_tv,
+                    dispositivo: 'SignalPlay / TV Smart',
+                    ip_origem: 'Conexão Remota (CDNTV)',
+                    canal_atual: 'Canais VIP Live',
+                    ultimo_ping: a.data_vencimento || new Date().toISOString(),
+                    status: a.status === 'suspensa' ? 'DERRUBADO' : 'ONLINE'
+                });
+            }
+        });
+
+        res.status(200).json(listaFinal);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

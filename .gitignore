@@ -21,3 +21,9 @@ yarn-error.log*
 
 # Logs de tarefas locais
 *.log
+
+# Scripts de teste/scratch temporários
+scratch/
+diagnose_receitanet.js
+test_receitanet_page.js
+

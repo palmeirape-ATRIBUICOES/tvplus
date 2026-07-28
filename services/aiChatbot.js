@@ -17,12 +17,18 @@ class AiChatbotService {
 
         console.log(`[IA CHATBOT] Mensagem recebida de +${fone}: "${mensagemTexto}"`);
 
-        // 1. Obtém o estado atual da conversa (modo 'IA' ou 'HUMANO')
+        // 1. Obtém o estado atual da conversa (modo 'IA', 'HUMANO' ou 'CADASTRO_COLETA')
         const estado = await helpers.obterEstadoBot(fone);
 
         // Se a conversa está em MODO HUMANO, o robô não responde para não interferir na conversa do atendente
         if (estado && estado.modo === 'HUMANO') {
             console.log(`[IA CHATBOT] Atendimento em MODO HUMANO para +${fone}. Robô em silêncio.`);
+            return;
+        }
+
+        // Se a conversa está em MODO CADASTRO_COLETA, executa o fluxo interativo de preenchimento
+        if (estado && estado.modo === 'CADASTRO_COLETA') {
+            await this.processarColetaCadastro(fone, mensagemTexto);
             return;
         }
 
@@ -140,6 +146,214 @@ class AiChatbotService {
         if (respostaIA) {
             console.log(`[IA CHATBOT] Enviando resposta para +${fone}...`);
             await whatsappService.enviarMensagem(fone, respostaIA);
+        }
+    }
+
+    /**
+     * Fluxo de Coleta de Dados Interativa para Clientes Convertidos de Testes
+     */
+    async processarColetaCadastro(fone, mensagemTexto) {
+        const { db } = require('../database');
+        
+        // 1. Obtém o estado atual da coleta
+        const dados = await new Promise((resolve) => {
+            db.get('SELECT * FROM coleta_cadastro WHERE telefone = ?', [fone], (err, row) => resolve(row));
+        });
+
+        if (!dados) {
+            // Se por algum motivo o registro não existir, recria na etapa NOME
+            await new Promise((resolve) => {
+                db.run("INSERT INTO coleta_cadastro (telefone, etapa) VALUES (?, 'NOME')", [fone], () => resolve());
+            });
+            await whatsappService.enviarMensagem(fone, "Ops! Ocorreu um pequeno erro de sincronização. Vamos iniciar seu cadastro definitivo.\n\n👉 *Qual é o seu NOME COMPLETO?*");
+            return;
+        }
+
+        const etapa = dados.etapa || 'NOME';
+        const msgLimpa = mensagemTexto.trim();
+        const msgLower = msgLimpa.toLowerCase();
+
+        switch (etapa) {
+            case 'NOME':
+                // Valida se enviou nome e sobrenome
+                const partesNome = msgLimpa.split(/\s+/);
+                if (partesNome.length < 2) {
+                    await whatsappService.enviarMensagem(fone, "Por favor, informe o seu *NOME COMPLETO* (Nome e Sobrenome) para o cadastro:");
+                    return;
+                }
+                
+                await new Promise((resolve) => {
+                    db.run("UPDATE coleta_cadastro SET nome = ?, etapa = 'CPF' WHERE telefone = ?", [msgLimpa, fone], () => resolve());
+                });
+                await whatsappService.enviarMensagem(fone, `Obrigado, *${msgLimpa}*! ✍️\n\n👉 Agora, informe o seu *CPF* (apenas os 11 números, sem pontos ou traços):`);
+                break;
+
+            case 'CPF':
+                const cpfLimpo = msgLimpa.replace(/\D/g, '');
+                if (cpfLimpo.length !== 11) {
+                    await whatsappService.enviarMensagem(fone, "⚠️ *CPF inválido.* Por favor, digite o seu CPF correto com exatamente 11 números:");
+                    return;
+                }
+
+                await new Promise((resolve) => {
+                    db.run("UPDATE coleta_cadastro SET cpf = ?, etapa = 'CEP' WHERE telefone = ?", [cpfLimpo, fone], () => resolve());
+                });
+                await whatsappService.enviarMensagem(fone, "Perfeito! 💳\n\n👉 Agora, me informe o seu *CEP* (apenas os 8 números):");
+                break;
+
+            case 'CEP':
+                const cepLimpo = msgLimpa.replace(/\D/g, '');
+                if (cepLimpo.length !== 8) {
+                    await whatsappService.enviarMensagem(fone, "⚠️ *CEP inválido.* Por favor, digite o seu CEP correto com exatamente 8 números:");
+                    return;
+                }
+
+                await whatsappService.enviarMensagem(fone, "Buscando endereço...");
+                
+                let localizouCep = false;
+                let logradouro = '', bairro = '', localidade = '', uf = '';
+                try {
+                    const res = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+                    const cepData = await res.json();
+                    if (cepData && !cepData.erro) {
+                        logradouro = cepData.logradouro || '';
+                        bairro = cepData.bairro || '';
+                        localidade = cepData.localidade || '';
+                        uf = cepData.uf || '';
+                        localizouCep = true;
+                    }
+                } catch (e) {
+                    console.error("Erro ao buscar CEP:", e.message);
+                }
+
+                if (localizouCep) {
+                    await new Promise((resolve) => {
+                        db.run(
+                            `UPDATE coleta_cadastro 
+                             SET cep = ?, endereco = ?, bairro = ?, cidade = ?, uf = ?, etapa = 'NUMERO' 
+                             WHERE telefone = ?`,
+                            [cepLimpo, logradouro, bairro, localidade, uf, fone],
+                            () => resolve()
+                        );
+                    });
+
+                    const msgEndereco = `📍 *Endereço localizado:*\n` +
+                                       `• Rua: ${logradouro}\n` +
+                                       `• Bairro: ${bairro}\n` +
+                                       `• Cidade/UF: ${localidade}/${uf}\n\n` +
+                                       `👉 *Qual é o número da sua residência?*`;
+                    await whatsappService.enviarMensagem(fone, msgEndereco);
+                } else {
+                    // CEP não localizado, pede endereço completo manualmente
+                    await new Promise((resolve) => {
+                        db.run("UPDATE coleta_cadastro SET cep = ?, etapa = 'ENDERECO' WHERE telefone = ?", [cepLimpo, fone], () => resolve());
+                    });
+                    await whatsappService.enviarMensagem(fone, "⚠️ Não consegui localizar o seu CEP automaticamente.\n\n👉 Por favor, digite o seu *Endereço Completo* (Rua, Bairro, Cidade e Estado):");
+                }
+                break;
+
+            case 'ENDERECO':
+                if (msgLimpa.length < 5) {
+                    await whatsappService.enviarMensagem(fone, "Por favor, digite o seu endereço completo detalhado:");
+                    return;
+                }
+
+                await new Promise((resolve) => {
+                    db.run("UPDATE coleta_cadastro SET endereco = ?, etapa = 'NUMERO' WHERE telefone = ?", [msgLimpa, fone], () => resolve());
+                });
+                await whatsappService.enviarMensagem(fone, "👉 *Qual é o número da sua residência?*");
+                break;
+
+            case 'NUMERO':
+                if (msgLimpa.length === 0) {
+                    await whatsappService.enviarMensagem(fone, "Por favor, informe o número da sua residência:");
+                    return;
+                }
+
+                await new Promise((resolve) => {
+                    db.run("UPDATE coleta_cadastro SET numero = ?, etapa = 'CONFIRMACAO' WHERE telefone = ?", [msgLimpa, fone], () => resolve());
+                });
+
+                // Recupera os dados completos para confirmação
+                const confirmDados = await new Promise((resolve) => {
+                    db.get('SELECT * FROM coleta_cadastro WHERE telefone = ?', [fone], (err, row) => resolve(row));
+                });
+
+                const msgConfirm = `📋 *Por favor, confirme os seus dados de cadastro:*\n\n` +
+                                   `👤 *Nome:* ${confirmDados.nome}\n` +
+                                   `🆔 *CPF:* ${confirmDados.cpf}\n` +
+                                   `📍 *Endereço:* ${confirmDados.endereco}, Nº ${confirmDados.numero}\n` +
+                                   `🏘️ *Bairro:* ${confirmDados.bairro || 'Não informado'}\n` +
+                                   `🏙️ *Cidade/UF:* ${confirmDados.cidade || 'Não informado'}/${confirmDados.uf || ''}\n` +
+                                   `📬 *CEP:* ${confirmDados.cep}\n\n` +
+                                   `Está tudo correto? Responda *SIM* para confirmar ou *NÃO* para recomeçar.`;
+                
+                await whatsappService.enviarMensagem(fone, msgConfirm);
+                break;
+
+            case 'CONFIRMACAO':
+                if (msgLower === 'sim' || msgLower === 's' || msgLower === 'sim, correto' || msgLower === 'correto' || msgLower === 'certo') {
+                    await whatsappService.enviarMensagem(fone, "Processando o seu cadastro definitivo...");
+
+                    // 1. Atualiza dados do cliente na tabela clientes
+                    const cliente = await new Promise((resolve) => {
+                        db.get('SELECT * FROM clientes WHERE telefone = ?', [fone], (err, row) => resolve(row));
+                    });
+
+                    if (cliente) {
+                        await new Promise((resolve) => {
+                            db.run(
+                                `UPDATE clientes 
+                                 SET nome = ?, cpfcnpj = ?, cep = ?, endereco = ?, numero = ?, bairro = ?, cidade = ?, uf = ?
+                                 WHERE id = ?`,
+                                [dados.nome, dados.cpf, dados.cep, dados.endereco, dados.numero, dados.bairro, dados.cidade, dados.uf, cliente.id],
+                                () => resolve()
+                            );
+                        });
+
+                        // 2. Enfileira a ativação real no ReceitaNet ERP
+                        const receitanetQueue = require('./receitanetQueue');
+                        receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
+                            cliente: {
+                                id: cliente.id,
+                                nome: dados.nome,
+                                cpfcnpj: dados.cpf,
+                                cep: dados.cep,
+                                endereco: dados.endereco,
+                                numero: dados.numero,
+                                bairro: dados.bairro,
+                                cidade: dados.cidade,
+                                uf: dados.uf,
+                                telefone: fone,
+                                email: `${dados.login_tv}@tvplus.com`
+                            },
+                            loginTv: dados.login_tv,
+                            senhaTv: dados.senha_tv
+                        });
+                    }
+
+                    // 3. Limpa o estado e restaura o robô para modo IA
+                    await new Promise((resolve) => {
+                        db.run('DELETE FROM coleta_cadastro WHERE telefone = ?', [fone], () => resolve());
+                    });
+                    const { helpers } = require('../database');
+                    await helpers.definirModoBot(fone, 'IA');
+
+                    const msgSucesso = `🎉 *CONCLUÍDO COM SUCESSO!* 🎉\n\n` +
+                                       `Seus dados foram salvos e a ativação definitiva foi enfileirada no ERP.\n\n` +
+                                       `Muito obrigado pela preferência e aproveite o melhor sinal de TV! 📺✨`;
+                    await whatsappService.enviarMensagem(fone, msgSucesso);
+
+                } else if (msgLower === 'não' || msgLower === 'nao' || msgLower === 'n' || msgLower === 'incorreto') {
+                    // Reseta para a etapa NOME
+                    await new Promise((resolve) => {
+                        db.run("UPDATE coleta_cadastro SET etapa = 'NOME' WHERE telefone = ?", [fone], () => resolve());
+                    });
+                    await whatsappService.enviarMensagem(fone, "Sem problemas! Vamos recomeçar.\n\n👉 *Qual é o seu NOME COMPLETO?*");
+                } else {
+                    await whatsappService.enviarMensagem(fone, "Por favor, responda apenas *SIM* para confirmar os dados ou *NÃO* para recomeçar o preenchimento:");
+                }
+                break;
         }
     }
 }

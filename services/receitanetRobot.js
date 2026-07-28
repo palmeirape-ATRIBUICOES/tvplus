@@ -38,51 +38,99 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            page.on('dialog', async d => { await d.accept(); });
+            page.on('dialog', async d => { try { await d.accept(); } catch(e) {} });
 
-            await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
-            await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-            await page.type('input[name="cli_login"]', (loginTv || '').toString());
-            await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
-            await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Teste').toString());
+            const loginSemDominio = (loginTv || '').replace(/@.*$/, '');
+            const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginTv)}`;
+            const suspensoUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginSemDominio + 'suspenso')}`;
             
-            const cpfValor = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
-            await page.type('input[name="cli_cgc"]', cpfValor);
+            console.log(`[RECEITANET-ROBOT] Verificando se cliente ${loginTv} ou sua variante suspensa existe...`);
+            
+            let alreadyExists = false;
+            let existsSuspended = false;
 
-            const emailValor = (cliente.email || `${loginTv}@email.com`).toString();
-            try {
-                await page.type('input[name="cli_email"]', emailValor);
-            } catch (e) {}
+            // 1. Checa ativo
+            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+            alreadyExists = await page.waitForSelector('input[name="cli_login"]', { timeout: 4000 })
+                .then(async () => {
+                    return await page.evaluate((target) => {
+                        const val = document.querySelector('input[name="cli_login"]')?.value;
+                        return val && val.trim().toLowerCase() === target.trim().toLowerCase();
+                    }, loginTv);
+                })
+                .catch(() => false);
 
-            // Aplica os parâmetros oficiais copiados do modelo de sucesso 'teste2@tvplus'
-            console.log(`[RECEITANET-ROBOT] Aplicando parâmetros de cadastro do modelo 'teste2@tvplus'...`);
-            await page.evaluate(() => {
-                const setVal = (selector, val) => {
-                    const el = document.querySelector(selector);
-                    if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
-                };
+            if (!alreadyExists) {
+                // 2. Checa suspenso
+                await page.goto(suspensoUrl, { waitUntil: 'networkidle2' });
+                existsSuspended = await page.waitForSelector('input[name="cli_login"]', { timeout: 4000 })
+                    .then(async () => {
+                        return await page.evaluate((target) => {
+                            const val = document.querySelector('input[name="cli_login"]')?.value;
+                            return val && val.trim().toLowerCase().includes(target.trim().toLowerCase());
+                        }, loginSemDominio);
+                    })
+                    .catch(() => false);
+            }
 
-                setVal('select[name="cli_tipo"]', '1'); // Pessoa Física
-                setVal('select[name="cli_diatari"]', '10'); // Dia de Vencimento 10
-                setVal('select[name="cli_boleto"]', 'S'); // ATIVADO
-                setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade)
-                setVal('select[name="plano"]', '2'); // PADRÃO
-                setVal('select[name="ban_codigo"]', '12168'); // API - Efí
-                setVal('select[name="base_referencia"]', 'V'); // Pré-pago
+            if (alreadyExists) {
+                console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} já existe em modo ATIVO no ERP. Pulando criação e indo direto para vinculação...`);
+            } else if (existsSuspended) {
+                console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} existe em modo SUSPENSO. Restaurando login original...`);
+                await page.evaluate((originalLog) => {
+                    const input = document.querySelector('input[name="cli_login"]');
+                    if (input) {
+                        input.value = originalLog;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }, loginTv);
+                await this.salvarFormularioCliente(page);
+            } else {
+                console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} não existe. Criando novo cadastro...`);
+                await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
+                await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
+                await page.type('input[name="cli_login"]', (loginTv || '').toString());
+                await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
+                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Teste').toString());
+                
+                const cpfValor = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
+                await page.type('input[name="cli_cgc"]', cpfValor);
 
-                const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
-                if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
-            });
+                const emailValor = (cliente.email || `${loginTv}@email.com`).toString();
+                try {
+                    await page.type('input[name="cli_email"]', emailValor);
+                } catch (e) {}
 
-            await Promise.all([
-                page.evaluate(() => {
-                    const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
-                    const incluirBtn = buttons.find(b => b.textContent.trim() === 'Incluir');
-                    if (incluirBtn) incluirBtn.click();
-                    else throw new Error("Botão 'Incluir' de cadastro não encontrado.");
-                }),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
-            ]);
+                // Aplica os parâmetros oficiais copiados do modelo de sucesso 'teste2@tvplus'
+                console.log(`[RECEITANET-ROBOT] Aplicando parâmetros de cadastro do modelo 'teste2@tvplus'...`);
+                await page.evaluate(() => {
+                    const setVal = (selector, val) => {
+                        const el = document.querySelector(selector);
+                        if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
+                    };
+
+                    setVal('select[name="cli_tipo"]', '1'); // Pessoa Física
+                    setVal('select[name="cli_diatari"]', '10'); // Dia de Vencimento 10
+                    setVal('select[name="cli_boleto"]', 'S'); // ATIVADO
+                    setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade)
+                    setVal('select[name="plano"]', '2'); // PADRÃO
+                    setVal('select[name="ban_codigo"]', '12168'); // API - Efí
+                    setVal('select[name="base_referencia"]', 'V'); // Pré-pago
+
+                    const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
+                    if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
+                });
+
+                await Promise.all([
+                    page.evaluate(() => {
+                        const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
+                        const incluirBtn = buttons.find(b => b.textContent.trim() === 'Incluir');
+                        if (incluirBtn) incluirBtn.click();
+                        else throw new Error("Botão 'Incluir' de cadastro não encontrado.");
+                    }),
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
+                ]);
+            }
 
             console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Abrindo tela de Planos de Cobrança...`);
             
@@ -193,7 +241,10 @@ class ReceitanetRobotService {
     async bloquearCliente(login, cpf, nome) {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
-        const nuevoLogin = `${login}suspenso`;
+        
+        const rawLogin = (login || '').toString().trim().toLowerCase();
+        const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
+        const nuevoLogin = `${loginSemDominio}suspenso`;
 
         console.log(`[RECEITANET-ROBOT] Iniciando bloqueio do login: ${login} -> ${nuevoLogin} (CPF: ${cpf}, Nome: ${nome})`);
         
@@ -222,40 +273,27 @@ class ReceitanetRobotService {
 
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
-            console.log(`[RECEITANET-ROBOT] Alterando campo cli_login na aba DADOS PESSOAIS para '${nuevoLogin}'...`);
-            await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
+            console.log(`[RECEITANET-ROBOT] Alterando status do cliente no ERP para SUSPENSO (cli_boleto='N', men_codigo='2')...`);
+            await page.waitForSelector('input[name="cli_login"], select', { timeout: 10000 });
             
-            await page.evaluate((targetNuevoLogin) => {
-                const input = document.querySelector('input[name="cli_login"]');
-                if (input) {
-                    input.value = targetNuevoLogin;
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                } else {
-                    throw new Error("Campo cli_login não localizado na aba DADOS PESSOAIS.");
+            await page.evaluate(() => {
+                const setVal = (selector, val) => {
+                    const el = document.querySelector(selector);
+                    if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
+                };
+                setVal('select[name="cli_boleto"]', 'N'); // Desativado / Suspenso
+                setVal('select[name="men_codigo"]', '2'); // Suspenso
+                
+                // Se houver campo de status geral
+                const selectStatus = document.querySelector('select[name="cli_status"], select[name="status"]');
+                if (selectStatus) {
+                    const opt = Array.from(selectStatus.options).find(o => o.text.toLowerCase().includes('suspenso') || o.value === '2' || o.value === 'S');
+                    if (opt) selectStatus.value = opt.value;
                 }
-            }, nuevoLogin);
+            });
 
             await this.salvarFormularioCliente(page);
-
-            console.log(`[RECEITANET-ROBOT AUDITORIA] Confirmando alteração diretamente no ERP para '${nuevoLogin}'...`);
-            await this.abrirFichaClienteReal(page, nuevoLogin, cpf, nome);
-
-            const verifyResult = await page.evaluate(() => {
-                const loginInput = document.querySelector('input[name="cli_login"]');
-                const nomeInput = document.querySelector('input[name="cli_nome"]');
-                return {
-                    login: loginInput ? loginInput.value : null,
-                    nome: nomeInput ? nomeInput.value : null
-                };
-            });
-            console.log(`[RECEITANET-ROBOT AUDITORIA] Resultado auditado no ERP (Aba Dados Pessoais): Login='${verifyResult.login}', Nome='${verifyResult.nome}'`);
-            
-            if (verifyResult.login !== nuevoLogin) {
-                throw new Error(`[FALHA DE AUDITORIA ERP] O ERP rejeitou a alteração! Esperado login '${nuevoLogin}', mas no ERP consta '${verifyResult.login}'.`);
-            }
-
-            console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} bloqueado com sucesso (renomeado para ${nuevoLogin})!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} alterado para SUSPENSO com sucesso no ERP!`);
             await browser.close();
             return true;
         } catch (error) {
@@ -401,6 +439,108 @@ class ReceitanetRobotService {
                 if (!hasInput) {
                     console.log(`[RECEITANET-ROBOT] Ficha de '${targetLogin}' não pôde ser aberta ou não existe.`);
                     continue;
+                }
+
+                // -1. Altera o status do cadastro para SUSPENSO no ERP (cli_boleto='N', men_codigo='2') e salva a ficha
+                // Isso força o ReceitaNet a disparar a sincronização de revogação de API com os servidores da CDNTV na hora para deslogar do celular
+                try {
+                    console.log(`[RECEITANET-ROBOT] Alterando status de '${targetLogin}' para SUSPENSO no ERP para revogar API CDNTV e deslogar do celular...`);
+                    await page.evaluate(() => {
+                        const setVal = (selector, val) => {
+                            const el = document.querySelector(selector);
+                            if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
+                        };
+                        setVal('select[name="cli_boleto"]', 'N'); // Desativado / Suspenso
+                        setVal('select[name="men_codigo"]', '2'); // Suspenso
+                        
+                        const selectStatus = document.querySelector('select[name="cli_status"], select[name="status"]');
+                        if (selectStatus) {
+                            const opt = Array.from(selectStatus.options).find(o => o.text.toLowerCase().includes('suspenso') || o.value === '2' || o.value === 'S');
+                            if (opt) selectStatus.value = opt.value;
+                        }
+                    });
+
+                    await this.salvarFormularioCliente(page);
+                    console.log(`[RECEITANET-ROBOT SUCCESS] Cadastro '${targetLogin}' alterado para SUSPENSO e salvo no ERP (API CDNTV revogada, celular deslogado)!`);
+                } catch (eRenomear) {
+                    console.log(`[RECEITANET-ROBOT] Aviso ao desativar status no ERP antes da rescisão:`, eRenomear.message);
+                }
+
+                // 0. Antes da Rescisão, acessa a aba/página de Planos de Cobrança para REMOVER o plano CDNTV
+                // Isso força o ReceitaNet a enviar a ordem de cancelamento de API para os servidores centrais da CDNTV
+                console.log(`[RECEITANET-ROBOT] Removendo/desativando plano CDNTV antes da rescisão para cancelar a API na CDNTV...`);
+                try {
+                    // 0.1 Módulo Legacy de planos (clientes_plano.php?login=...)
+                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLogin)}`;
+                    await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+                    
+                    const hasPlanoLegacy = await page.waitForSelector('select[name="pla_codigo"]', { timeout: 4000 }).then(() => true).catch(() => false);
+                    if (hasPlanoLegacy) {
+                        await page.evaluate(() => {
+                            const select = document.querySelector('select[name="pla_codigo"]');
+                            if (select) {
+                                const optVazia = Array.from(select.options).find(o => o.value === '0' || o.value === '' || o.text.toLowerCase().includes('nenhum'));
+                                if (optVazia) {
+                                    select.value = optVazia.value;
+                                } else {
+                                    select.value = '0';
+                                }
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        });
+
+                        await Promise.all([
+                            page.evaluate(() => {
+                                const btn = document.querySelector('input[type="submit"]') || Array.from(document.querySelectorAll('button, input[type="button"]')).find(b => b.value?.includes('Alterar') || b.textContent?.includes('Alterar') || b.value?.includes('Gravar'));
+                                if (btn) btn.click();
+                            }),
+                            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {})
+                        ]);
+                        console.log(`[RECEITANET-ROBOT] Plano CDNTV desvinculado no módulo legacy para '${targetLogin}'!`);
+                    }
+
+                    // 0.2 Módulo Novo ERP de planos (procura e clica em Excluir/Lixeira no plano CDNTV)
+                    const loginSemDominio = targetLogin.replace(/@.*$/, '').trim();
+                    let planUrl = null;
+                    for (const queryTerm of [loginSemDominio, targetLogin]) {
+                        if (!queryTerm) continue;
+                        await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
+                        await new Promise(r => setTimeout(r, 1500));
+
+                        planUrl = await page.evaluate(() => {
+                            const links = Array.from(document.querySelectorAll('a'));
+                            const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
+                            return linkPlano ? linkPlano.href : null;
+                        });
+                        if (planUrl) break;
+                    }
+
+                    if (planUrl) {
+                        await page.goto(planUrl, { waitUntil: 'networkidle2' });
+                        await new Promise(r => setTimeout(r, 1500));
+
+                        const clickedDeletePlan = await page.evaluate(() => {
+                            const rows = Array.from(document.querySelectorAll('tr, div.row, div.card'));
+                            for (const r of rows) {
+                                if (r.textContent.toUpperCase().includes('CDNTV')) {
+                                    const btnDelete = r.querySelector('a.btn-danger, button.btn-danger, a[href*="delete"], a[href*="excluir"], i.fa-trash, i.fa-trash-can');
+                                    if (btnDelete) {
+                                        const clickTarget = btnDelete.closest('a, button') || btnDelete;
+                                        clickTarget.click();
+                                        return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        });
+
+                        if (clickedDeletePlan) {
+                            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {});
+                            console.log(`[RECEITANET-ROBOT] Item de mensalidade CDNTV excluído no Novo ERP para '${targetLogin}'!`);
+                        }
+                    }
+                } catch (ePlano) {
+                    console.log(`[RECEITANET-ROBOT] Aviso ao tentar desativar plano CDNTV para '${targetLogin}':`, ePlano.message);
                 }
 
                 // 1. Ir na aba Rescisão

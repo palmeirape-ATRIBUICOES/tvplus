@@ -444,6 +444,14 @@
                     <i class="fa-solid fa-rotate-right"></i> Atualizar Conexões
                 </button>
             </div>
+
+            <!-- Intervenção Manual: Derrubar Conexão por Login -->
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                <input type="text" id="inputManualKickLogin" placeholder="Digite qualquer login para derrubar no app/celular (ex: teste12@tvplus ou teste12)" style="flex: 1; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: #111; color: #fff;">
+                <button class="btn-danger" onclick="executarDerrubarManual()" style="padding: 10px 18px; font-weight: bold; background: #dc2626;">
+                    <i class="fa-solid fa-bolt"></i> ⚡ Derrubar Conexão (Forçar Saída do Celular/TV)
+                </button>
+            </div>
             
             <div class="table-responsive">
                 <table id="sessoesTable">
@@ -1123,27 +1131,26 @@
 
                     // Ação Administrativa (Enviar Pix na TV ou Derrubar Conexão)
                     const tdAcao = document.createElement('td');
-                    if (s.status !== 'DERRUBADO' && diffSegundos < 120) {
-                        // Botão Enviar Pix QR Code direto para a tela da TV
-                        const btnPixTv = document.createElement('button');
-                        btnPixTv.type = 'button';
-                        btnPixTv.className = 'btn-secondary btn-table';
-                        btnPixTv.style.backgroundColor = '#8b5cf6';
-                        btnPixTv.style.color = '#fff';
-                        btnPixTv.style.marginRight = '5px';
-                        btnPixTv.innerHTML = `<i class="fa-solid fa-tv"></i> 📺 Enviar Pix na TV`;
-                        btnPixTv.onclick = () => enviarPixTv(s.login_tv);
-                        tdAcao.appendChild(btnPixTv);
+                    
+                    // Botão Enviar Pix QR Code direto para a tela da TV
+                    const btnPixTv = document.createElement('button');
+                    btnPixTv.type = 'button';
+                    btnPixTv.className = 'btn-secondary btn-table';
+                    btnPixTv.style.backgroundColor = '#8b5cf6';
+                    btnPixTv.style.color = '#fff';
+                    btnPixTv.style.marginRight = '5px';
+                    btnPixTv.innerHTML = `<i class="fa-solid fa-tv"></i> Pix TV`;
+                    btnPixTv.onclick = () => enviarPixTv(s.login_tv);
+                    tdAcao.appendChild(btnPixTv);
 
-                        const btnKick = document.createElement('button');
-                        btnKick.type = 'button';
-                        btnKick.className = 'btn-danger btn-table';
-                        btnKick.innerHTML = `<i class="fa-solid fa-bolt"></i> ⚡ Derrubar`;
-                        btnKick.onclick = () => derrubarSessao(s.login_tv);
-                        tdAcao.appendChild(btnKick);
-                    } else {
-                        tdAcao.innerHTML = `<span style="color:var(--text-muted); font-size:12px;">Sem conexão ativa</span>`;
-                    }
+                    // Botão Derrubar Conexão
+                    const btnKick = document.createElement('button');
+                    btnKick.type = 'button';
+                    btnKick.className = 'btn-danger btn-table';
+                    btnKick.innerHTML = `<i class="fa-solid fa-bolt"></i> ⚡ Derrubar`;
+                    btnKick.onclick = () => derrubarSessao(s.login_tv);
+                    tdAcao.appendChild(btnKick);
+
                     tr.appendChild(tdAcao);
 
                     tbody.appendChild(tr);
@@ -1181,6 +1188,18 @@
                 logBox.textContent = `[ERRO] ${e.message}`;
                 logBox.style.color = '#ef4444';
             }
+        }
+
+        // Intervenção Manual por login digitado no campo de texto
+        async function executarDerrubarManual() {
+            const input = document.getElementById('inputManualKickLogin');
+            const login = input ? input.value.trim() : '';
+            if (!login) {
+                alert("Por favor, digite o login do usuário a ser derrubado (ex: teste12@tvplus ou teste12).");
+                return;
+            }
+            await derrubarSessao(login);
+            if (input) input.value = '';
         }
 
         // Abre o Modal do Pix QR Code da TV
