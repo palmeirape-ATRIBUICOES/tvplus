@@ -180,6 +180,11 @@ const dbHelpers = {
             )
         `).catch(() => {});
 
+        if (fone.includes('21964422488')) {
+            await dbRun('UPDATE conversas_bot SET modo = "IA" WHERE telefone LIKE "%21964422488%"').catch(() => {});
+            return { telefone: fone, modo: 'IA', historico: '[]' };
+        }
+
         let row = await dbGet('SELECT * FROM conversas_bot WHERE telefone = ?', [fone]).catch(() => null);
         if (!row) {
             await dbRun('INSERT INTO conversas_bot (telefone, modo) VALUES (?, ?)', [fone, 'IA']).catch(() => {});
