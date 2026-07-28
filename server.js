@@ -1743,8 +1743,8 @@ app.post('/api/admin/bot-toggle', async (req, res) => {
 
 // Inicia o servidor Express
 app.listen(PORT, () => {
-    console.log(`Servidor rodando com sucesso na porta ${PORT}`);
-    console.log(`Acesse http://localhost:${PORT} para visualizar a Landing Page.`);
+    console.log(`Servidor rodando com sucesso na nuvem Render (Porta ${PORT})`);
+    console.log(`Servidor Online: https://tv-pix-platform.onrender.com (ou http://localhost:${PORT})`);
     
     // Inicia checagem automática em tempo real de Pix pagos a cada 15 segundos
     const { verificarPagamentosPendentes } = require('./cron');
