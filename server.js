@@ -1119,7 +1119,7 @@ app.post('/api/admin/excluir', async (req, res) => {
             
             // Enfileira a exclusão no ERP em segundo plano
             const receitanetQueue = require('./services/receitanetQueue');
-            receitanetQueue.adicionarTarefa('SUSPENDER', {
+            receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', {
                 loginTv: row.login_tv,
                 cpf: row.cpfcnpj,
                 nome: row.nome

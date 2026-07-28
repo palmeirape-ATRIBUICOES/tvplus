@@ -405,24 +405,31 @@ class ReceitanetRobotService {
                     excluidoComSucesso = true;
                 }
 
-                // 2. Tenta Limpeza Adicional na Ficha de Cadastro se ainda existir
+                // 2. Tenta Exclusão Definitiva na Ficha de Cadastro se ainda existir
                 const cadastroUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(targetLogin)}`;
                 await page.goto(cadastroUrl, { waitUntil: 'networkidle2' });
                 const hasInput = await page.waitForSelector('input[name="cli_login"]', { timeout: 3000 }).then(() => true).catch(() => false);
                 
                 if (hasInput) {
-                    const loginAtual = await page.evaluate(() => document.querySelector('input[name="cli_login"]')?.value);
-                    if (loginAtual && loginAtual.length > 0) {
-                        console.log(`[RECEITANET-ROBOT] Alterando cadastro remanescente no ERP de '${loginAtual}' para '${loginSemDominio}expirado'...`);
-                        await page.evaluate((novoLog) => {
-                            const input = document.querySelector('input[name="cli_login"]');
-                            if (input) {
-                                input.value = novoLog;
-                                input.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        }, `${loginSemDominio}expirado`);
-                        await this.salvarFormularioCliente(page);
+                    console.log(`[RECEITANET-ROBOT] Ficha de cadastro ativa para '${targetLogin}'. Buscando botão 'Excluir'...`);
+                    const hasExcluirBtn = await page.evaluate(() => {
+                        const btn = document.getElementById('Excluir') || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find(b => b.textContent.trim() === 'Excluir' || b.value?.trim() === 'Excluir');
+                        return btn ? true : false;
+                    });
+
+                    if (hasExcluirBtn) {
+                        console.log(`[RECEITANET-ROBOT] Botão 'Excluir' localizado! Deletando o cadastro 100% no ERP...`);
+                        await Promise.all([
+                            page.evaluate(() => {
+                                const btn = document.getElementById('Excluir') || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find(b => b.textContent.trim() === 'Excluir' || b.value?.trim() === 'Excluir');
+                                if (btn) btn.click();
+                            }),
+                            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
+                        ]);
+                        console.log(`[RECEITANET-ROBOT] Cadastro '${targetLogin}' excluído 100% do ERP!`);
                         excluidoComSucesso = true;
+                    } else {
+                        console.log(`[RECEITANET-ROBOT] O botão 'Excluir' não apareceu na ficha de '${targetLogin}'.`);
                     }
                 }
             }
