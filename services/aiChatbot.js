@@ -90,13 +90,13 @@ class AiChatbotService {
                 // Gera novo teste sequencial (ex: teste1@tvplus, teste2@tvplus) válido por 3 horas
                 const novoTeste = await helpers.criarNovoTeste(fone);
 
-                // Dispara o robô em segundo plano para cadastrar e ativar o sinal do teste no ReceitaNet ERP
-                const robot = require('./receitanetRobot');
-                robot.cadastrarEAtivarTV(
-                    { nome: `Cliente Teste ${novoTeste.login_tv}`, email: novoTeste.login_tv, telefone: fone },
-                    novoTeste.login_tv,
-                    novoTeste.senha_tv
-                ).catch(err => console.error(`[IA TESTE ROBOT ERROR]:`, err.message));
+                // Enfileira o cadastro e provimento do plano CDNTV no ReceitaNet ERP usando exatamente o mesmo fluxo dos usuários pagos do site
+                const receitanetQueue = require('./receitanetQueue');
+                receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
+                    cliente: { nome: `Cliente Teste ${novoTeste.login_tv}`, email: `${novoTeste.login_tv}`, telefone: fone, cpfcnpj: '00000000000' },
+                    loginTv: novoTeste.login_tv,
+                    senhaTv: novoTeste.senha_tv
+                });
 
                 const expiraHora = new Date(novoTeste.data_expiracao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
