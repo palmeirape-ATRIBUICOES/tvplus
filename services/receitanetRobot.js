@@ -271,12 +271,34 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
+            const rawLogin = (login || '').toString().trim().toLowerCase();
+            const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
+            const nuevoLogin = `${loginSemDominio}suspenso`;
+
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
-            console.log(`[RECEITANET-ROBOT] Alterando status do cliente no ERP para SUSPENSO (cli_boleto='N', men_codigo='2')...`);
+            console.log(`[RECEITANET-ROBOT] Alterando cli_login para '${nuevoLogin}', senha para '000000' e status para SUSPENSO (cli_boleto='N', men_codigo='2')...`);
             await page.waitForSelector('input[name="cli_login"], select', { timeout: 10000 });
             
-            await page.evaluate(() => {
+            await page.evaluate((targetNuevoLogin) => {
+                const inputLogin = document.querySelector('input[name="cli_login"]');
+                if (inputLogin) {
+                    inputLogin.removeAttribute('readonly');
+                    inputLogin.removeAttribute('disabled');
+                    inputLogin.value = targetNuevoLogin;
+                    inputLogin.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputLogin.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                const inputSenha = document.querySelector('input[name="cli_senha"]');
+                if (inputSenha) {
+                    inputSenha.removeAttribute('readonly');
+                    inputSenha.removeAttribute('disabled');
+                    inputSenha.value = '000000';
+                    inputSenha.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputSenha.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
                 const setVal = (selector, val) => {
                     const el = document.querySelector(selector);
                     if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -284,16 +306,15 @@ class ReceitanetRobotService {
                 setVal('select[name="cli_boleto"]', 'N'); // Desativado / Suspenso
                 setVal('select[name="men_codigo"]', '2'); // Suspenso
                 
-                // Se houver campo de status geral
                 const selectStatus = document.querySelector('select[name="cli_status"], select[name="status"]');
                 if (selectStatus) {
                     const opt = Array.from(selectStatus.options).find(o => o.text.toLowerCase().includes('suspenso') || o.value === '2' || o.value === 'S');
                     if (opt) selectStatus.value = opt.value;
                 }
-            });
+            }, nuevoLogin);
 
             await this.salvarFormularioCliente(page);
-            console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} alterado para SUSPENSO com sucesso no ERP!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} renomeado para '${nuevoLogin}' e alterado para SUSPENSO no ERP!`);
             await browser.close();
             return true;
         } catch (error) {
