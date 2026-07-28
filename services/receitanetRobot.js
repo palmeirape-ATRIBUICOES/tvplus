@@ -75,15 +75,23 @@ class ReceitanetRobotService {
             console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} criado com sucesso! Obtendo URL exata do Novo ERP de Planos de Cobrança...`);
 
             try {
-                // Obtém a URL exata do Novo ERP (/novo/financeiros/clientes/planos/ID) realizando busca pelo login
-                await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginTv)}`, { waitUntil: 'networkidle2' });
-                await new Promise(r => setTimeout(r, 2000));
+                const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
+                let planUrl = null;
 
-                const planUrl = await page.evaluate(() => {
-                    const links = Array.from(document.querySelectorAll('a'));
-                    const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
-                    return linkPlano ? linkPlano.href : null;
-                });
+                // Busca o cliente pelo login sem domínio (ex: teste103) e com domínio para capturar a URL exata (/novo/financeiros/clientes/planos/ID)
+                for (const queryTerm of [loginSemDominio, loginTv]) {
+                    if (!queryTerm) continue;
+                    await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
+                    await new Promise(r => setTimeout(r, 2000));
+
+                    planUrl = await page.evaluate(() => {
+                        const links = Array.from(document.querySelectorAll('a'));
+                        const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
+                        return linkPlano ? linkPlano.href : null;
+                    });
+
+                    if (planUrl) break;
+                }
 
                 if (planUrl) {
                     console.log(`[RECEITANET-ROBOT] Abrindo tela do Novo ERP de Planos: ${planUrl}...`);
@@ -109,7 +117,7 @@ class ReceitanetRobotService {
                     });
 
                     await new Promise(r => setTimeout(r, 3000));
-                    console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV vinculado com sucesso na lista do cliente ${loginTv}!`);
+                    console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV gravado e vinculado na lista de cobranças do cliente ${loginTv}!`);
                 } else {
                     console.log(`[RECEITANET-ROBOT WARNING] Não foi possível localizar o link do Novo ERP de Planos via busca.`);
                 }
