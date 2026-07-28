@@ -72,42 +72,49 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} criado com sucesso no ERP! Navegando diretamente para a URL de planos para vincular o plano CDNTV (pla_codigo 29)...`);
+            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} criado com sucesso! Obtendo URL exata do Novo ERP de Planos de Cobrança...`);
 
             try {
-                const planoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
-                await page.goto(planoUrl, { waitUntil: 'networkidle2' });
-                await page.waitForSelector('select[name="pla_codigo"], select', { timeout: 10000 });
+                // Obtém a URL exata do Novo ERP (/novo/financeiros/clientes/planos/ID) realizando busca pelo login
+                await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginTv)}`, { waitUntil: 'networkidle2' });
+                await new Promise(r => setTimeout(r, 2000));
 
-                console.log(`[RECEITANET-ROBOT] Selecionando o plano 'CDNTV' (código 29) no ERP...`);
-                await page.evaluate(() => {
-                    const selectPlano = document.querySelector('select[name="pla_codigo"]') || document.querySelector('select');
-                    if (selectPlano) {
-                        const opt = Array.from(selectPlano.options).find(o => o.value === '29' || o.text.toUpperCase().includes('CDNTV'));
-                        if (opt) {
-                            selectPlano.value = opt.value;
-                            selectPlano.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }
+                const planUrl = await page.evaluate(() => {
+                    const links = Array.from(document.querySelectorAll('a'));
+                    const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
+                    return linkPlano ? linkPlano.href : null;
                 });
 
-                console.log(`[RECEITANET-ROBOT] Clicando no botão 'Gravar/Incluir' para ativar o plano CDNTV no ERP...`);
-                await Promise.all([
-                    page.evaluate(() => {
-                        const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"]');
-                        if (btn) btn.click();
-                        else {
-                            const btn2 = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn')).find(b => b.textContent.includes('Gravar') || b.textContent.includes('Incluir'));
-                            if (btn2) btn2.click();
-                            else document.querySelector('form')?.submit();
-                        }
-                    }),
-                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
-                ]);
+                if (planUrl) {
+                    console.log(`[RECEITANET-ROBOT] Abrindo tela do Novo ERP de Planos: ${planUrl}...`);
+                    await page.goto(planUrl, { waitUntil: 'networkidle2' });
+                    await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
 
-                console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV vinculado com sucesso no ERP para ${loginTv}!`);
+                    console.log(`[RECEITANET-ROBOT] Selecionando o plano 'cdntv' (mensalidade_id 108038)...`);
+                    await page.evaluate(() => {
+                        const select = document.querySelector('select[name="mensalidade_id"]') || document.querySelector('select');
+                        if (select) {
+                            const opt = Array.from(select.options).find(o => o.text.toLowerCase().includes('cdntv') || o.value === '108038');
+                            if (opt) {
+                                select.value = opt.value;
+                                select.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    });
+
+                    console.log(`[RECEITANET-ROBOT] Clicando no botão 'Incluir' para gravar o plano no ERP...`);
+                    await page.evaluate(() => {
+                        const btn = Array.from(document.querySelectorAll('button, input[type="submit"]')).find(b => b.textContent.trim() === 'Incluir');
+                        if (btn) btn.click();
+                    });
+
+                    await new Promise(r => setTimeout(r, 3000));
+                    console.log(`[RECEITANET-ROBOT SUCCESS] Plano CDNTV vinculado com sucesso na lista do cliente ${loginTv}!`);
+                } else {
+                    console.log(`[RECEITANET-ROBOT WARNING] Não foi possível localizar o link do Novo ERP de Planos via busca.`);
+                }
             } catch (ePlano) {
-                console.error(`[RECEITANET-ROBOT WARNING] Erro ao vincular plano CDNTV:`, ePlano.message);
+                console.error(`[RECEITANET-ROBOT WARNING] Erro ao vincular plano CDNTV no Novo ERP:`, ePlano.message);
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);
