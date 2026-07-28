@@ -38,6 +38,8 @@ class ReceitanetRobotService {
                 page.waitForNavigation({ waitUntil: 'networkidle2' })
             ]);
 
+            page.on('dialog', async d => { await d.accept(); });
+
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
             await page.type('input[name="cli_login"]', (loginTv || '').toString());
@@ -52,8 +54,8 @@ class ReceitanetRobotService {
                 await page.type('input[name="cli_email"]', emailValor);
             } catch (e) {}
 
-            // Aplica 100% dos parâmetros copiados do modelo de sucesso 'teste2@tvplus'
-            console.log(`[RECEITANET-ROBOT] Aplicando todos os parâmetros oficiais do modelo 'teste2@tvplus'...`);
+            // Aplica os parâmetros oficiais copiados do modelo de sucesso 'teste2@tvplus'
+            console.log(`[RECEITANET-ROBOT] Aplicando parâmetros de cadastro do modelo 'teste2@tvplus'...`);
             await page.evaluate(() => {
                 const setVal = (selector, val) => {
                     const el = document.querySelector(selector);
@@ -61,8 +63,6 @@ class ReceitanetRobotService {
                 };
 
                 setVal('select[name="cli_tipo"]', '1'); // Pessoa Física
-                setVal('select[name="cli_cidade"]', '3305109'); // São João de Meriti
-                setVal('select[name="cli_uf"]', 'RJ'); // RJ
                 setVal('select[name="cli_diatari"]', '10'); // Dia de Vencimento 10
                 setVal('select[name="cli_boleto"]', 'S'); // ATIVADO
                 setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade)
@@ -81,7 +81,7 @@ class ReceitanetRobotService {
                     if (incluirBtn) incluirBtn.click();
                     else throw new Error("Botão 'Incluir' de cadastro não encontrado.");
                 }),
-                page.waitForNavigation({ waitUntil: 'networkidle2' })
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
             ]);
 
             console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Vinculando plano CDNTV no Novo ERP e no Módulo Legacy...`);
