@@ -1467,10 +1467,32 @@ app.post('/api/admin/enviar-pix-tv', async (req, res) => {
  */
 app.get('/api/admin/testes', async (req, res) => {
     try {
-        db.all("SELECT * FROM testes WHERE status != 'excluido' ORDER BY id DESC", [], (err, rows) => {
+        db.all("SELECT * FROM testes ORDER BY id DESC", [], (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
             res.status(200).json(rows || []);
         });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Criar / Registrar teste manual diretamente pelo Admin
+ * POST /api/admin/criar-teste-manual
+ */
+app.post('/api/admin/criar-teste-manual', async (req, res) => {
+    const { login_tv, senha_tv, telefone } = req.body;
+    if (!login_tv) return res.status(400).json({ error: 'Login TV é obrigatório.' });
+
+    try {
+        const rawLogin = login_tv.toString().trim();
+        const loginTvWithDomain = rawLogin.includes('@') ? rawLogin : `${rawLogin}@tvplus`;
+        const senhaTv = senha_tv || '123456';
+        const phone = telefone ? telefone.replace(/\D/g, '') : '5521964422488';
+        
+        await helpers.registrarTesteGratis(phone, loginTvWithDomain, senhaTv, 3);
+        console.log(`[ADMIN MANUAL TEST] Teste criado/registrado com sucesso: ${loginTvWithDomain} (Senha: ${senhaTv})`);
+        res.status(200).json({ message: `Teste ${loginTvWithDomain} registrado com sucesso!` });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -1513,13 +1535,64 @@ app.post('/api/admin/excluir-teste', async (req, res) => {
  */
 app.get('/api/admin/sessoes', async (req, res) => {
     try {
-        const sessoesAtivas = await helpers.obterSessoesAtivas();
-        const listaFinal = [];
+        const dbClient = require('./database').db;
+        const sessoesAtivas = await helpers.obterSessoesAtivas() || [];
+        
+        // Busca todos os testes cadastrados
+        const testes = await new Promise(resolve => {
+            dbClient.all("SELECT * FROM testes ORDER BY id DESC", [], (err, rows) => resolve(rows || []));
+        });
 
-        // Retorna APENAS conexões de dispositivos realmente conectados com pings de transmissão ativos
-        (sessoesAtivas || []).forEach(s => {
-            if (s.login_tv && s.login_tv !== 'null' && s.status === 'ONLINE' && !s.ip_origem?.includes('127.0.0.1')) {
+        // Busca assinaturas ativas
+        const assinaturas = await new Promise(resolve => {
+            dbClient.all("SELECT a.*, c.nome FROM assinaturas a JOIN clientes c ON a.cliente_id = c.id ORDER BY a.id DESC", [], (err, rows) => resolve(rows || []));
+        });
+
+        const listaFinal = [];
+        const loginsProcessados = new Set();
+        const agora = new Date();
+
+        // 1. Adiciona sessões ativas registradas
+        sessoesAtivas.forEach(s => {
+            if (s.login_tv && !s.login_tv.includes('127.0.0.1')) {
+                loginsProcessados.add(s.login_tv.toLowerCase());
                 listaFinal.push(s);
+            }
+        });
+
+        // 2. Adiciona todos os testes emitidos para visibilidade total no Admin
+        testes.forEach(t => {
+            const loginClean = (t.login_tv || '').toLowerCase();
+            if (!loginsProcessados.has(loginClean)) {
+                loginsProcessados.add(loginClean);
+                const expirado = t.data_expiracao ? (new Date(t.data_expiracao) < agora) : false;
+                const statusTexto = t.status === 'excluido' || t.status === 'expirado' ? 'DERRUBADO' : (expirado ? 'EXPIRADO' : 'ONLINE');
+                listaFinal.push({
+                    id: t.id,
+                    login_tv: t.login_tv,
+                    dispositivo: 'SignalPlay / App Mobile',
+                    ip_origem: 'Conexão Remota (CDNTV Cloud)',
+                    canal_atual: 'Canais HD / FHD Live',
+                    ultimo_ping: t.data_expiracao || t.data_criacao || agora.toISOString(),
+                    status: statusTexto
+                });
+            }
+        });
+
+        // 3. Adiciona assinaturas ativas
+        assinaturas.forEach(a => {
+            const loginClean = (a.login_tv || '').toLowerCase();
+            if (!loginsProcessados.has(loginClean)) {
+                loginsProcessados.add(loginClean);
+                listaFinal.push({
+                    id: a.id,
+                    login_tv: a.login_tv,
+                    dispositivo: 'SignalPlay / TV Smart',
+                    ip_origem: 'Conexão Remota (CDNTV Cloud)',
+                    canal_atual: 'Canais VIP Live',
+                    ultimo_ping: a.data_vencimento || agora.toISOString(),
+                    status: a.status === 'suspensa' ? 'DERRUBADO' : 'ONLINE'
+                });
             }
         });
 

@@ -415,6 +415,14 @@
                     <i class="fa-solid fa-rotate-right"></i> Atualizar Lista de Testes
                 </button>
             </div>
+
+            <!-- Registro Manual de Testes -->
+            <div style="display: flex; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid rgba(234, 179, 8, 0.3);">
+                <input type="text" id="inputManualTestLogin" placeholder="Registrar/Sincronizar Login no Painel (ex: teste15@tvplus ou teste15)" style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: #111; color: #fff; font-size: 13px;">
+                <button class="btn-primary" onclick="executarCriarTesteManual()" style="padding: 8px 16px; font-weight: bold; background: #eab308; color: #000; font-size: 13px;">
+                    <i class="fa-solid fa-plus"></i> ➕ Sincronizar Teste
+                </button>
+            </div>
             
             <div class="table-responsive">
                 <table id="testesTable">
@@ -1063,6 +1071,37 @@
                     logBox.style.color = '#ef4444';
                 }
             } catch (e) {
+                logBox.textContent = `[ERRO] ${e.message}`;
+                logBox.style.color = '#ef4444';
+        // Registrar / Sincronizar qualquer login de teste manualmente no painel
+        async function executarCriarTesteManual() {
+            const input = document.getElementById('inputManualTestLogin');
+            const login = input ? input.value.trim() : '';
+            if (!login) {
+                alert("Por favor, digite o login a ser sincronizado (ex: teste15@tvplus ou teste15).");
+                return;
+            }
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = `[SINCRONIZANDO ⏳] Registrando teste ${login} no painel admin...`;
+            logBox.style.color = '#eab308';
+            try {
+                const res = await fetch('/api/admin/criar-teste-manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login_tv: login })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    logBox.textContent = `[SUCESSO ➕] ${data.message}`;
+                    logBox.style.color = '#00ff80';
+                    if (input) input.value = '';
+                    carregarTestes();
+                    carregarSessoes();
+                } else {
+                    logBox.textContent = `[ERRO] ${data.error}`;
+                    logBox.style.color = '#ef4444';
+                }
+            } catch(e) {
                 logBox.textContent = `[ERRO] ${e.message}`;
                 logBox.style.color = '#ef4444';
             }
