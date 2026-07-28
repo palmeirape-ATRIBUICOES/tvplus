@@ -255,11 +255,6 @@ const dbHelpers = {
     async criarNovoTeste(telefone) {
         let fone = telefone.replace(/\D/g, '');
         
-        // Se for o número de testes do desenvolvedor (21964422488), remove testes antigos para permitir inserção sem conflito
-        if (fone.includes('21964422488')) {
-            await dbRun('DELETE FROM testes WHERE telefone LIKE "%21964422488%"').catch(() => {});
-        }
-
         await dbRun(`
             CREATE TABLE IF NOT EXISTS testes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -273,10 +268,24 @@ const dbHelpers = {
             )
         `).catch(() => {});
 
-        // Calcula o próximo sequencial de teste (ex: teste1@tvplus, teste2@tvplus)
-        const countRow = await dbGet('SELECT count(*) as total FROM testes').catch(() => ({ total: 0 }));
-        const proximoNum = (countRow ? countRow.total : 0) + 1;
-        const loginTeste = `teste${proximoNum}@tvplus`;
+        // Se for o número de testes do desenvolvedor (21964422488), arquiva o registro anterior alterando o telefone único
+        if (fone.includes('21964422488')) {
+            await dbRun('UPDATE testes SET telefone = ?, status = "excluido" WHERE telefone LIKE "%21964422488%"', [`${fone}_old_${Date.now()}`]).catch(() => {});
+        }
+
+        // Obtém o maior número sequencial de teste já criado (ex: se o último foi teste1@tvplus, o próximo será teste2@tvplus)
+        const lastTestRow = await dbGet("SELECT login_tv, id FROM testes WHERE login_tv LIKE 'teste%' ORDER BY id DESC LIMIT 1").catch(() => null);
+        let nextNum = 1;
+        if (lastTestRow && lastTestRow.login_tv) {
+            const match = lastTestRow.login_tv.match(/teste(\d+)/i);
+            if (match && match[1]) {
+                nextNum = parseInt(match[1], 10) + 1;
+            } else if (lastTestRow.id) {
+                nextNum = lastTestRow.id + 1;
+            }
+        }
+
+        const loginTeste = `teste${nextNum}@tvplus`;
         
         // Gera senha numérica aleatória de 4 dígitos
         const senhaTeste = Math.floor(1000 + Math.random() * 9000).toString();
