@@ -1518,12 +1518,21 @@ app.get('/api/admin/sessoes', async (req, res) => {
 
         // Retorna APENAS conexões de dispositivos realmente conectados com pings de transmissão ativos
         (sessoesAtivas || []).forEach(s => {
-            if (s.login_tv && s.login_tv !== 'null' && !s.ip_origem?.includes('127.0.0.1')) {
+            if (s.login_tv && s.login_tv !== 'null' && s.status === 'ONLINE' && !s.ip_origem?.includes('127.0.0.1')) {
                 listaFinal.push(s);
             }
         });
 
         res.status(200).json(listaFinal);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/admin/limpar-sessoes', async (req, res) => {
+    try {
+        await helpers.limparSessoes();
+        res.status(200).json({ message: 'Histórico de conexões e sessões limpo com sucesso!' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

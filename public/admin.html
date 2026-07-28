@@ -440,9 +440,14 @@
         <div class="card" style="border-top: 3px solid #3b82f6;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h2><i class="fa-solid fa-tower-broadcast" style="color: #3b82f6;"></i> Monitor de Conexões Ativas & Telemetria (Live Stream)</h2>
-                <button class="btn-secondary" onclick="carregarSessoes()" style="font-size: 12px; padding: 6px 12px;">
-                    <i class="fa-solid fa-rotate-right"></i> Atualizar Conexões
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-secondary" onclick="carregarSessoes()" style="font-size: 12px; padding: 6px 12px;">
+                        <i class="fa-solid fa-rotate-right"></i> Atualizar Conexões
+                    </button>
+                    <button class="btn-danger" onclick="limparSessoesAntigas()" style="font-size: 12px; padding: 6px 12px; background: #b91c1c;">
+                        <i class="fa-solid fa-broom"></i> 🧹 Limpar Histórico de Sessões
+                    </button>
+                </div>
             </div>
 
             <!-- Intervenção Manual: Derrubar Conexão por Login -->
@@ -1200,6 +1205,22 @@
             }
             await derrubarSessao(login);
             if (input) input.value = '';
+        // Limpa o histórico de sessões/conexões antigas do banco
+        async function limparSessoesAntigas() {
+            if (!confirm("Deseja expurgar todo o histórico de conexões antigas do Monitor?")) return;
+            const logBox = document.getElementById('logOutput');
+            logBox.textContent = "[LIMPEZA 🧹] Expurgando histórico de sessões inativas do banco...";
+            logBox.style.color = '#eab308';
+            try {
+                const res = await fetch('/api/admin/limpar-sessoes', { method: 'POST' });
+                const data = await res.json();
+                logBox.textContent = `[SUCESSO] ${data.message}`;
+                logBox.style.color = '#00ff80';
+                carregarSessoes();
+            } catch(e) {
+                logBox.textContent = `[ERRO] ${e.message}`;
+                logBox.style.color = '#ef4444';
+            }
         }
 
         // Abre o Modal do Pix QR Code da TV

@@ -439,10 +439,14 @@ const dbHelpers = {
             )
         `).catch(() => {});
 
-        // Marca como OFFLINE se o último ping de transmissão foi há mais de 45 segundos
-        await dbRun("UPDATE sessoes_ativas SET status = 'OFFLINE' WHERE status = 'ONLINE' AND (julianday('now') - julianday(ultimo_ping)) * 86400 > 45").catch(() => {});
+        // Remove permanentemente do banco conexões derrubadas, inativas ou sem pings recentes
+        await dbRun("DELETE FROM sessoes_ativas WHERE status != 'ONLINE' OR (julianday('now') - julianday(ultimo_ping)) * 86400 > 60").catch(() => {});
 
-        return await dbAll('SELECT * FROM sessoes_ativas ORDER BY ultimo_ping DESC').catch(() => []);
+        return await dbAll("SELECT * FROM sessoes_ativas WHERE status = 'ONLINE' ORDER BY ultimo_ping DESC").catch(() => []);
+    },
+
+    async limparSessoes() {
+        await dbRun("DELETE FROM sessoes_ativas").catch(() => {});
     },
 
     async derrubarSessao(loginTv) {
