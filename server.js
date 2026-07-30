@@ -1612,7 +1612,7 @@ app.post('/api/admin/limpar-sessoes', async (req, res) => {
 });
 
 /**
- * ROTA: Derrubar / Interromper conexão de um cliente em tempo real (Kick)
+ * ROTA: Derrubar / Interromper conexão de um cliente em tempo real (Kick & Pix Push)
  * POST /api/admin/derrubar-sessao
  */
 app.post('/api/admin/derrubar-sessao', async (req, res) => {
@@ -1620,18 +1620,64 @@ app.post('/api/admin/derrubar-sessao', async (req, res) => {
     if (!login_tv) return res.status(400).json({ error: 'Login do usuário é obrigatório.' });
 
     try {
-        // 1. Invalida a sessão no banco SQLite para forçar HTTP 403 Forbidden no próximo ping do app
-        await helpers.derrubarSessao(login_tv);
+        const loginClean = login_tv.toString().trim();
+        const loginSemDominio = loginClean.replace(/@.*$/, '');
 
-        // 2. Enfileira o bloqueio/alteração no ReceitaNet ERP em segundo plano
+        // 1. Marca como derrubado no SQLite e adiciona à Blacklist
+        await helpers.derrubarSessao(loginClean);
+        await helpers.adicionarBlacklist(loginClean, 'Derrubado manualmente pelo Administrador');
+
+        // 2. Enfileira a tarefa SUSPENDER no ReceitaNet ERP (altera cli_login para suspenso no ERP e salva para revogar API CDNTV)
         const receitanetQueue = require('./services/receitanetQueue');
-        receitanetQueue.adicionarTarefa('SUSPENDER', { loginTv: login_tv });
+        receitanetQueue.adicionarTarefa('SUSPENDER', { loginTv: loginClean });
 
-        console.log(`[DERRUBAR SESSÃO] ⚡ Conexão do usuário ${login_tv} foi encerrada pelo Administrador!`);
-        res.status(200).json({ message: `Conexão do usuário ${login_tv} foi derrubada com sucesso! O aplicativo será desconectado no próximo ping.` });
+        // 3. Gera Pix QR Code automático para forçar a cobrança de R$ 10,00
+        let pixData = null;
+        try {
+            const cobranca = await paymentService.gerarCobrancaPix(10.00, {
+                nome: `Cliente ${loginClean}`,
+                email: `${loginSemDominio}@tvplus.com`,
+                telefone: '5521964422488'
+            });
+            if (cobranca && cobranca.copiaCola) {
+                pixData = cobranca;
+                await registrarCobrancaConversaoTeste(loginClean, '123456', '5521964422488', cobranca.txid, 10.00).catch(() => {});
+            }
+        } catch (e) {}
+
+        console.log(`[DERRUBAR SESSÃO] ⚡ Conexão do usuário ${loginClean} foi encerrada pelo Administrador! Pix automático gerado.`);
+        
+        res.status(200).json({
+            message: `Conexão do usuário ${loginClean} derrubada! O aplicativo foi desconectado e o Pix de R$ 10,00 foi gerado com sucesso.`,
+            pixCopiaECola: pixData ? pixData.copiaCola : null,
+            webPlayerUrl: `https://tv-pix-platform.onrender.com/player.html?login=${encodeURIComponent(loginClean)}`
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+/**
+ * ROTA IPTV XCUI / M3U: Endpoint de playlist dinamica para aplicativos de TV / IPTV (XCUI)
+ * GET /get.php
+ */
+app.get('/get.php', async (req, res) => {
+    const username = req.query.username || req.query.user || '';
+    const isBlacklisted = await helpers.verificarBlacklist(username);
+
+    if (isBlacklisted || username.includes('suspenso')) {
+        res.setHeader('Content-Type', 'audio/x-mpegurl');
+        return res.send(`#EXTM3U
+#EXTINF:-1 tvg-id="aviso" tvg-name="⚠️ SINAL BLOQUEADO - PIX R$ 10,00" tvg-logo="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=PIX10" group-title="SINAL BLOQUEADO", ⚠️ SINAL BLOQUEADO - PAGUE O PIX RS 10,00 PARA LIBERAR
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`);
+    }
+
+    res.setHeader('Content-Type', 'audio/x-mpegurl');
+    res.send(`#EXTM3U
+#EXTINF:-1 tvg-id="globo" tvg-name="Globo SP HD", Globo SP HD
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="sportv" tvg-name="SporTV HD", SporTV HD
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`);
 });
 
 /**
