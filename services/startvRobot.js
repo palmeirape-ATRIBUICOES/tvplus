@@ -91,21 +91,44 @@ class StartvRobotService {
     }
 
     async salvarFormularioCliente(page) {
-        console.log(`[STARTV-ROBOT EXCLUSIVO] Gravando formulário de cadastro no ERP...`);
-        try {
-            await Promise.all([
-                page.evaluate(() => {
-                    const btn = document.querySelector('input[name="cadastrar"]') || 
-                                document.querySelector('button[type="submit"]') ||
-                                document.querySelector('input[type="submit"]');
-                    if (btn) btn.click();
-                    else if (document.forms[0]) document.forms[0].submit();
-                }),
-                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
-            ]);
-        } catch (e) {
-            console.log(`[STARTV-ROBOT EXCLUSIVO] Aviso no salvamento do formulário:`, e.message);
-        }
+        console.log(`[STARTV-ROBOT EXCLUSIVO] Clicando no botão de gravação oficial no ERP...`);
+        
+        await page.evaluate(() => {
+            const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
+            if (form) {
+                let inputAtualizar = form.querySelector('input[name="atualizar"]');
+                if (!inputAtualizar) {
+                    inputAtualizar = document.createElement('input');
+                    inputAtualizar.type = 'hidden';
+                    inputAtualizar.name = 'atualizar';
+                    inputAtualizar.value = '1';
+                    form.appendChild(inputAtualizar);
+                } else {
+                    inputAtualizar.value = '1';
+                }
+            }
+
+            const xpathResult = document.evaluate('/html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[2]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+            let btn = xpathResult.singleNodeValue;
+            
+            if (!btn) {
+                const buttons = Array.from(document.querySelectorAll('form button, button'));
+                btn = buttons.find(b => {
+                    const txt = (b.textContent || b.value || '').trim();
+                    return txt.includes('Gravar no ReceitaNet') || txt.includes('Gravar');
+                }) || document.querySelector('button[name="atualizar"], button.btn-danger, button.btn-primary');
+            }
+            
+            if (btn) {
+                btn.scrollIntoView();
+                btn.click();
+            } else if (form) {
+                form.submit();
+            }
+        });
+
+        console.log(`[STARTV-ROBOT EXCLUSIVO] Aguardando processamento da gravação assíncrona (4 segundos)...`);
+        await new Promise(r => setTimeout(r, 4000));
     }
 
     async cadastrarEAtivarTV(cliente, loginTv, senhaTv) {
@@ -147,23 +170,14 @@ class StartvRobotService {
                 const cpfLimpo = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
                 const emailFormatado = (cliente.email || `${loginTv}@email.com`).toString();
 
-                await page.evaluate((l, s, n, c, e) => {
-                    const setInput = (selector, val) => {
-                        const el = document.querySelector(selector);
-                        if (el) {
-                            el.removeAttribute('readonly');
-                            el.removeAttribute('disabled');
-                            el.value = val;
-                            el.dispatchEvent(new Event('input', { bubbles: true }));
-                            el.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    };
-                    setInput('input[name="cli_login"]', l);
-                    setInput('input[name="cli_senha"]', s);
-                    setInput('input[name="cli_nome"]', n);
-                    setInput('input[name="cli_cgc"]', c);
-                    setInput('input[name="cli_email"]', e);
+                await page.type('input[name="cli_login"]', (loginTv || '').toString());
+                await page.type('input[name="cli_senha"]', (senhaTv || cpfLimpo).toString());
+                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Star TV').toString());
+                await page.type('input[name="cli_cgc"]', cpfLimpo);
 
+                try { await page.type('input[name="cli_email"]', emailFormatado); } catch (e) {}
+
+                await page.evaluate(() => {
                     const setVal = (selector, val) => {
                         const el = document.querySelector(selector);
                         if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -176,7 +190,10 @@ class StartvRobotService {
                     setVal('select[name="plano"]', '2');
                     setVal('select[name="ban_codigo"]', '12168');
                     setVal('select[name="base_referencia"]', 'V');
-                }, (loginTv || '').toString(), (senhaTv || cpfLimpo).toString(), (cliente.nome || 'Cliente Star TV').toString(), cpfLimpo, emailFormatado);
+
+                    const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
+                    if (chkDesc) chkDesc.checked = true;
+                });
 
                 await this.salvarFormularioCliente(page);
             }
