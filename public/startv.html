@@ -214,6 +214,33 @@
             cursor: pointer;
         }
 
+        .btn-refresh {
+            background: var(--card-bg);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-refresh:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        [data-theme="light"] .btn-refresh {
+            background: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+
         .btn-logout {
             background: rgba(239, 68, 68, 0.15);
             color: var(--danger);
@@ -524,14 +551,20 @@
 
         <!-- CARD DE LISTA DE ASSINANTES -->
         <div class="card" style="border-top: 4px solid var(--accent-purple);">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div>
                     <h2><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Assinantes Cadastrados</h2>
                     <p>Gestão de clientes ativos do provedor. A exclusão de contas é realizada manualmente.</p>
                 </div>
-                <button onclick="carregarClientesStartv()" class="btn-submit" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.1); border: 1px solid var(--border-color);">
+                <button onclick="carregarClientesStartv()" class="btn-refresh">
                     <i class="fa-solid fa-rotate-right"></i> Atualizar Lista
                 </button>
+            </div>
+
+            <!-- CAMPO DE BUSCA DE ASSINANTES -->
+            <div style="margin-bottom: 20px; position: relative;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                <input type="text" id="inputBuscaClientes" class="input-control" style="padding-left: 44px;" placeholder="🔍 Buscar por Nome, CPF/CNPJ, E-mail ou Login @startv..." oninput="filtrarClientesStartv()">
             </div>
 
             <div class="table-wrapper">
@@ -849,9 +882,27 @@
                     `;
                     tbody.appendChild(tr);
                 });
+
+                // Aplica o filtro se houver termo no campo de busca
+                filtrarClientesStartv();
             } catch (err) {
                 tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--danger);">Erro ao carregar clientes: ${err.message}</td></tr>`;
             }
+        }
+
+        // Filtro de Busca de Assinantes em Tempo Real
+        function filtrarClientesStartv() {
+            const termo = (document.getElementById('inputBuscaClientes')?.value || '').toLowerCase().trim();
+            const trs = document.querySelectorAll('#clientesTableBody tr');
+
+            trs.forEach(tr => {
+                const texto = tr.textContent.toLowerCase();
+                if (!termo || texto.includes(termo)) {
+                    tr.style.display = '';
+                } else {
+                    tr.style.display = 'none';
+                }
+            });
         }
 
         // Exclui um cliente manualmente do painel e do ERP
