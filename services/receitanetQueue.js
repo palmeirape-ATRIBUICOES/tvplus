@@ -43,7 +43,15 @@ class ReceitanetQueueService {
 
         try {
             if (task.tipo === 'CADASTRO_E_ATIVACAO') {
-                await receitanetRobot.cadastrarEAtivarTV(task.payload.cliente, task.payload.loginTv, task.payload.senhaTv);
+                const clienteObj = task.payload.cliente || {
+                    nome: task.payload.nome,
+                    cpf: task.payload.cpf || task.payload.cpfcnpj,
+                    email: task.payload.email,
+                    telefone: task.payload.telefone
+                };
+                const loginTv = task.payload.loginTv || task.payload.login_tv;
+                const senhaTv = task.payload.senhaTv || task.payload.senha_tv || clienteObj.cpf;
+                await receitanetRobot.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
             } else if (task.tipo === 'REATIVAR') {
                 await receitanetRobot.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             } else if (task.tipo === 'SUSPENDER') {

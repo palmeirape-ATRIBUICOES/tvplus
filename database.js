@@ -746,10 +746,10 @@ const dbHelpers = {
     },
 
     async cadastrarClienteStartv(nome, cpfcnpj, email, telefone) {
-        const loginTv = await this.gerarLoginStartv(nome);
-        const senhaTv = '123456';
         const cpfLimpo = (cpfcnpj || '').replace(/\D/g, '');
         const telLimpo = (telefone || '').replace(/\D/g, '');
+        const loginTv = await this.gerarLoginStartv(nome);
+        const senhaTv = cpfLimpo; // A senha do cliente no ERP e na TV é o próprio CPF!
 
         const res = await dbRun(`
             INSERT INTO clientes_startv (nome, cpfcnpj, email, telefone, login_tv, senha_tv, status)

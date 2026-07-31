@@ -1869,6 +1869,33 @@ app.post('/api/startv/cadastrar-cliente', async (req, res) => {
         return res.status(400).json({ error: 'Todos os campos (Nome, CPF/CNPJ, E-mail e WhatsApp) são obrigatórios.' });
     }
 
+    // Algoritmo de Validação Estrita de CPF (Dígitos Verificadores)
+    const cpfLimpo = cpfcnpj.toString().replace(/\D/g, '');
+    if (cpfLimpo.length === 11) {
+        let soma = 0;
+        let resto = 0;
+        let cpfValido = true;
+        if (/^(\d)\1{10}$/.test(cpfLimpo)) cpfValido = false;
+        
+        if (cpfValido) {
+            for (let i = 1; i <= 9; i++) soma += parseInt(cpfLimpo.substring(i - 1, i)) * (11 - i);
+            resto = (soma * 10) % 11;
+            if (resto === 10 || resto === 11) resto = 0;
+            if (resto !== parseInt(cpfLimpo.substring(9, 10))) cpfValido = false;
+        }
+        if (cpfValido) {
+            soma = 0;
+            for (let i = 1; i <= 10; i++) soma += parseInt(cpfLimpo.substring(i - 1, i)) * (12 - i);
+            resto = (soma * 10) % 11;
+            if (resto === 10 || resto === 11) resto = 0;
+            if (resto !== parseInt(cpfLimpo.substring(10, 11))) cpfValido = false;
+        }
+
+        if (!cpfValido) {
+            return res.status(400).json({ error: 'O CPF informado é inválido! Por favor, verifique os números digitados.' });
+        }
+    }
+
     try {
         const cliente = await helpers.cadastrarClienteStartv(nome, cpfcnpj, email, telefone);
 
@@ -1881,14 +1908,14 @@ app.post('/api/startv/cadastrar-cliente', async (req, res) => {
             email: cliente.email,
             telefone: cliente.telefone,
             loginTv: cliente.login_tv,
-            senhaTv: cliente.senha_tv,
+            senhaTv: cliente.cpfcnpj, // A senha é o CPF do cliente!
             planoNome: 'STAR TV LEVE MAIS FIBRA'
         });
 
-        console.log(`[STAR TV PROVEDOR] 🚀 Cliente ${cliente.nome} (${cliente.login_tv}) cadastrado! Tarefa enfileirada no ERP.`);
+        console.log(`[STAR TV PROVEDOR] 🚀 Cliente ${cliente.nome} (${cliente.login_tv}) cadastrado com sucesso! Senha (CPF): ${cliente.cpfcnpj}`);
         res.status(200).json({
             success: true,
-            message: `Cliente ${cliente.nome} cadastrado com sucesso! Login gerado: ${cliente.login_tv}`,
+            message: `Cliente ${cliente.nome} cadastrado com sucesso! Login: ${cliente.login_tv} | Senha: ${cliente.cpfcnpj}`,
             cliente
         });
     } catch (error) {
