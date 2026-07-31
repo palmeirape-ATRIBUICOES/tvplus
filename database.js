@@ -83,24 +83,45 @@ function initDb() {
             `, (err) => { 
                 if (err) return reject(err);
 
-                // Tabela de Atendimento do Bot de IA / Humano
+                // Tabela de Usuários de Provedores (Star TV)
                 db.run(`
-                    CREATE TABLE IF NOT EXISTS conversas_bot (
+                    CREATE TABLE IF NOT EXISTS provedor_usuarios (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        telefone TEXT UNIQUE NOT NULL,
-                        modo TEXT DEFAULT 'IA',
-                        historico TEXT DEFAULT '[]',
-                        ultima_interacao DATETIME DEFAULT CURRENT_TIMESTAMP
+                        usuario TEXT UNIQUE NOT NULL,
+                        senha TEXT NOT NULL,
+                        senha_alterada INTEGER DEFAULT 0,
+                        data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
-                `, (errBot) => {
-                    if (errBot) return reject(errBot);
-
-                    // Tabela de Testes Grátis de 3 Horas
+                `, () => {
+                    // Insere o provedor padrão 'startv' com a senha '1234' caso ainda não exista
                     db.run(`
-                        CREATE TABLE IF NOT EXISTS testes (
+                        INSERT INTO provedor_usuarios (usuario, senha, senha_alterada)
+                        VALUES ('startv', '1234', 0)
+                        ON CONFLICT(usuario) DO NOTHING
+                    `);
+                });
+
+                // Tabela de Clientes do Provedor Star TV (@startv)
+                db.run(`
+                    CREATE TABLE IF NOT EXISTS clientes_startv (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nome TEXT NOT NULL,
+                        cpfcnpj TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        telefone TEXT NOT NULL,
+                        login_tv TEXT UNIQUE NOT NULL,
+                        senha_tv TEXT DEFAULT '123456',
+                        status TEXT DEFAULT 'ativo',
+                        data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                `, (err) => {
+                    if (err) return reject(err);
+
+                    // Tabela de Atendimento do Bot de IA / Humano
+                    db.run(`
+                        CREATE TABLE IF NOT EXISTS conversas_bot (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             telefone TEXT UNIQUE NOT NULL,
-                            login_tv TEXT UNIQUE NOT NULL,
                             senha_tv TEXT NOT NULL,
                             data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP,
                             data_expiracao DATETIME NOT NULL,
@@ -681,6 +702,73 @@ const dbHelpers = {
             JOIN clientes c ON a.cliente_id = c.id
             WHERE a.status = 'suspensa'
         `);
+    },
+
+    // === MÓDULO EXCLUSIVO PROVEDOR STAR TV (@startv) ===
+    async autenticarProvedor(usuario, senha) {
+        const uClean = (usuario || '').toString().trim().toLowerCase();
+        const pClean = (senha || '').toString().trim();
+        const row = await dbGet('SELECT * FROM provedor_usuarios WHERE LOWER(TRIM(usuario)) = ? AND senha = ?', [uClean, pClean]).catch(() => null);
+        return row;
+    },
+
+    async alterarSenhaProvedor(usuario, novaSenha) {
+        const uClean = (usuario || '').toString().trim().toLowerCase();
+        const nClean = (novaSenha || '').toString().trim();
+        await dbRun('UPDATE provedor_usuarios SET senha = ?, senha_alterada = 1 WHERE LOWER(TRIM(usuario)) = ?', [nClean, uClean]).catch(() => {});
+    },
+
+    async gerarLoginStartv(nomeCompleto) {
+        const nomeLimpo = (nomeCompleto || 'cliente')
+            .toString()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9\s]/g, '')
+            .toLowerCase()
+            .trim();
+
+        const partes = nomeLimpo.split(/\s+/);
+        const primeiroNome = partes[0] || 'cliente';
+        
+        const candidatos = [
+            `${primeiroNome}@startv`,
+            partes.length > 1 ? `${primeiroNome}${partes[partes.length - 1][0]}@startv` : `${primeiroNome}1@startv`,
+            partes.length > 1 ? `${primeiroNome}${partes[partes.length - 1]}@startv` : `${primeiroNome}2@startv`,
+            `${primeiroNome}${Math.floor(100 + Math.random() * 900)}@startv`
+        ];
+
+        for (const cand of candidatos) {
+            const existe = await dbGet('SELECT id FROM clientes_startv WHERE login_tv = ?', [cand]).catch(() => null);
+            if (!existe) return cand;
+        }
+
+        return `${primeiroNome}${Date.now().toString().slice(-4)}@startv`;
+    },
+
+    async cadastrarClienteStartv(nome, cpfcnpj, email, telefone) {
+        const loginTv = await this.gerarLoginStartv(nome);
+        const senhaTv = '123456';
+        const cpfLimpo = (cpfcnpj || '').replace(/\D/g, '');
+        const telLimpo = (telefone || '').replace(/\D/g, '');
+
+        const res = await dbRun(`
+            INSERT INTO clientes_startv (nome, cpfcnpj, email, telefone, login_tv, senha_tv, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'ativo')
+        `, [nome, cpfLimpo, email, telLimpo, loginTv, senhaTv]);
+
+        return { id: res.lastID, nome, cpfcnpj: cpfLimpo, email, telefone: telLimpo, login_tv: loginTv, senha_tv: senhaTv };
+    },
+
+    async listarClientesStartv() {
+        return await dbAll('SELECT * FROM clientes_startv ORDER BY id DESC').catch(() => []);
+    },
+
+    async excluirClienteStartv(id) {
+        const cliente = await dbGet('SELECT * FROM clientes_startv WHERE id = ?', [id]).catch(() => null);
+        if (cliente) {
+            await dbRun('DELETE FROM clientes_startv WHERE id = ?', [id]).catch(() => {});
+        }
+        return cliente;
     }
 };
 

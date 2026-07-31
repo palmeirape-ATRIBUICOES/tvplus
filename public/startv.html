@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star TV - Leve Mais Fibra | Painel do Provedor</title>
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #070a14;
+            --card-bg: rgba(15, 23, 42, 0.75);
+            --primary: #3b82f6;
+            --primary-glow: #60a5fa;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.15) 0%, transparent 40%);
+        }
+
+        /* TELA DE LOGIN */
+        .login-screen {
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 10, 20, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 1000;
+        }
+
+        .login-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95));
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 440px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            text-align: center;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .brand-logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .brand-title {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(90deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-sub {
+            font-size: 13px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: left;
+        }
+
+        .form-group label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .input-control {
+            width: 100%;
+            padding: 14px 16px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .input-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+            color: #fff;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.5);
+        }
+
+        /* HEADER DO DASHBOARD */
+        header {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .user-nav-badge {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* MAIN CONTENT */
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            flex: 1;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            margin-bottom: 24px;
+        }
+
+        .card-header h2 {
+            font-size: 22px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #fff;
+        }
+
+        .card-header p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* FORMULARIO DE CADASTRO */
+        .grid-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        /* TABELA DE CLIENTES */
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 700;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 14px;
+        }
+
+        .login-tv-tag {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--accent-cyan);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-delete:hover {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        /* MODAL DE TROCA DE SENHA */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 2000;
+        }
+
+        /* TOAST LOG */
+        .alert-box {
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        .alert-box.success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            display: block;
+        }
+
+        .alert-box.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <div class="brand-logo">
+                <div class="brand-logo-icon"><i class="fa-solid fa-tv"></i></div>
+                <div>
+                    <div class="brand-title">STAR TV</div>
+                    <div class="brand-sub">Leve Mais Fibra</div>
+                </div>
+            </div>
+
+            <p style="font-size: 14px; color: var(--text-muted);">Acesso restrito ao Painel do Provedor</p>
+            
+            <div id="loginAlert" class="alert-box"></div>
+
+            <form id="formLoginProvedor" onsubmit="realizarLoginProvedor(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Usuário do Provedor</label>
+                    <input type="text" id="loginUsuario" class="input-control" value="startv" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Senha de Acesso</label>
+                    <input type="password" id="loginSenha" class="input-control" value="1234" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-right-to-bracket"></i> Entrar no Painel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL OBRIGATÓRIO DE TROCA DE SENHA DA 1ª VEZ -->
+    <div class="modal-overlay" id="modalTrocaSenha" style="display: none;">
+        <div class="login-card" style="max-width: 480px;">
+            <div class="brand-logo-icon" style="margin: 0 auto; background: linear-gradient(135deg, #eab308, #f97316);">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <h2 style="font-size: 20px; font-weight: 800;">Alteração de Senha Obrigatória</h2>
+            <p style="font-size: 13px; color: var(--text-muted);">
+                Você está utilizando a senha padrão inicial (<strong>1234</strong>). Por motivos de segurança, crie a sua senha exclusiva para continuar.
+            </p>
+
+            <div id="modalSenhaAlert" class="alert-box"></div>
+
+            <form onsubmit="realizarTrocaSenha(event)">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Nova Senha Pessoal</label>
+                    <input type="password" id="novaSenhaInput" class="input-control" placeholder="Mínimo 4 caracteres" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Confirme a Nova Senha</label>
+                    <input type="password" id="confirmaSenhaInput" class="input-control" placeholder="Repita a nova senha" required>
+                </div>
+
+                <button type="submit" class="btn-submit" style="background: linear-gradient(135deg, #eab308, #f97316); color: #000;">
+                    <i class="fa-solid fa-shield-halved"></i> Salvar Nova Senha e Acessar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD DO PROVEDOR -->
+    <header>
+        <div class="brand-logo">
+            <div class="brand-logo-icon" style="width: 36px; height: 36px; font-size: 18px;"><i class="fa-solid fa-tv"></i></div>
+            <div>
+                <div class="brand-title" style="font-size: 18px;">STAR TV</div>
+                <div class="brand-sub" style="font-size: 11px;">Leve Mais Fibra</div>
+            </div>
+        </div>
+
+        <div class="user-nav-badge">
+            <span style="font-size: 14px; font-weight: 600; color: var(--accent-cyan);" id="navUsuarioBadge">
+                <i class="fa-solid fa-building-user"></i> Provedor: startv
+            </span>
+            <button class="btn-logout" onclick="logoutProvedor()">
+                <i class="fa-solid fa-power-off"></i> Sair
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- CARD DE CADASTRO DE CLIENTE -->
+        <div class="card" style="border-top: 4px solid var(--primary);">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-user-plus" style="color: var(--primary-glow);"></i> Faça sua Assinatura</h2>
+                <p>Preencha os dados para liberar o sinal da sua TV (Sem expiração automática • Usuário @startv)</p>
+            </div>
+
+            <div id="cadastroAlert" class="alert-box"></div>
+
+            <form onsubmit="cadastrarClienteStartv(event)">
+                <div class="grid-form">
+                    <div class="form-group">
+                        <label>Nome Completo</label>
+                        <input type="text" id="cadNome" class="input-control" placeholder="Digite seu nome" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>CPF ou CNPJ (apenas números)</label>
+                        <input type="text" id="cadCpf" class="input-control" placeholder="Digite seu CPF/CNPJ" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>E-mail</label>
+                        <input type="email" id="cadEmail" class="input-control" placeholder="exemplo@email.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>WhatsApp (com DDD)</label>
+                        <input type="text" id="cadTelefone" class="input-control" placeholder="(11) 99999-9999" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" style="margin-top: 24px; width: 100%;">
+                    <i class="fa-solid fa-rocket"></i> Cadastrar Cliente & Liberar Sinal no ERP
+                </button>
+            </form>
+        </div>
+
+        <!-- CARD DE LISTA DE CLIENTES -->
+        <div class="card" style="border-top: 4px solid var(--accent-purple);">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Clientes Cadastrados Star TV</h2>
+                    <p>Clientes ativos sem data de expiração. A exclusão é estritamente manual.</p>
+                </div>
+                <button onclick="carregarClientesStartv()" class="btn-submit" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar Lista
+                </button>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome Completo</th>
+                            <th>CPF / CNPJ</th>
+                            <th>E-mail</th>
+                            <th>WhatsApp</th>
+                            <th>Login TV (@startv)</th>
+                            <th>Senha TV</th>
+                            <th>Data Cadastro</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientesTableBody">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let usuarioAtual = localStorage.getItem('startv_usuario') || 'startv';
+
+        // Verifica sessão ao abrir a página
+        window.addEventListener('DOMContentLoaded', () => {
+            const logado = localStorage.getItem('startv_logado');
+            if (logado === 'true') {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('navUsuarioBadge').innerHTML = `<i class="fa-solid fa-building-user"></i> Provedor: ${usuarioAtual}`;
+                carregarClientesStartv();
+            } else {
+                document.getElementById('loginScreen').style.display = 'flex';
+            }
+        });
+
+        // Realiza o Login do Provedor
+        async function realizarLoginProvedor(e) {
+            e.preventDefault();
+            const u = document.getElementById('loginUsuario').value.trim();
+            const p = document.getElementById('loginSenha').value.trim();
+            const alertBox = document.getElementById('loginAlert');
+
+            try {
+                const res = await fetch('/api/startv/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: u, senha: p })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    usuarioAtual = data.usuario;
+                    localStorage.setItem('startv_usuario', usuarioAtual);
+                    localStorage.setItem('startv_logado', 'true');
+
+                    if (data.precisaTrocarSenha) {
+                        document.getElementById('modalTrocaSenha').style.display = 'flex';
+                    } else {
+                        document.getElementById('loginScreen').style.display = 'none';
+                        carregarClientesStartv();
+                    }
+                } else {
+                    alertBox.className = 'alert-box error';
+                    alertBox.textContent = data.error || 'Erro ao realizar login.';
+                }
+            } catch (err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'Falha de conexão com o servidor.';
+            }
+        }
+
+        // Realiza a Troca de Senha Obrigatória
+        async function realizarTrocaSenha(e) {
+            e.preventDefault();
+            const n1 = document.getElementById('novaSenhaInput').value.trim();
+            const n2 = document.getElementById('confirmaSenhaInput').value.trim();
+            const alertBox = document.getElementById('modalSenhaAlert');
+
+            if (n1 !== n2) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'As senhas digitadas não coincidem.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/startv/alterar-senha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: usuarioAtual, novaSenha: n1 })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    document.getElementById('modalTrocaSenha').style.display = 'none';
+                    document.getElementById('loginScreen').style.display = 'none';
+                    carregarClientesStartv();
+                } else {
+                    alertBox.className = 'alert-box error';
+                    alertBox.textContent = data.error || 'Erro ao alterar senha.';
+                }
+            } catch (err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'Falha ao conectar com o servidor.';
+            }
+        }
+
+        // Cadastra um novo cliente no formato @startv
+        async function cadastrarClienteStartv(e) {
+            e.preventDefault();
+            const nome = document.getElementById('cadNome').value.trim();
+            const cpf = document.getElementById('cadCpf').value.trim();
+            const email = document.getElementById('cadEmail').value.trim();
+            const telefone = document.getElementById('cadTelefone').value.trim();
+            const alertBox = document.getElementById('cadastroAlert');
+
+            alertBox.className = 'alert-box';
+            alertBox.style.display = 'block';
+            alertBox.style.background = 'rgba(59, 130, 246, 0.2)';
+            alertBox.style.color = '#60a5fa';
+            alertBox.textContent = '⏳ Cadastrando cliente e enfileirando liberação no ReceitaNet ERP...';
+
+            try {
+                const res = await fetch('/api/startv/cadastrar-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, cpfcnpj: cpf, email, telefone })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alertBox.className = 'alert-box success';
+                    alertBox.textContent = `✅ ${data.message}`;
+                    document.getElementById('cadNome').value = '';
+                    document.getElementById('cadCpf').value = '';
+                    document.getElementById('cadEmail').value = '';
+                    document.getElementById('cadTelefone').value = '';
+                    carregarClientesStartv();
+                } else {
+                    alertBox.className = 'alert-box error';
+                    alertBox.textContent = data.error || 'Erro ao cadastrar cliente.';
+                }
+            } catch (err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'Falha ao comunicar com o servidor.';
+            }
+        }
+
+        // Carrega a Tabela de Clientes Star TV
+        async function carregarClientesStartv() {
+            const tbody = document.getElementById('clientesTableBody');
+            if (!tbody) return;
+
+            try {
+                const res = await fetch('/api/startv/clientes');
+                const clientes = await res.json();
+
+                tbody.innerHTML = '';
+                if (!Array.isArray(clientes) || clientes.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--text-muted);">Nenhum cliente cadastrado no momento.</td></tr>`;
+                    return;
+                }
+
+                clientes.forEach(c => {
+                    const tr = document.createElement('tr');
+
+                    tr.innerHTML = `
+                        <td>${c.id}</td>
+                        <td style="font-weight:700; color:#fff;">${c.nome}</td>
+                        <td style="font-family:monospace;">${c.cpfcnpj || '-'}</td>
+                        <td>${c.email}</td>
+                        <td>${c.telefone}</td>
+                        <td><span class="login-tv-tag">${c.login_tv}</span></td>
+                        <td style="font-family:monospace;">${c.senha_tv || '123456'}</td>
+                        <td>${new Date(c.data_cadastro).toLocaleDateString('pt-BR')}</td>
+                        <td>
+                            <button class="btn-delete" onclick="excluirClienteStartv(${c.id}, '${c.login_tv}')">
+                                <i class="fa-solid fa-trash-can"></i> Excluir Cliente
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--danger);">Erro ao carregar clientes: ${err.message}</td></tr>`;
+            }
+        }
+
+        // Exclui um cliente manualmente do painel e do ERP
+        async function excluirClienteStartv(id, loginTv) {
+            if (!confirm(`Deseja realmente EXCLUIR o cliente ${loginTv}? Essa ação é irreversível e encerrará o sinal no ERP.`)) return;
+
+            try {
+                const res = await fetch('/api/startv/excluir-cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(`✅ Cliente ${loginTv} excluído com sucesso!`);
+                    carregarClientesStartv();
+                } else {
+                    alert(`❌ Erro: ${data.error}`);
+                }
+            } catch (err) {
+                alert(`❌ Falha ao comunicar com o servidor: ${err.message}`);
+            }
+        }
+
+        // Logout
+        function logoutProvedor() {
+            localStorage.removeItem('startv_logado');
+            document.getElementById('loginScreen').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

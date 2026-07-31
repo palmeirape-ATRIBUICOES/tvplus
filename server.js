@@ -86,6 +86,19 @@ app.get('/admin.html', basicAuth, (req, res) => {
 // Protege todos os endpoints administrativos /api/admin/*
 app.use('/api/admin/*', basicAuth);
 
+// Rota dedicada para o subdomínio startv.levemaisfibra.com.br ou /startv
+app.use((req, res, next) => {
+    const host = req.headers.host || '';
+    if (host.includes('startv') && req.path === '/') {
+        return res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+    }
+    next();
+});
+
+app.get('/startv', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+});
+
 // Servir arquivos estáticos do frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -1782,6 +1795,129 @@ app.post('/api/admin/bot-toggle', async (req, res) => {
     try {
         await helpers.definirModoBot(telefone, modo);
         res.status(200).json({ message: `Modo do robô alterado para ${modo} com sucesso para +${telefone}.` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// === ROTAS EXCLUSIVAS DO PAINEL DE PROVEDOR STAR TV (startv.levemaisfibra.com.br) ===
+
+/**
+ * ROTA: Login do Provedor Star TV
+ * POST /api/startv/login
+ */
+app.post('/api/startv/login', async (req, res) => {
+    const { usuario, senha } = req.body;
+    if (!usuario || !senha) return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
+
+    try {
+        const prov = await helpers.autenticarProvedor(usuario, senha);
+        if (!prov) {
+            return res.status(401).json({ error: 'Usuário ou senha do provedor incorretos.' });
+        }
+
+        const precisaTrocarSenha = (prov.senha_alterada === 0 || prov.senha === '1234');
+        res.status(200).json({
+            success: true,
+            usuario: prov.usuario,
+            precisaTrocarSenha,
+            message: precisaTrocarSenha ? 'Você precisa alterar a senha padrão 1234.' : 'Login realizado com sucesso!'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Alterar Senha Obrigatória do Provedor Star TV
+ * POST /api/startv/alterar-senha
+ */
+app.post('/api/startv/alterar-senha', async (req, res) => {
+    const { usuario, novaSenha } = req.body;
+    if (!usuario || !novaSenha || novaSenha.trim().length < 4) {
+        return res.status(400).json({ error: 'A nova senha deve ter no mínimo 4 caracteres.' });
+    }
+
+    try {
+        await helpers.alterarSenhaProvedor(usuario, novaSenha);
+        res.status(200).json({ success: true, message: 'Senha do provedor alterada com sucesso!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Listar Clientes do Provedor Star TV (@startv)
+ * GET /api/startv/clientes
+ */
+app.get('/api/startv/clientes', async (req, res) => {
+    try {
+        const clientes = await helpers.listarClientesStartv();
+        res.status(200).json(clientes || []);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Cadastrar Novo Cliente no Painel Star TV (@startv)
+ * POST /api/startv/cadastrar-cliente
+ */
+app.post('/api/startv/cadastrar-cliente', async (req, res) => {
+    const { nome, cpfcnpj, email, telefone } = req.body;
+    if (!nome || !cpfcnpj || !email || !telefone) {
+        return res.status(400).json({ error: 'Todos os campos (Nome, CPF/CNPJ, E-mail e WhatsApp) são obrigatórios.' });
+    }
+
+    try {
+        const cliente = await helpers.cadastrarClienteStartv(nome, cpfcnpj, email, telefone);
+
+        // Enfileira o cadastro e ativacao no ReceitaNet ERP em segundo plano
+        const receitanetQueue = require('./services/receitanetQueue');
+        receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
+            clienteId: cliente.id,
+            nome: cliente.nome,
+            cpf: cliente.cpfcnpj,
+            email: cliente.email,
+            telefone: cliente.telefone,
+            loginTv: cliente.login_tv,
+            senhaTv: cliente.senha_tv,
+            planoNome: 'STAR TV LEVE MAIS FIBRA'
+        });
+
+        console.log(`[STAR TV PROVEDOR] 🚀 Cliente ${cliente.nome} (${cliente.login_tv}) cadastrado! Tarefa enfileirada no ERP.`);
+        res.status(200).json({
+            success: true,
+            message: `Cliente ${cliente.nome} cadastrado com sucesso! Login gerado: ${cliente.login_tv}`,
+            cliente
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Excluir Cliente do Provedor Star TV
+ * POST /api/startv/excluir-cliente
+ */
+app.post('/api/startv/excluir-cliente', async (req, res) => {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'ID do cliente é obrigatório.' });
+
+    try {
+        const cliente = await helpers.excluirClienteStartv(id);
+        if (cliente && cliente.login_tv) {
+            // Enfileira a tarefa de rescisão/exclusão completa no ReceitaNet ERP
+            const receitanetQueue = require('./services/receitanetQueue');
+            receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', {
+                loginTv: cliente.login_tv,
+                cpf: cliente.cpfcnpj,
+                nome: cliente.nome
+            });
+            console.log(`[STAR TV PROVEDOR] 🗑️ Cliente ${cliente.nome} (${cliente.login_tv}) excluído pelo provedor! Robô acionado.`);
+        }
+
+        res.status(200).json({ success: true, message: 'Cliente excluído com sucesso do painel e enfileirado para remoção no ERP!' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
