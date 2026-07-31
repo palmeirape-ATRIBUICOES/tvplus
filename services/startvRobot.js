@@ -6,8 +6,7 @@ const CADASTRO_CLIENTE_URL = 'https://sistema.receitanet.net/clientes_cadastro.p
 
 /**
  * Módulos de Automação Dedicados e Exclusivos para o Provedor Star TV (@startv).
- * Este robô é totalmente isolado, reutiliza sessão de forma ultra-rápida
- * e trata re-autenticação automática no ERP.
+ * Este robô é totalmente isolado e utiliza a lógica exata de inclusão do ERP ReceitaNet.
  */
 class StartvRobotService {
     constructor() {
@@ -23,7 +22,7 @@ class StartvRobotService {
             throw new Error("Credenciais do administrador do ReceitaNet não configuradas no arquivo .env.");
         }
 
-        // Testar se o navegador atual em memória continua logado
+        // Testar se a sessão atual continua viva no ERP
         if (this.browser && this.page && !this.page.isClosed()) {
             try {
                 const urlAtual = this.page.url();
@@ -64,7 +63,7 @@ class StartvRobotService {
         this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
 
-        // Intercepta e bloqueia mídias pesadas para performance máxima (300ms)
+        // Intercepta e bloqueia mídias pesadas para performance máxima
         await this.page.setRequestInterception(true);
         this.page.on('request', (req) => {
             const resourceType = req.resourceType();
@@ -91,7 +90,7 @@ class StartvRobotService {
     }
 
     async salvarFormularioCliente(page) {
-        console.log(`[STARTV-ROBOT EXCLUSIVO] Clicando no botão de gravação oficial no ERP...`);
+        console.log(`[STARTV-ROBOT EXCLUSIVO] Gravando edições de formulário no ERP...`);
         
         await page.evaluate(() => {
             const form = document.querySelector('form[name*="cli"], form[action*="cadastro"], form');
@@ -127,7 +126,6 @@ class StartvRobotService {
             }
         });
 
-        console.log(`[STARTV-ROBOT EXCLUSIVO] Aguardando processamento da gravação assíncrona (4 segundos)...`);
         await new Promise(r => setTimeout(r, 4000));
     }
 
@@ -136,13 +134,18 @@ class StartvRobotService {
         const page = await this.obterPaginaAutenticada();
 
         try {
-            const loginSemDominio = (loginTv || '').replace(/@.*$/, '');
+            const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
             const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginTv)}`;
+            const suspensoUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginSemDominio + 'suspenso')}`;
             
             console.log(`[STARTV-ROBOT EXCLUSIVO] Verificando existência de ${loginTv} no ERP...`);
-            await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
             
-            const alreadyExists = await page.waitForSelector('input[name="cli_login"]', { timeout: 5000 })
+            let alreadyExists = false;
+            let existsSuspended = false;
+
+            // 1. Checa ativo
+            await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
+            alreadyExists = await page.waitForSelector('input[name="cli_login"]', { timeout: 4000 })
                 .then(async () => {
                     return await page.evaluate((target) => {
                         const val = document.querySelector('input[name="cli_login"]')?.value;
@@ -151,66 +154,156 @@ class StartvRobotService {
                 })
                 .catch(() => false);
 
-            if (alreadyExists) {
-                console.log(`[STARTV-ROBOT EXCLUSIVO] Assinante ${loginTv} já cadastrado no ERP. Garantindo status ativo...`);
-                await page.evaluate(() => {
-                    const setVal = (selector, val) => {
-                        const el = document.querySelector(selector);
-                        if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
-                    };
-                    setVal('select[name="cli_boleto"]', 'S');
-                    setVal('select[name="men_codigo"]', '1');
-                });
-                await this.salvarFormularioCliente(page);
-            } else {
-                console.log(`[STARTV-ROBOT EXCLUSIVO] Preenchendo cadastro de novo assinante para ${loginTv}...`);
-                await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
-                await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
-
-                const cpfLimpo = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
-                const emailFormatado = (cliente.email || `${loginTv}@email.com`).toString();
-
-                await page.type('input[name="cli_login"]', (loginTv || '').toString());
-                await page.type('input[name="cli_senha"]', (senhaTv || cpfLimpo).toString());
-                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Star TV').toString());
-                await page.type('input[name="cli_cgc"]', cpfLimpo);
-
-                try { await page.type('input[name="cli_email"]', emailFormatado); } catch (e) {}
-
-                await page.evaluate(() => {
-                    const setVal = (selector, val) => {
-                        const el = document.querySelector(selector);
-                        if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
-                    };
-
-                    setVal('select[name="cli_tipo"]', '1');
-                    setVal('select[name="cli_diatari"]', '10');
-                    setVal('select[name="cli_boleto"]', 'S');
-                    setVal('select[name="men_codigo"]', '1');
-                    setVal('select[name="plano"]', '2');
-                    setVal('select[name="ban_codigo"]', '12168');
-                    setVal('select[name="base_referencia"]', 'V');
-
-                    const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
-                    if (chkDesc) chkDesc.checked = true;
-                });
-
-                await this.salvarFormularioCliente(page);
+            if (!alreadyExists) {
+                // 2. Checa suspenso
+                await page.goto(suspensoUrl, { waitUntil: 'networkidle2' });
+                existsSuspended = await page.waitForSelector('input[name="cli_login"]', { timeout: 4000 })
+                    .then(async () => {
+                        return await page.evaluate((target) => {
+                            const val = document.querySelector('input[name="cli_login"]')?.value;
+                            return val && val.trim().toLowerCase().includes(target.trim().toLowerCase());
+                        }, loginSemDominio);
+                    })
+                    .catch(() => false);
             }
 
-            // Ativa o plano CDNTV
-            console.log(`[STARTV-ROBOT EXCLUSIVO] Ativando plano CDNTV no módulo de serviços...`);
-            const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
-            await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
+            if (alreadyExists) {
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Assinante ${loginTv} já ativo no ERP. Pulando criação e garantindo ativação...`);
+            } else if (existsSuspended) {
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Assinante ${loginTv} está em modo suspenso. Restaurando cadastro...`);
+                await page.evaluate((originalLog) => {
+                    const input = document.querySelector('input[name="cli_login"]');
+                    if (input) {
+                        input.value = originalLog;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }, loginTv);
+                await this.salvarFormularioCliente(page);
+            } else {
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Criando NOVO cadastro para assinante ${loginTv}...`);
+                await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
+                await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
+
+                await page.type('input[name="cli_login"]', (loginTv || '').toString());
+                await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
+                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Star TV').toString());
+                
+                const cpfValor = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
+                await page.type('input[name="cli_cgc"]', cpfValor);
+
+                const emailValor = (cliente.email || `${loginTv}@email.com`).toString();
+                try {
+                    await page.type('input[name="cli_email"]', emailValor);
+                } catch (e) {}
+
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Aplicando parâmetros oficiais de mensalidade no ERP...`);
+                await page.evaluate(() => {
+                    const setVal = (selector, val) => {
+                        const el = document.querySelector(selector);
+                        if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
+                    };
+
+                    setVal('select[name="cli_tipo"]', '1'); // Pessoa Física
+                    setVal('select[name="cli_diatari"]', '10'); // Dia de Vencimento 10
+                    setVal('select[name="cli_boleto"]', 'S'); // ATIVADO
+                    setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade)
+                    setVal('select[name="plano"]', '2'); // PADRÃO
+                    setVal('select[name="ban_codigo"]', '12168'); // API - Efí
+                    setVal('select[name="base_referencia"]', 'V'); // Pré-pago
+
+                    const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
+                    if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
+                });
+
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Clicando no botão 'Incluir' para registrar o cliente no ERP...`);
+                await Promise.all([
+                    page.evaluate(() => {
+                        const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
+                        const incluirBtn = buttons.find(b => b.textContent.trim() === 'Incluir');
+                        if (incluirBtn) incluirBtn.click();
+                        else throw new Error("Botão 'Incluir' de cadastro não encontrado.");
+                    }),
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
+                ]);
+            }
+
+            console.log(`[STARTV-ROBOT EXCLUSIVO] Assinante ${loginTv} cadastrado com sucesso! Abrindo tela de Planos de Cobrança...`);
             
-            const hasPlanoSelect = await page.waitForSelector('select[name="pla_codigo"]', { timeout: 5000 }).then(() => true).catch(() => false);
-            if (hasPlanoSelect) {
+            // 1. Vincula plano no Novo ERP
+            try {
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Clicando no botão 'Planos' abaixo do cadastro...`);
+                const clickedPlanos = await page.evaluate(() => {
+                    const btn = Array.from(document.querySelectorAll('a')).find(a => a.textContent.trim() === 'Planos' || a.className.includes('bg-blue'));
+                    if (btn) {
+                        btn.click();
+                        return true;
+                    }
+                    return false;
+                });
+
+                if (clickedPlanos) {
+                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {});
+                }
+
+                if (!page.url().includes('/planos/')) {
+                    console.log(`[STARTV-ROBOT EXCLUSIVO] Buscando a URL do plano do cliente ${loginTv}...`);
+                    let planUrl = null;
+
+                    for (const queryTerm of [loginSemDominio, loginTv]) {
+                        if (!queryTerm) continue;
+                        await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
+                        await new Promise(r => setTimeout(r, 2000));
+
+                        planUrl = await page.evaluate(() => {
+                            const links = Array.from(document.querySelectorAll('a'));
+                            const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
+                            return linkPlano ? linkPlano.href : null;
+                        });
+
+                        if (planUrl) break;
+                    }
+
+                    if (planUrl) {
+                        await page.goto(planUrl, { waitUntil: 'networkidle2' });
+                    }
+                }
+
+                if (page.url().includes('/planos/')) {
+                    console.log(`[STARTV-ROBOT EXCLUSIVO] Gravando mensalidade 'CDNTV-R$0,00' no Novo ERP...`);
+                    await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
+
+                    await Promise.all([
+                        page.evaluate(() => {
+                            const select = document.querySelector('select[name="mensalidade_id"]');
+                            if (select) {
+                                const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV-R$0,00') || o.text.toLowerCase().includes('cdntv') || o.value === '108038');
+                                if (opt) {
+                                    select.value = opt.value;
+                                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                                    const form = select.closest('form');
+                                    if (form) form.submit();
+                                }
+                            }
+                        }),
+                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                    ]);
+
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            } catch (eNovoPlano) {
+                console.error(`[STARTV-ROBOT EXCLUSIVO WARNING] Erro ao vincular plano no Novo ERP:`, eNovoPlano.message);
+            }
+
+            // 2. Vínculo no Módulo Legacy
+            try {
+                const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
+                console.log(`[STARTV-ROBOT EXCLUSIVO] Gravando plano 'CDNTV' (pla_codigo 29) no módulo legacy...`);
+                await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+
                 await page.evaluate(() => {
                     const select = document.querySelector('select[name="pla_codigo"]');
                     if (select) {
-                        const opt = Array.from(select.options).find(o => o.value === '29' || o.text.toLowerCase().includes('cdntv'));
-                        if (opt) select.value = opt.value;
-                        else select.value = '29';
+                        select.value = '29'; // 29 = CDNTV
                         select.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                 });
@@ -220,15 +313,16 @@ class StartvRobotService {
                         const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"]');
                         if (btn) btn.click();
                     }),
-                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
                 ]);
+            } catch (eLegacy) {
+                console.error(`[STARTV-ROBOT EXCLUSIVO WARNING] Erro ao vincular plano no módulo legacy:`, eLegacy.message);
             }
 
             console.log(`[STARTV-ROBOT EXCLUSIVO SUCCESS] ✅ Assinante ${loginTv} cadastrado e ativado no ERP com sucesso!`);
             return true;
         } catch (error) {
             console.error(`[STARTV-ROBOT EXCLUSIVO ERROR] ❌ Erro ao cadastrar assinante:`, error.message);
-            // Se houve falha de sessão, invalida a página atual para forçar novo login no próximo
             this.page = null;
             throw error;
         }
