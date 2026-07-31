@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>STAR TV | Painel do Provedor</title>
+    <title>STARNET TV | Painel do Provedor</title>
     <!-- FontAwesome & Google Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -90,28 +90,17 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 14px;
             margin-bottom: 10px;
         }
 
-        .brand-logo-icon {
-            width: 52px;
-            height: 52px;
-            background: linear-gradient(135deg, var(--primary), var(--accent-purple));
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 26px;
-            color: #fff;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-            object-fit: contain;
-        }
-
         .brand-logo-img {
-            max-width: 160px;
-            max-height: 60px;
-            object-fit: contain;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
         .brand-title {
@@ -401,9 +390,9 @@
     <!-- TELA DE LOGIN DO PROVEDOR -->
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
-            <div class="brand-logo" id="loginBrandContainer">
-                <div class="brand-logo-icon" id="loginLogoIcon"><i class="fa-solid fa-tv"></i></div>
-                <div class="brand-title" id="loginBrandTitle">STAR TV</div>
+            <div class="brand-logo">
+                <img src="/starnet-logo.jpg" alt="STARNET TV" class="brand-logo-img">
+                <div class="brand-title" style="font-size: 28px; font-weight: 800;">STARNET TV</div>
             </div>
 
             <p style="font-size: 14px; color: var(--text-muted);">Painel Exclusivo do Provedor</p>
@@ -470,28 +459,23 @@
             <div id="configAlert" class="alert-box"></div>
 
             <form onsubmit="salvarConfigProvedor(event)">
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label>URL do Logotipo Personalizado da sua Empresa (Imagem PNG/SVG)</label>
-                    <input type="url" id="configLogoUrl" class="input-control" placeholder="https://sua-empresa.com.br/logo.png">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Nova Senha do Provedor</label>
+                    <input type="password" id="configNovaSenha" class="input-control" placeholder="Digite a nova senha de acesso" required>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label>Alterar Senha do Provedor (Deixe em branco para não alterar)</label>
-                    <input type="password" id="configNovaSenha" class="input-control" placeholder="Nova senha (opcional)">
-                </div>
-
-                <button type="submit" class="btn-submit" style="width: 100%; margin-top: 10px;">
-                    <i class="fa-solid fa-floppy-disk"></i> Salvar Personalização
+                <button type="submit" class="btn-submit" style="width: 100%;">
+                    <i class="fa-solid fa-floppy-disk"></i> Salvar Nova Senha
                 </button>
             </form>
         </div>
     </div>
 
-    <!-- HEADER DO DASHBOARD WHITE LABEL -->
+    <!-- HEADER DO DASHBOARD STARNET TV -->
     <header>
-        <div class="brand-logo" id="headerBrandContainer">
-            <div class="brand-logo-icon" id="headerLogoIcon" style="width: 40px; height: 40px; font-size: 20px;"><i class="fa-solid fa-tv"></i></div>
-            <div class="brand-title" id="headerBrandTitle" style="font-size: 20px;">STAR TV</div>
+        <div class="brand-logo">
+            <img src="/starnet-logo.jpg" alt="STARNET TV" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;">
+            <div class="brand-title" style="font-size: 22px; font-weight: 800;">STARNET TV</div>
         </div>
 
         <div class="user-nav-badge">
@@ -500,7 +484,7 @@
             </button>
 
             <button class="btn-config" onclick="abrirModalConfig()">
-                <i class="fa-solid fa-gear"></i> Personalizar Logo & Senha
+                <i class="fa-solid fa-key"></i> Alterar Senha
             </button>
 
             <button class="btn-logout" onclick="logoutProvedor()">
@@ -657,15 +641,6 @@
             btn.innerHTML = newTheme === 'dark' ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun" style="color:#f59e0b;"></i>';
         }
 
-        // Carrega personalização de Logotipo White Label
-        function carregarLogoWhiteLabel() {
-            const logoUrl = localStorage.getItem('startv_logo_url');
-            if (logoUrl) {
-                document.getElementById('loginBrandContainer').innerHTML = `<img src="${logoUrl}" class="brand-logo-img" alt="Logo Provedor">`;
-                document.getElementById('headerBrandContainer').innerHTML = `<img src="${logoUrl}" class="brand-logo-img" alt="Logo Provedor">`;
-            }
-        }
-
         // Carrega logs de debug em tempo real do robô ERP
         async function carregarLogsDebug() {
             const logBox = document.getElementById('debugLogOutput');
@@ -686,7 +661,6 @@
             document.documentElement.setAttribute('data-theme', savedTheme);
             document.getElementById('themeToggleBtn').innerHTML = savedTheme === 'dark' ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun" style="color:#f59e0b;"></i>';
 
-            carregarLogoWhiteLabel();
             carregarLogsDebug();
             setInterval(carregarLogsDebug, 2000);
 
@@ -770,9 +744,9 @@
             }
         }
 
-        // Modal de Personalização do Provedor
+        // Modal de Alteração de Senha do Provedor
         function abrirModalConfig() {
-            document.getElementById('configLogoUrl').value = localStorage.getItem('startv_logo_url') || '';
+            document.getElementById('configNovaSenha').value = '';
             document.getElementById('modalConfigProvedor').style.display = 'flex';
         }
 
@@ -782,34 +756,31 @@
 
         async function salvarConfigProvedor(e) {
             e.preventDefault();
-            const logoUrl = document.getElementById('configLogoUrl').value.trim();
             const novaSenha = document.getElementById('configNovaSenha').value.trim();
             const alertBox = document.getElementById('configAlert');
 
-            if (logoUrl) {
-                localStorage.setItem('startv_logo_url', logoUrl);
-                carregarLogoWhiteLabel();
+            if (!novaSenha || novaSenha.length < 4) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'A nova senha deve possuir no mínimo 4 caracteres.';
+                return;
             }
 
-            if (novaSenha) {
-                try {
-                    const res = await fetch('/api/startv/alterar-senha', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ usuario: usuarioAtual, novaSenha })
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error);
-                } catch(err) {
-                    alertBox.className = 'alert-box error';
-                    alertBox.textContent = err.message;
-                    return;
-                }
-            }
+            try {
+                const res = await fetch('/api/startv/alterar-senha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: usuarioAtual, novaSenha })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
 
-            alertBox.className = 'alert-box success';
-            alertBox.textContent = '✅ Personalizações salvas com sucesso!';
-            setTimeout(fecharModalConfig, 1200);
+                alertBox.className = 'alert-box success';
+                alertBox.textContent = '✅ Senha do provedor alterada com sucesso!';
+                setTimeout(fecharModalConfig, 1200);
+            } catch(err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = err.message || 'Erro ao alterar senha.';
+            }
         }
 
         // Cadastra um novo cliente com CPF Validador e Senha = CPF
