@@ -4,7 +4,7 @@
   "description": "Landing page de vendas com checkout Pix, integrador Iespyfy e notificações WhatsApp",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --max-old-space-size=256 server.js",
     "dev": "node server.js"
   },
   "keywords": [],

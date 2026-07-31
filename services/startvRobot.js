@@ -48,7 +48,16 @@ class StartvRobotService {
                 '--disable-setuid-sandbox',
                 '--disable-dev-shm-usage',
                 '--disable-accelerated-2d-canvas',
-                '--disable-gpu'
+                '--disable-gpu',
+                '--single-process',
+                '--no-zygote',
+                '--disable-background-networking',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-breakpad',
+                '--disable-component-extensions-with-background-pages',
+                '--disable-extensions',
+                '--js-flags=--max-old-space-size=128'
             ]
         };
 
@@ -323,8 +332,18 @@ class StartvRobotService {
             return true;
         } catch (error) {
             console.error(`[STARTV-ROBOT EXCLUSIVO ERROR] ❌ Erro ao cadastrar assinante:`, error.message);
-            this.page = null;
             throw error;
+        } finally {
+            await this.fecharNavegador();
+        }
+    }
+
+    async fecharNavegador() {
+        if (this.browser) {
+            try { await this.browser.close(); } catch(e) {}
+            this.browser = null;
+            this.page = null;
+            console.log(`[STARTV-ROBOT EXCLUSIVO] 🧹 Navegador encerrado com sucesso! RAM liberada.`);
         }
     }
 
@@ -423,8 +442,9 @@ class StartvRobotService {
             return true;
         } catch (error) {
             console.error(`[STARTV-ROBOT EXCLUSIVO ERROR] ❌ Erro ao excluir assinante:`, error.message);
-            this.page = null;
             throw error;
+        } finally {
+            await this.fecharNavegador();
         }
     }
 }
