@@ -5,7 +5,12 @@ const RECEITANET_LOGIN_URL = 'https://sistema.receitanet.net/';
 const CADASTRO_CLIENTE_URL = 'https://sistema.receitanet.net/clientes_cadastro.php';
 
 class ReceitanetRobotService {
-    async cadastrarEAtivarTV(cliente, loginTv, senhaTv) {
+    constructor() {
+        this.browser = null;
+        this.page = null;
+    }
+
+    async obterPaginaAutenticada() {
         const adminUser = process.env.RECEITANET_ADMIN_USER;
         const adminPass = process.env.RECEITANET_ADMIN_PASS;
 
@@ -13,33 +18,73 @@ class ReceitanetRobotService {
             throw new Error("Credenciais do administrador do ReceitaNet não configuradas no arquivo .env.");
         }
 
-        console.log(`[RECEITANET-ROBOT] Iniciando criação e ativação do login SVA: ${loginTv}`);
+        if (this.browser && this.page && !this.page.isClosed()) {
+            try {
+                const urlAtual = this.page.url();
+                if (urlAtual && urlAtual.includes('sistema.receitanet.net')) {
+                    console.log(`[RECEITANET-ROBOT OTIMIZADO] ⚡ Sessão ativa mantida em memória! Execução em 1 a 2 segundos...`);
+                    return this.page;
+                }
+            } catch (e) {
+                try { await this.browser.close(); } catch(err) {}
+                this.browser = null;
+                this.page = null;
+            }
+        }
+
+        console.log(`[RECEITANET-ROBOT OTIMIZADO] 🚀 Iniciando Puppeteer em Alta Velocidade...`);
         
         const launchOptions = {
             headless: true,
-            slowMo: 60,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--disable-gpu'
+            ]
         };
 
         if (process.env.PUPPETEER_EXECUTABLE_PATH) {
             launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
         }
 
-        const browser = await puppeteer.launch(launchOptions);
-        const page = await browser.newPage();
+        this.browser = await puppeteer.launch(launchOptions);
+        this.page = await this.browser.newPage();
+
+        // OTIMIZAÇÃO CRÍTICA: Bloqueia imagens, fontes e mídias para navegação ultrarrápida (300ms)
+        await this.page.setRequestInterception(true);
+        this.page.on('request', (req) => {
+            const resourceType = req.resourceType();
+            if (['image', 'font', 'media'].includes(resourceType)) {
+                req.abort();
+            } else {
+                req.continue();
+            }
+        });
+
+        this.page.on('dialog', async d => { try { await d.accept(); } catch(e) {} });
+
+        console.log(`[RECEITANET-ROBOT OTIMIZADO] 🔑 Efetuando autenticação única no ERP ReceitaNet...`);
+        await this.page.goto(RECEITANET_LOGIN_URL, { waitUntil: 'domcontentloaded' });
+        await this.page.waitForSelector('#username', { timeout: 10000 });
+        await this.page.type('#username', adminUser);
+        await this.page.type('#password', adminPass);
+        await Promise.all([
+            this.page.click('#kc-login'),
+            this.page.waitForNavigation({ waitUntil: 'domcontentloaded' })
+        ]);
+
+        console.log(`[RECEITANET-ROBOT OTIMIZADO] ✅ Autenticação única mantida em memória com sucesso!`);
+        return this.page;
+    }
+
+    async cadastrarEAtivarTV(cliente, loginTv, senhaTv) {
+        console.log(`[RECEITANET-ROBOT] Iniciando criação e ativação do login SVA: ${loginTv}`);
+        
+        const page = await this.obterPaginaAutenticada();
 
         try {
-            await page.goto(RECEITANET_LOGIN_URL, { waitUntil: 'networkidle2' });
-            await page.waitForSelector('#username', { timeout: 10000 });
-            await page.type('#username', adminUser);
-            await page.type('#password', adminPass);
-            await Promise.all([
-                page.click('#kc-login'),
-                page.waitForNavigation({ waitUntil: 'networkidle2' })
-            ]);
-
-            page.on('dialog', async d => { try { await d.accept(); } catch(e) {} });
-
             const loginSemDominio = (loginTv || '').replace(/@.*$/, '');
             const editUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginTv)}`;
             const suspensoUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginSemDominio + 'suspenso')}`;
@@ -50,7 +95,7 @@ class ReceitanetRobotService {
             let existsSuspended = false;
 
             // 1. Checa ativo
-            await page.goto(editUrl, { waitUntil: 'networkidle2' });
+            await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
             alreadyExists = await page.waitForSelector('input[name="cli_login"]', { timeout: 4000 })
                 .then(async () => {
                     return await page.evaluate((target) => {
@@ -229,52 +274,22 @@ class ReceitanetRobotService {
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);
-            await browser.close();
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha no cadastro de cliente:`, error.message);
-            await browser.close();
             throw error;
         }
     }
 
     async bloquearCliente(login, cpf, nome) {
-        const adminUser = process.env.RECEITANET_ADMIN_USER;
-        const adminPass = process.env.RECEITANET_ADMIN_PASS;
-        
         const rawLogin = (login || '').toString().trim().toLowerCase();
         const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
         const nuevoLogin = `${loginSemDominio}suspenso`;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando bloqueio do login: ${login} -> ${nuevoLogin} (CPF: ${cpf}, Nome: ${nome})`);
-        
-        const launchOptions = {
-            headless: true,
-            slowMo: 60,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        };
-
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        }
-
-        const browser = await puppeteer.launch(launchOptions);
-        const page = await browser.newPage();
+        console.log(`[RECEITANET-ROBOT OTIMIZADO] Iniciando bloqueio do login: ${login} -> ${nuevoLogin}`);
+        const page = await this.obterPaginaAutenticada();
 
         try {
-            await page.goto(RECEITANET_LOGIN_URL, { waitUntil: 'networkidle2' });
-            await page.waitForSelector('#username', { timeout: 10000 });
-            await page.type('#username', adminUser);
-            await page.type('#password', adminPass);
-            await Promise.all([
-                page.click('#kc-login'),
-                page.waitForNavigation({ waitUntil: 'networkidle2' })
-            ]);
-
-            const rawLogin = (login || '').toString().trim().toLowerCase();
-            const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
-            const nuevoLogin = `${loginSemDominio}suspenso`;
-
             await this.abrirFichaClienteReal(page, login, cpf, nome);
 
             console.log(`[RECEITANET-ROBOT] Alterando cli_login para '${nuevoLogin}', senha para '000000' e status para SUSPENSO (cli_boleto='N', men_codigo='2')...`);
@@ -315,11 +330,9 @@ class ReceitanetRobotService {
 
             await this.salvarFormularioCliente(page);
             console.log(`[RECEITANET-ROBOT SUCCESS] AUDITADO E CONFIRMADO NO ERP: Cliente ${login} renomeado para '${nuevoLogin}' e alterado para SUSPENSO no ERP!`);
-            await browser.close();
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao bloquear cliente:`, error.message);
-            await browser.close();
             throw error;
         }
     }
@@ -403,43 +416,14 @@ class ReceitanetRobotService {
     }
 
     async excluirCliente(login, cpf, nome) {
-        const adminUser = process.env.RECEITANET_ADMIN_USER;
-        const adminPass = process.env.RECEITANET_ADMIN_PASS;
-
         const rawLogin = (login || '').toString().trim().toLowerCase();
         const loginSemDominio = rawLogin.replace(/@.*$/, '').replace(/[\s\+].*$/, '').trim();
         const loginComDominio = rawLogin.includes('@') ? rawLogin : `${rawLogin}@tvplus`;
 
-        console.log(`[RECEITANET-ROBOT] Iniciando varredura e exclusão infalível do teste no ERP para: '${rawLogin}' (Variações: '${loginSemDominio}', '${loginComDominio}')...`);
-        
-        const launchOptions = {
-            headless: true,
-            slowMo: 60,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        };
-
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-            launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-        }
-
-        const browser = await puppeteer.launch(launchOptions);
-        const page = await browser.newPage();
-
-        page.on('dialog', async dialog => {
-            console.log(`[RECEITANET-ROBOT] Caixa de diálogo detectada: "${dialog.message()}". Confirmando...`);
-            await dialog.accept();
-        });
+        console.log(`[RECEITANET-ROBOT OTIMIZADO] ⚡ Iniciando exclusão ultrarrápida do login: '${rawLogin}'...`);
+        const page = await this.obterPaginaAutenticada();
 
         try {
-            await page.goto(RECEITANET_LOGIN_URL, { waitUntil: 'networkidle2' });
-            await page.waitForSelector('#username', { timeout: 10000 });
-            await page.type('#username', adminUser);
-            await page.type('#password', adminPass);
-            await Promise.all([
-                page.click('#kc-login'),
-                page.waitForNavigation({ waitUntil: 'networkidle2' })
-            ]);
-
             const variacoesLogin = [
                 loginSemDominio,
                 loginComDominio,
@@ -606,7 +590,7 @@ class ReceitanetRobotService {
                     });
 
                     // Registra o hook para interceptar e fechar a nova aba aberta pelo botão Calcular
-                    const newPagePromise = new Promise(resolve => browser.once('targetcreated', async target => {
+                    const newPagePromise = new Promise(resolve => this.browser?.once('targetcreated', async target => {
                         if (target.type() === 'page') {
                             resolve(await target.page());
                         }
@@ -620,7 +604,7 @@ class ReceitanetRobotService {
                             if (btn) btn.click();
                             else document.querySelector('form')?.submit();
                         }),
-                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 12000 }).catch(() => {})
+                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 12000 }).catch(() => {})
                     ]);
 
                     // Fecha a aba gerada
@@ -636,11 +620,11 @@ class ReceitanetRobotService {
 
                 // 5. Depois o sistema volta para o cadastro
                 console.log(`[RECEITANET-ROBOT] Voltando para a ficha do cliente: ${cadastroUrl}...`);
-                await page.goto(cadastroUrl, { waitUntil: 'networkidle2' });
+                await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' });
 
                 // 6. Atualiza a página
                 console.log(`[RECEITANET-ROBOT] Atualizando a página de cadastro...`);
-                await page.reload({ waitUntil: 'networkidle2' });
+                await page.reload({ waitUntil: 'domcontentloaded' });
 
                 // 7. E vai aparecer o campo Excluir. Clica nele
                 console.log(`[RECEITANET-ROBOT] Procurando o botão 'Excluir'...`);
@@ -656,7 +640,7 @@ class ReceitanetRobotService {
                             const btn = document.getElementById('Excluir') || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find(b => b.textContent.trim() === 'Excluir' || b.value?.trim() === 'Excluir');
                             if (btn) btn.click();
                         }),
-                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
+                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {})
                     ]);
                     console.log(`[RECEITANET-ROBOT] Cliente '${targetLogin}' excluído com sucesso!`);
                     excluidoComSucesso = true;
@@ -666,11 +650,9 @@ class ReceitanetRobotService {
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Processo de exclusão do teste '${rawLogin}' concluído no ReceitaNet ERP!`);
-            await browser.close();
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente de teste:`, error.message);
-            await browser.close();
             throw error;
         }
     }
