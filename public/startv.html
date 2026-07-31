@@ -484,11 +484,11 @@
 
     <div class="container">
 
-        <!-- CARD DE CADASTRO DE CLIENTE COM CPF VALIDADOR E SENHA = CPF -->
+        <!-- CARD DE CADASTRO DE ASSINANTE -->
         <div class="card" style="border-top: 4px solid var(--primary);">
             <div class="card-header">
-                <h2><i class="fa-solid fa-user-plus" style="color: var(--primary-glow);"></i> Faça sua Assinatura</h2>
-                <p>Preencha os dados para liberar o sinal da TV. A senha do cliente na TV será seu próprio CPF.</p>
+                <h2><i class="fa-solid fa-user-plus" style="color: var(--primary-glow);"></i> Novo Assinante</h2>
+                <p>Cadastre os dados do novo assinante. A senha de acesso do cliente será o seu próprio CPF.</p>
             </div>
 
             <div id="cadastroAlert" class="alert-box"></div>
@@ -497,7 +497,7 @@
                 <div class="grid-form">
                     <div class="form-group">
                         <label>Nome Completo</label>
-                        <input type="text" id="cadNome" class="input-control" placeholder="Digite seu nome" required>
+                        <input type="text" id="cadNome" class="input-control" placeholder="Digite o nome completo" required>
                     </div>
 
                     <div class="form-group">
@@ -517,17 +517,17 @@
                 </div>
 
                 <button type="submit" class="btn-submit" style="margin-top: 24px; width: 100%;">
-                    <i class="fa-solid fa-rocket"></i> Cadastrar Cliente & Liberar Sinal no ERP
+                    <i class="fa-solid fa-user-check"></i> Cadastrar Assinante
                 </button>
             </form>
         </div>
 
-        <!-- CARD DE LISTA DE CLIENTES -->
+        <!-- CARD DE LISTA DE ASSINANTES -->
         <div class="card" style="border-top: 4px solid var(--accent-purple);">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h2><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Clientes Cadastrados Star TV</h2>
-                    <p>Clientes ativos permanentemente. A exclusão é estritamente manual pelo painel.</p>
+                    <h2><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Assinantes Cadastrados</h2>
+                    <p>Gestão de clientes ativos do provedor. A exclusão de contas é realizada manualmente.</p>
                 </div>
                 <button onclick="carregarClientesStartv()" class="btn-submit" style="padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,0.1); border: 1px solid var(--border-color);">
                     <i class="fa-solid fa-rotate-right"></i> Atualizar Lista
@@ -556,21 +556,9 @@
             </div>
         </div>
 
-        <!-- CARD DE DEBUG & DIAGNÓSTICO DO ROBÔ ERP EM TEMPO REAL -->
-        <div class="card" style="border-top: 4px solid #eab308;">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h2><i class="fa-solid fa-terminal" style="color: #eab308;"></i> Debug e Diagnóstico do Robô ERP (Tempo Real)</h2>
-                    <p>Acompanhe passo a passo a digitação e execução do robô no ReceitaNet ERP em tempo real.</p>
-                </div>
-                <button onclick="carregarLogsDebug()" class="btn-submit" style="padding: 6px 14px; font-size: 12px; background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.4);">
-                    <i class="fa-solid fa-rotate-right"></i> Atualizar Console
-                </button>
-            </div>
-
-            <div id="debugLogOutput" style="background: #040711; color: #00ff80; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 18px; border-radius: 12px; border: 1px solid rgba(234, 179, 8, 0.3); max-height: 300px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6;">
-[DEBUG LOG] Aguardando inicialização do monitor do robô ERP...
-            </div>
+        <!-- PAINEL DE DEBUG OCULTO -->
+        <div class="card" style="display: none;">
+            <div id="debugLogOutput"></div>
         </div>
 
     </div>

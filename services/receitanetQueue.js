@@ -1,4 +1,5 @@
 const receitanetRobot = require('./receitanetRobot');
+const startvRobot = require('./startvRobot');
 
 /**
  * Fila Concorrente e Assíncrona para Execução Independente de Automações do ERP ReceitaNet.
@@ -42,6 +43,14 @@ class ReceitanetQueueService {
         console.log(`[RECEITANET WORKER ${this.activeWorkers}/${this.maxWorkers}] ⚙️ Executando tarefa em segundo plano ${task.jobId} (${task.tipo})...`);
 
         try {
+            const loginTarget = task.payload ? (task.payload.loginTv || task.payload.login_tv || '') : '';
+            const isStartv = loginTarget.includes('@startv');
+            const robotToUse = isStartv ? startvRobot : receitanetRobot;
+
+            if (isStartv) {
+                console.log(`[RECEITANET QUEUE] 🛡️ Direcionado para o Robô Exclusivo do Provedor Star TV.`);
+            }
+
             if (task.tipo === 'CADASTRO_E_ATIVACAO') {
                 const clienteObj = task.payload.cliente || {
                     nome: task.payload.nome,
@@ -51,13 +60,13 @@ class ReceitanetQueueService {
                 };
                 const loginTv = task.payload.loginTv || task.payload.login_tv;
                 const senhaTv = task.payload.senhaTv || task.payload.senha_tv || clienteObj.cpf;
-                await receitanetRobot.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
+                await robotToUse.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
             } else if (task.tipo === 'REATIVAR') {
-                await receitanetRobot.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
+                await robotToUse.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             } else if (task.tipo === 'SUSPENDER') {
-                await receitanetRobot.suspenderCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
+                await robotToUse.suspenderCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             } else if (task.tipo === 'EXCLUIR_COMPLETO') {
-                await receitanetRobot.excluirCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
+                await robotToUse.excluirCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             }
             console.log(`[RECEITANET WORKER SUCESSO] ✅ Tarefa ${task.jobId} (${task.tipo}) finalizada com sucesso!`);
         } catch (error) {
