@@ -1950,6 +1950,14 @@ app.post('/api/startv/excluir-cliente', async (req, res) => {
     }
 });
 
+/**
+ * ROTA: Obter logs do servidor em tempo real para o debug do robô Star TV
+ * GET /api/startv/server-logs
+ */
+app.get('/api/startv/server-logs', (req, res) => {
+    res.status(200).json(serverLogs.slice(-100));
+});
+
 // Inicia o servidor Express
 app.listen(PORT, () => {
     console.log(`Servidor rodando com sucesso na nuvem Render (Porta ${PORT})`);

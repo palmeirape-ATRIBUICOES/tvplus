@@ -556,6 +556,23 @@
             </div>
         </div>
 
+        <!-- CARD DE DEBUG & DIAGNÓSTICO DO ROBÔ ERP EM TEMPO REAL -->
+        <div class="card" style="border-top: 4px solid #eab308;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2><i class="fa-solid fa-terminal" style="color: #eab308;"></i> Debug e Diagnóstico do Robô ERP (Tempo Real)</h2>
+                    <p>Acompanhe passo a passo a digitação e execução do robô no ReceitaNet ERP em tempo real.</p>
+                </div>
+                <button onclick="carregarLogsDebug()" class="btn-submit" style="padding: 6px 14px; font-size: 12px; background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.4);">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar Console
+                </button>
+            </div>
+
+            <div id="debugLogOutput" style="background: #040711; color: #00ff80; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 18px; border-radius: 12px; border: 1px solid rgba(234, 179, 8, 0.3); max-height: 300px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6;">
+[DEBUG LOG] Aguardando inicialização do monitor do robô ERP...
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -616,6 +633,20 @@
             }
         }
 
+        // Carrega logs de debug em tempo real do robô ERP
+        async function carregarLogsDebug() {
+            const logBox = document.getElementById('debugLogOutput');
+            if (!logBox) return;
+            try {
+                const res = await fetch('/api/startv/server-logs');
+                const logs = await res.json();
+                if (Array.isArray(logs) && logs.length > 0) {
+                    logBox.textContent = logs.join('\n');
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            } catch(e) {}
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             // Tema
             const savedTheme = localStorage.getItem('theme_startv') || 'dark';
@@ -623,6 +654,8 @@
             document.getElementById('themeToggleBtn').innerHTML = savedTheme === 'dark' ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun" style="color:#f59e0b;"></i>';
 
             carregarLogoWhiteLabel();
+            carregarLogsDebug();
+            setInterval(carregarLogsDebug, 2000);
 
             const logado = localStorage.getItem('startv_logado');
             if (logado === 'true') {
