@@ -9,7 +9,7 @@ class ReceitanetQueueService {
     constructor() {
         this.queue = [];
         this.activeWorkers = 0;
-        this.maxWorkers = 3; // Permite até 3 automações simultâneas em segundo plano
+        this.maxWorkers = 1; // Fila Estritamente Sequencial (1 por vez) para evitar colisão de sessão no ERP
     }
 
     /**
