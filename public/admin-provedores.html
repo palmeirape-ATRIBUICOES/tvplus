@@ -333,6 +333,37 @@
 </head>
 <body>
 
+    <!-- TELA DE LOGIN RESTRICT MASTER -->
+    <div class="modal-overlay" id="masterLoginScreen" style="display: flex; z-index: 9999;">
+        <div class="modal-card" style="max-width: 440px; text-align: center;">
+            <div class="brand-icon" style="margin: 0 auto 15px; width: 64px; height: 64px; font-size: 30px;">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 6px;">Gestor Master</h2>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Acesso restrito ao administrador do sistema (tv.levemaisfibra.com.br)</p>
+
+            <div id="masterLoginAlert" class="alert-box"></div>
+
+            <form onsubmit="realizarLoginMaster(event)">
+                <div style="display: flex; flex-direction: column; gap: 15px; text-align: left;">
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Usuário Administrador Master</label>
+                        <input type="text" id="masterUser" class="input-control" value="admin" placeholder="Digite seu usuário" required>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Senha Master</label>
+                        <input type="password" id="masterPass" class="input-control" value="admin123" placeholder="••••••••" required>
+                    </div>
+
+                    <button type="submit" class="btn-submit" style="width: 100%; padding: 14px; margin-top: 10px;">
+                        <i class="fa-solid fa-lock-open"></i> Entrar no Painel Gestor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <header>
         <div class="brand-logo">
             <div class="brand-icon"><i class="fa-solid fa-network-wired"></i></div>
@@ -345,6 +376,9 @@
             </button>
             <button onclick="abrirModalNovoProvedor()" class="btn-submit">
                 <i class="fa-solid fa-plus"></i> Novo Provedor
+            </button>
+            <button onclick="logoutMaster()" class="btn-action del" style="padding: 8px 14px; font-size: 13px;">
+                <i class="fa-solid fa-power-off"></i> Sair
             </button>
         </div>
     </header>
@@ -636,13 +670,54 @@
             } catch(e) { alert('Erro ao comunicar com o servidor.'); }
         }
 
+        async function realizarLoginMaster(e) {
+            e.preventDefault();
+            const u = document.getElementById('masterUser').value.trim();
+            const p = document.getElementById('masterPass').value.trim();
+            const alertBox = document.getElementById('masterLoginAlert');
+
+            try {
+                const res = await fetch('/api/admin/master-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: u, senha: p })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    localStorage.setItem('master_logado', 'true');
+                    document.getElementById('masterLoginScreen').style.display = 'none';
+                    carregarProvedores();
+                } else {
+                    alertBox.className = 'alert-box error';
+                    alertBox.textContent = data.error || 'Usuário ou senha incorretos.';
+                }
+            } catch(err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'Falha de comunicação com o servidor.';
+            }
+        }
+
+        function logoutMaster() {
+            localStorage.removeItem('master_logado');
+            document.getElementById('masterLoginScreen').style.display = 'flex';
+        }
+
         function acessarPainel(usuario) {
             localStorage.setItem('startv_usuario', usuario);
             localStorage.setItem('startv_logado', 'true');
             window.location.href = '/startv';
         }
 
-        window.addEventListener('DOMContentLoaded', carregarProvedores);
+        window.addEventListener('DOMContentLoaded', () => {
+            const isLogado = localStorage.getItem('master_logado');
+            if (isLogado === 'true') {
+                document.getElementById('masterLoginScreen').style.display = 'none';
+                carregarProvedores();
+            } else {
+                document.getElementById('masterLoginScreen').style.display = 'flex';
+            }
+        });
     </script>
 </body>
 </html>

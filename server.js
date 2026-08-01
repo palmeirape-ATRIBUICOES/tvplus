@@ -1803,6 +1803,31 @@ app.post('/api/admin/bot-toggle', async (req, res) => {
 // === MÓDULO GESTOR MASTER DE PROVEDORES MULTI-TENANT ===
 
 /**
+ * ROTA: Autenticação Master de Administrador
+ * POST /api/admin/master-login
+ */
+app.post('/api/admin/master-login', async (req, res) => {
+    const { usuario, senha } = req.body;
+    const masterUser = process.env.MASTER_ADMIN_USER || 'admin';
+    const masterPass = process.env.MASTER_ADMIN_PASS || 'admin123';
+
+    const uClean = (usuario || '').toString().trim().toLowerCase();
+    const pClean = (senha || '').toString().trim();
+
+    if (uClean === masterUser.toLowerCase() && pClean === masterPass) {
+        return res.status(200).json({ success: true, message: 'Autenticado no Gestor Master com sucesso!' });
+    }
+
+    // Valida também se existe usuário 'admin' cadastrado na tabela provedor_usuarios
+    const provAdmin = await helpers.autenticarProvedor(uClean, pClean).catch(() => null);
+    if (provAdmin && (provAdmin.usuario === 'admin' || provAdmin.subdominio === 'admin' || provAdmin.usuario === 'master')) {
+        return res.status(200).json({ success: true, message: 'Autenticado no Gestor Master com sucesso!' });
+    }
+
+    return res.status(401).json({ error: 'Usuário ou senha Master incorretos.' });
+});
+
+/**
  * ROTA: Listar Todos os Provedores com Total de Clientes em Tempo Real
  * GET /api/admin/provedores
  */
