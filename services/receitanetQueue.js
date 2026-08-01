@@ -44,12 +44,10 @@ class ReceitanetQueueService {
 
         try {
             const loginTarget = task.payload ? (task.payload.loginTv || task.payload.login_tv || '') : '';
-            const isStartv = loginTarget.includes('@startv');
-            const robotToUse = isStartv ? startvRobot : receitanetRobot;
+            // O robô exclusivo (startvRobot) processa todos os logins de provedores (@startv, @fibracom, @cliente1, etc)
+            const robotToUse = startvRobot;
 
-            if (isStartv) {
-                console.log(`[RECEITANET QUEUE] 🛡️ Direcionado para o Robô Exclusivo do Provedor Star TV.`);
-            }
+            console.log(`[RECEITANET QUEUE] 🛡️ Direcionado para o Robô Exclusivo de Provedores (${loginTarget}).`);
 
             if (task.tipo === 'CADASTRO_E_ATIVACAO') {
                 const clienteObj = task.payload.cliente || {
