@@ -625,6 +625,14 @@ class ReceitanetRobotService {
                         console.log(`[RECEITANET-ROBOT] Fechando a nova aba aberta pelo Calcular...`);
                         await newPage.close().catch(() => {});
                     }
+
+                    // SEGURANÇA CONTRA FRAME DESTACADO (Detached Frame): Reconecta o ponteiro de página ao aba ativa
+                    try {
+                        const pages = await this.browser.pages();
+                        if (pages && pages.length > 0) {
+                            page = pages[0];
+                        }
+                    } catch (ePage) {}
                 }
 
                 // 5. Depois o sistema volta para o cadastro
