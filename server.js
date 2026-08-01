@@ -1825,7 +1825,7 @@ app.post('/api/admin/bot-toggle', async (req, res) => {
 // === MÓDULO GESTOR MASTER DE PROVEDORES MULTI-TENANT ===
 
 /**
- * ROTA: Autenticação Master de Administrador
+ * ROTA: Autenticação Master de Administrador (Exclusivo tv.levemaisfibra.com.br)
  * POST /api/admin/master-login
  */
 app.post('/api/admin/master-login', async (req, res) => {
@@ -1835,6 +1835,13 @@ app.post('/api/admin/master-login', async (req, res) => {
 
     const uClean = (usuario || '').toString().trim().toLowerCase();
     const pClean = (senha || '').toString().trim();
+
+    // Bloqueia tentativas de logins de provedores normais no Gestor Master
+    if (uClean !== masterUser.toLowerCase() && uClean !== 'master') {
+        return res.status(403).json({ 
+            error: 'Acesso Negado! Este painel é exclusivo do Gestor Master. Provedores devem acessar o sistema por seus próprios subdomínios (ex: startv.levemaisfibra.com.br).' 
+        });
+    }
 
     if (uClean === masterUser.toLowerCase() && pClean === masterPass) {
         return res.status(200).json({ success: true, message: 'Autenticado no Gestor Master com sucesso!' });
@@ -1939,6 +1946,11 @@ app.post('/api/admin/provedores/excluir', async (req, res) => {
 app.post('/api/startv/login', async (req, res) => {
     const { usuario, senha } = req.body;
     if (!usuario || !senha) return res.status(400).json({ error: 'Usuário e senha são obrigatórios.' });
+
+    const uClean = (usuario || '').toString().trim().toLowerCase();
+    if (uClean === 'admin' || uClean === 'master') {
+        return res.status(403).json({ error: 'O usuário Administrador Master deve acessar o painel central em tv.levemaisfibra.com.br.' });
+    }
 
     try {
         const prov = await helpers.autenticarProvedor(usuario, senha);
