@@ -206,37 +206,70 @@ class ReceitanetRobotService {
                 for (const targetLog of [loginTv, loginSemDominio]) {
                     if (!targetLog) continue;
                     
-                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
-                    console.log(`[STARTV-ROBOT] Abrindo tela de planos de cobrança: ${legacyPlanoUrl}...`);
-                    await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
+                    // Tenta clicar na aba/opção 'Planos' na ficha do cliente recém-criado
+                    let navigatedToPlanos = await page.evaluate(() => {
+                        const links = Array.from(document.querySelectorAll('a, button'));
+                        const linkPlanos = links.find(l => {
+                            const txt = (l.textContent || '').trim().toUpperCase();
+                            return txt === 'PLANOS' || txt.includes('PLANO DE COBRANÇA') || l.href?.includes('clientes_plano.php');
+                        });
+                        if (linkPlanos) {
+                            linkPlanos.click();
+                            return true;
+                        }
+                        return false;
+                    });
 
-                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"], select', { timeout: 6000 }).then(() => true).catch(() => false);
-                    if (hasSelect) {
-                        console.log(`[STARTV-ROBOT] Selecionando 'CDNTV' no dropdown e clicando no botão 'Incluir' logo abaixo...`);
+                    if (navigatedToPlanos) {
+                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {});
+                    }
+
+                    if (!page.url().includes('clientes_plano.php')) {
+                        const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
+                        console.log(`[STARTV-ROBOT] Abrindo página de Planos de Cobrança: ${legacyPlanoUrl}...`);
+                        await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
+                    }
+
+                    const selectExists = await page.waitForSelector('select', { timeout: 6000 }).then(() => true).catch(() => false);
+                    if (selectExists) {
+                        console.log(`[STARTV-ROBOT] Clicando no dropdown 'Selecione' em Plano de Cobrança, selecionando 'CDNTV' e clicando no botão 'Incluir' logo abaixo...`);
                         
-                        const planoIncluido = await Promise.all([
+                        const result = await Promise.all([
                             page.evaluate(() => {
                                 const selects = Array.from(document.querySelectorAll('select'));
-                                const select = selects.find(s => s.name === 'pla_codigo' || s.name === 'plano' || s.name === 'mensalidade_id') || selects[0];
-                                if (select) {
-                                    const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.value === '29' || o.text.toUpperCase().includes('STAR'));
-                                    if (opt) {
-                                        select.value = opt.value;
-                                        select.dispatchEvent(new Event('change', { bubbles: true }));
-                                        
-                                        const form = select.closest('form') || document.querySelector('form');
-                                        if (form) {
-                                            const buttons = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn'));
-                                            const btnIncluir = buttons.find(b => {
-                                                const val = (b.value || b.textContent || '').trim().toUpperCase();
-                                                return val.includes('INCLUIR') || val.includes('CADASTRAR') || val.includes('SALVAR') || val.includes('GRAVAR');
-                                            }) || form.querySelector('input[type="submit"], button[type="submit"]');
+                                let targetSelect = null;
+                                let cdntvOption = null;
 
-                                            if (btnIncluir) {
-                                                btnIncluir.click();
-                                                return true;
-                                            }
-                                            form.submit();
+                                for (const s of selects) {
+                                    const opt = Array.from(s.options).find(o => {
+                                        const txt = (o.text || '').toUpperCase();
+                                        const val = (o.value || '').toString();
+                                        return txt.includes('CDNTV') || val === '29' || txt.includes('STAR');
+                                    });
+                                    if (opt) {
+                                        targetSelect = s;
+                                        cdntvOption = opt;
+                                        break;
+                                    }
+                                }
+
+                                if (targetSelect && cdntvOption) {
+                                    targetSelect.value = cdntvOption.value;
+                                    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+                                    const parentForm = targetSelect.closest('form') || document.querySelector('form');
+                                    if (parentForm) {
+                                        const buttons = Array.from(parentForm.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn'));
+                                        const btnIncluir = buttons.find(b => {
+                                            const val = (b.value || b.textContent || '').trim().toUpperCase();
+                                            return val === 'INCLUIR' || val.includes('INCLUIR') || val === 'CADASTRAR' || val.includes('CADASTRAR');
+                                        }) || parentForm.querySelector('input[type="submit"], button[type="submit"]');
+
+                                        if (btnIncluir) {
+                                            btnIncluir.click();
+                                            return true;
+                                        } else {
+                                            parentForm.submit();
                                             return true;
                                         }
                                     }
@@ -246,8 +279,8 @@ class ReceitanetRobotService {
                             page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
                         ]);
 
-                        if (planoIncluido[0]) {
-                            console.log(`[STARTV-ROBOT SUCCESS] ✅ Plano 'CDNTV' atribuído e confirmado com sucesso para ${targetLog}!`);
+                        if (result[0]) {
+                            console.log(`[STARTV-ROBOT SUCCESS] ✅ Plano 'CDNTV' ativado com sucesso no ERP para ${targetLog}!`);
                             break;
                         }
                     }
