@@ -51,10 +51,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware de Autenticação Básica para o Painel Administrativo
+// Middleware de Autenticação Básica para o Painel Administrativo Antigo
 const basicAuth = (req, res, next) => {
-    // Se a requisição NÃO for para rotas administrativas, libera o fluxo imediatamente
+    // Se a requisição NÃO for para rotas administrativas legacy, libera o fluxo imediatamente
     if (!req.path.startsWith('/api/admin/')) {
+        return next();
+    }
+
+    // Isenta as novas rotas do Gestor Master de Provedores Multi-Tenant da autenticação Basic Auth antiga
+    if (req.path.startsWith('/api/admin/provedores') || req.path.startsWith('/api/admin/master-login')) {
+        return next();
+    }
+
+    const referer = req.headers.referer || req.headers.referrer || '';
+    if (referer.includes('/admin.html') || referer.includes('/admin-provedores') || referer.includes('/tv')) {
         return next();
     }
 
@@ -67,12 +77,6 @@ const basicAuth = (req, res, next) => {
             }
         } catch (e) {}
     }
-    
-    // Permite que chamadas AJAX (fetch) originadas da própria página admin.html funcionem sem 401
-    const referer = req.headers.referer || req.headers.referrer || '';
-    if (referer.includes('/admin.html')) {
-        return next();
-    }
 
     res.setHeader('WWW-Authenticate', 'Basic realm="AuraTV Admin"');
     return res.status(401).send('Acesso não autorizado.');
@@ -83,20 +87,38 @@ app.get('/admin.html', basicAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// Protege todos os endpoints administrativos /api/admin/*
+// Protege todos os endpoints administrativos legacy /api/admin/*
 app.use('/api/admin/*', basicAuth);
 
-// Rota dedicada para o subdomínio startv.levemaisfibra.com.br ou /startv
+// Middleware de Roteamento Inteligente de Subdomínios (tv.levemaisfibra.com.br, startv.levemaisfibra.com.br, etc)
 app.use((req, res, next) => {
-    const host = req.headers.host || '';
-    if (host.includes('startv') && req.path === '/') {
+    const host = (req.headers.host || '').toLowerCase();
+
+    // 1. Subdomínio Master: tv.levemaisfibra.com.br -> Entrega diretamente a página /tv (Gestor Master)
+    if (host.startsWith('tv.') || host.includes('tv.levemaisfibra')) {
+        if (req.path === '/' || req.path === '/master' || req.path === '/admin') {
+            return res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
+        }
+    }
+
+    // 2. Subdomínios de Clientes Provedores: startv.levemaisfibra.com.br, cliente1.levemaisfibra.com.br, etc.
+    if ((host.includes('startv') || (host.includes('.levemaisfibra.com.br') && !host.startsWith('tv.'))) && req.path === '/') {
         return res.sendFile(path.join(__dirname, 'public', 'startv.html'));
     }
+
     next();
 });
 
 app.get('/startv', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+});
+
+app.get('/admin-provedores', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
+});
+
+app.get('/tv', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
 });
 
 // Servir arquivos estáticos do frontend
