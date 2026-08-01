@@ -20,6 +20,9 @@ class ReceitanetRobotService {
 
         if (this.browser && this.page && !this.page.isClosed()) {
             try {
+                if (!this.page.mainFrame() || this.page.mainFrame().isDetached()) {
+                    throw new Error("Frame da sessão desanexado.");
+                }
                 const urlAtual = this.page.url();
                 if (urlAtual && urlAtual.includes('sistema.receitanet.net')) {
                     console.log(`[RECEITANET-ROBOT OTIMIZADO] ⚡ Sessão ativa mantida em memória! Execução em 1 a 2 segundos...`);
@@ -695,6 +698,7 @@ class ReceitanetRobotService {
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente de teste:`, error.message);
+            await this.fecharNavegador();
             throw error;
         }
     }

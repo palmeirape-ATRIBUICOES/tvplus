@@ -20,6 +20,9 @@ class ReceitanetRobotService {
 
         if (this.browser && this.page && !this.page.isClosed()) {
             try {
+                if (!this.page.mainFrame() || this.page.mainFrame().isDetached()) {
+                    throw new Error("Frame da sessão desanexado.");
+                }
                 const urlAtual = this.page.url();
                 if (urlAtual && urlAtual.includes('sistema.receitanet.net')) {
                     console.log(`[RECEITANET-ROBOT OTIMIZADO] ⚡ Sessão ativa mantida em memória! Execução em 1 a 2 segundos...`);
@@ -320,6 +323,7 @@ class ReceitanetRobotService {
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha no cadastro de cliente:`, error.message);
+            await this.fecharNavegador();
             throw error;
         }
     }
@@ -632,13 +636,6 @@ class ReceitanetRobotService {
                         }
                     });
 
-                    // Registra o hook para interceptar e fechar a nova aba aberta pelo botão Calcular
-                    const newPagePromise = new Promise(resolve => this.browser?.once('targetcreated', async target => {
-                        if (target.type() === 'page') {
-                            resolve(await target.page());
-                        }
-                    }));
-
                     // 4. Clicar em Calcular
                     console.log(`[RECEITANET-ROBOT] Clicando em 'Calcular'...`);
                     await Promise.all([
@@ -647,24 +644,24 @@ class ReceitanetRobotService {
                             if (btn) btn.click();
                             else document.querySelector('form')?.submit();
                         }),
-                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 12000 }).catch(() => {})
+                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
                     ]);
 
-                    // Fecha a aba gerada de forma segura
-                    const newPage = await Promise.race([
-                        newPagePromise,
-                        new Promise(r => setTimeout(r, 4000))
-                    ]);
-                    if (newPage && typeof newPage.close === 'function') {
-                        console.log(`[RECEITANET-ROBOT] Fechando a nova aba aberta pelo Calcular...`);
-                        await newPage.close().catch(() => {});
-                    }
+                    await new Promise(r => setTimeout(r, 1500));
 
-                    // SEGURANÇA CONTRA FRAME DESTACADO (Detached Frame): Reconecta o ponteiro de página ao aba ativa
+                    // Fecha com segurança qualquer nova aba aberta e reconecta o ponteiro oficial da página
                     try {
                         const pages = await this.browser.pages();
-                        if (pages && pages.length > 0) {
-                            page = pages[0];
+                        if (pages && pages.length > 1) {
+                            console.log(`[RECEITANET-ROBOT] Fechando ${pages.length - 1} aba(s) popup secundária(s)...`);
+                            for (let i = 1; i < pages.length; i++) {
+                                await pages[i].close().catch(() => {});
+                            }
+                        }
+                        const activePages = await this.browser.pages();
+                        if (activePages && activePages.length > 0) {
+                            this.page = activePages[0];
+                            page = activePages[0];
                         }
                     } catch (ePage) {}
                 }
@@ -704,6 +701,7 @@ class ReceitanetRobotService {
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente de teste:`, error.message);
+            await this.fecharNavegador();
             throw error;
         }
     }
