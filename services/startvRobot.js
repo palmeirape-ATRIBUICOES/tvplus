@@ -164,14 +164,16 @@ class StartvRobotService {
                 .catch(() => false);
 
             if (!alreadyExists) {
-                // 2. Checa suspenso
+                // 2. Checa suspenso com correspondência EXATA de login
                 await page.goto(suspensoUrl, { waitUntil: 'networkidle2' });
                 existsSuspended = await page.waitForSelector('input[name="cli_login"]', { timeout: 4000 })
                     .then(async () => {
-                        return await page.evaluate((target) => {
-                            const val = document.querySelector('input[name="cli_login"]')?.value;
-                            return val && val.trim().toLowerCase().includes(target.trim().toLowerCase());
-                        }, loginSemDominio);
+                        return await page.evaluate((targetSemDom, targetFull) => {
+                            const val = (document.querySelector('input[name="cli_login"]')?.value || '').trim().toLowerCase();
+                            const targetSuspenso1 = (targetSemDom + 'suspenso').toLowerCase();
+                            const targetSuspenso2 = (targetFull + 'suspenso').toLowerCase();
+                            return val === targetSuspenso1 || val === targetSuspenso2;
+                        }, loginSemDominio, loginTv);
                     })
                     .catch(() => false);
             }
@@ -214,11 +216,21 @@ class StartvRobotService {
 
                     setVal('select[name="cli_tipo"]', '1'); // Pessoa Física
                     setVal('select[name="cli_diatari"]', '10'); // Dia de Vencimento 10
-                    setVal('select[name="cli_boleto"]', 'S'); // ATIVADO
-                    setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade)
+                    setVal('select[name="cli_boleto"]', 'S'); // ATIVADO (Gera Mensalidade)
+                    setVal('select[name="men_codigo"]', '1'); // Sim (Mensalidade Ativa)
                     setVal('select[name="plano"]', '2'); // PADRÃO
                     setVal('select[name="ban_codigo"]', '12168'); // API - Efí
                     setVal('select[name="base_referencia"]', 'V'); // Pré-pago
+
+                    // Força o status ATIVO (1 ou A) no select de status do cliente
+                    const selectStatus = document.querySelector('select[name="cli_status"], select[name="status"]');
+                    if (selectStatus) {
+                        const optAtivo = Array.from(selectStatus.options).find(o => o.text.toLowerCase().includes('ativo') || o.value === '1' || o.value === 'A');
+                        if (optAtivo) {
+                            selectStatus.value = optAtivo.value;
+                            selectStatus.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    }
 
                     const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
                     if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
