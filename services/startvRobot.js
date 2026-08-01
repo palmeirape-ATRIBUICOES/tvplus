@@ -197,9 +197,10 @@ class StartvRobotService {
 
                 await page.type('input[name="cli_login"]', (loginTv || '').toString());
                 await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
-                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Star TV').toString());
+                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Provedor').toString());
                 
-                const cpfValor = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
+                const cpfRaw = cliente.cpf || cliente.cpfcnpj || cliente.cgc || senhaTv || '00000000000';
+                const cpfValor = cpfRaw.toString().replace(/\D/g, '');
                 await page.type('input[name="cli_cgc"]', cpfValor);
 
                 const emailValor = (cliente.email || `${loginTv}@email.com`).toString();

@@ -50,14 +50,16 @@ class ReceitanetQueueService {
             console.log(`[RECEITANET QUEUE] 🛡️ Direcionado para o Robô Exclusivo de Provedores (${loginTarget}).`);
 
             if (task.tipo === 'CADASTRO_E_ATIVACAO') {
-                const clienteObj = task.payload.cliente || {
-                    nome: task.payload.nome,
-                    cpf: task.payload.cpf || task.payload.cpfcnpj,
-                    email: task.payload.email,
-                    telefone: task.payload.telefone
+                const cpfFinal = task.payload.cpf || task.payload.cpfcnpj || (task.payload.cliente && (task.payload.cliente.cpf || task.payload.cliente.cpfcnpj)) || '';
+                const clienteObj = {
+                    nome: task.payload.nome || (task.payload.cliente && task.payload.cliente.nome) || 'Cliente Provedor',
+                    cpf: cpfFinal,
+                    cpfcnpj: cpfFinal,
+                    email: task.payload.email || (task.payload.cliente && task.payload.cliente.email) || '',
+                    telefone: task.payload.telefone || (task.payload.cliente && task.payload.cliente.telefone) || ''
                 };
-                const loginTv = task.payload.loginTv || task.payload.login_tv;
-                const senhaTv = task.payload.senhaTv || task.payload.senha_tv || clienteObj.cpf;
+                const loginTv = task.payload.loginTv || task.payload.login_tv || (task.payload.cliente && task.payload.cliente.login_tv);
+                const senhaTv = task.payload.senhaTv || task.payload.senha_tv || cpfFinal;
                 await robotToUse.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
             } else if (task.tipo === 'REATIVAR') {
                 await robotToUse.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
