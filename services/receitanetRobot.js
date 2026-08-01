@@ -203,14 +203,14 @@ class ReceitanetRobotService {
                     });
 
                     if (clickedPlanosBtn) {
-                        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {});
+                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 6000 }).catch(() => {});
                     } else {
                         const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
                         console.log(`[RECEITANET-ROBOT] Abrindo página de planos: ${legacyPlanoUrl}...`);
-                        await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+                        await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
                     }
 
-                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"], select', { timeout: 6000 }).then(() => true).catch(() => false);
+                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"], select', { timeout: 5000 }).then(() => true).catch(() => false);
                     if (hasSelect) {
                         console.log(`[RECEITANET-ROBOT] Selecionando 'CDNTV' no dropdown e clicando no botão 'Incluir' logo abaixo...`);
                         
@@ -244,7 +244,7 @@ class ReceitanetRobotService {
                                 }
                                 return false;
                             }),
-                            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
                         ]);
 
                         if (planoIncluido[0]) {
@@ -264,8 +264,8 @@ class ReceitanetRobotService {
 
                 for (const queryTerm of [loginSemDominio, loginTv]) {
                     if (!queryTerm) continue;
-                    await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
-                    await new Promise(r => setTimeout(r, 2000));
+                    await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'domcontentloaded' });
+                    await new Promise(r => setTimeout(r, 1500));
 
                     planUrl = await page.evaluate(() => {
                         const links = Array.from(document.querySelectorAll('a'));
@@ -277,12 +277,12 @@ class ReceitanetRobotService {
                 }
 
                 if (planUrl) {
-                    await page.goto(planUrl, { waitUntil: 'networkidle2' });
+                    await page.goto(planUrl, { waitUntil: 'domcontentloaded' });
                 }
 
                 if (page.url().includes('/planos/')) {
                     console.log(`[RECEITANET-ROBOT] Selecionando mensalidade 'CDNTV-R$0,00' no Novo ERP...`);
-                    await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
+                    await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 6000 });
 
                     await Promise.all([
                         page.evaluate(() => {
@@ -297,7 +297,7 @@ class ReceitanetRobotService {
                                 }
                             }
                         }),
-                        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
                     ]);
 
                     await new Promise(r => setTimeout(r, 2000));
