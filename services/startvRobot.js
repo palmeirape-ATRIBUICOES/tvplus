@@ -206,49 +206,36 @@ class ReceitanetRobotService {
                 for (const targetLog of [loginTv, loginSemDominio]) {
                     if (!targetLog) continue;
                     
-                    // Tenta clicar no botão 'Planos' que fica logo abaixo do cadastro do cliente
-                    const clickedPlanosBtn = await page.evaluate(() => {
-                        const links = Array.from(document.querySelectorAll('a, button'));
-                        const btn = links.find(a => a.textContent.trim().toUpperCase() === 'PLANOS' || a.href?.includes('clientes_plano.php'));
-                        if (btn) { btn.click(); return true; }
-                        return false;
-                    });
+                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
+                    console.log(`[STARTV-ROBOT] Abrindo tela de planos de cobrança: ${legacyPlanoUrl}...`);
+                    await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
 
-                    if (clickedPlanosBtn) {
-                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 6000 }).catch(() => {});
-                    } else {
-                        const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
-                        console.log(`[STARTV-ROBOT] Abrindo página de planos: ${legacyPlanoUrl}...`);
-                        await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
-                    }
-
-                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"], select', { timeout: 5000 }).then(() => true).catch(() => false);
+                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"], select', { timeout: 6000 }).then(() => true).catch(() => false);
                     if (hasSelect) {
                         console.log(`[STARTV-ROBOT] Selecionando 'CDNTV' no dropdown e clicando no botão 'Incluir' logo abaixo...`);
                         
                         const planoIncluido = await Promise.all([
                             page.evaluate(() => {
-                                const select = document.querySelector('select[name="pla_codigo"], select[name="plano"], select');
+                                const selects = Array.from(document.querySelectorAll('select'));
+                                const select = selects.find(s => s.name === 'pla_codigo' || s.name === 'plano' || s.name === 'mensalidade_id') || selects[0];
                                 if (select) {
                                     const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.value === '29' || o.text.toUpperCase().includes('STAR'));
                                     if (opt) {
                                         select.value = opt.value;
                                         select.dispatchEvent(new Event('change', { bubbles: true }));
                                         
-                                        // Procura o botão 'Incluir' ou 'Cadastrar' logo abaixo do dropdown
-                                        const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], input[name="cadastrar"], a.btn'));
-                                        const btnIncluir = buttons.find(b => {
-                                            const val = (b.value || b.textContent || '').trim().toUpperCase();
-                                            return val === 'INCLUIR' || val.includes('INCLUIR') || val === 'CADASTRAR' || val.includes('CADASTRAR');
-                                        });
-
-                                        if (btnIncluir) {
-                                            btnIncluir.click();
-                                            return true;
-                                        }
-
-                                        const form = select.closest('form');
+                                        const form = select.closest('form') || document.querySelector('form');
                                         if (form) {
+                                            const buttons = Array.from(form.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn'));
+                                            const btnIncluir = buttons.find(b => {
+                                                const val = (b.value || b.textContent || '').trim().toUpperCase();
+                                                return val.includes('INCLUIR') || val.includes('CADASTRAR') || val.includes('SALVAR') || val.includes('GRAVAR');
+                                            }) || form.querySelector('input[type="submit"], button[type="submit"]');
+
+                                            if (btnIncluir) {
+                                                btnIncluir.click();
+                                                return true;
+                                            }
                                             form.submit();
                                             return true;
                                         }
@@ -256,7 +243,7 @@ class ReceitanetRobotService {
                                 }
                                 return false;
                             }),
-                            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
+                            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
                         ]);
 
                         if (planoIncluido[0]) {
