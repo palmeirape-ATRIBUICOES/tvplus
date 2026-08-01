@@ -2027,12 +2027,37 @@ app.get('/api/startv/server-logs', (req, res) => {
     res.status(200).json(serverLogs.slice(-100));
 });
 
-// Rotas de arquivos HTML dos Painéis
+// Roteamento Inteligente de Subdomínios (Locaweb / Render)
+app.use((req, res, next) => {
+    const host = (req.headers.host || '').toLowerCase();
+
+    // 1. Subdomínio Gestor Master: tv.levemaisfibra.com.br -> Painel Gestor Master
+    if (host.startsWith('tv.') || host.includes('tv.levemaisfibra')) {
+        if (req.path === '/' || req.path === '/master' || req.path === '/admin') {
+            return res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
+        }
+    }
+
+    // 2. Subdomínios de Clientes Provedores: startv.levemaisfibra.com.br, cliente1.levemaisfibra.com.br, etc.
+    if (host.includes('.levemaisfibra.com.br') && !host.startsWith('tv.')) {
+        if (req.path === '/') {
+            return res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+        }
+    }
+
+    next();
+});
+
+// Rotas de atalhos estáticos para os arquivos HTML dos Painéis
 app.get('/startv', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'startv.html'));
 });
 
 app.get('/admin-provedores', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
+});
+
+app.get('/tv', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
 });
 
