@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Gestor Master | Provedores Multi-Tenant</title>
+    <title>GESTOR MASTER | Leve+ Fibra</title>
     <!-- FontAwesome & Google Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -336,10 +336,8 @@
     <!-- TELA DE LOGIN RESTRICT MASTER -->
     <div class="modal-overlay" id="masterLoginScreen" style="display: flex; z-index: 9999;">
         <div class="modal-card" style="max-width: 440px; text-align: center;">
-            <div class="brand-icon" style="margin: 0 auto 15px; width: 64px; height: 64px; font-size: 30px;">
-                <i class="fa-solid fa-shield-halved"></i>
-            </div>
-            <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 6px;">Gestor Master</h2>
+            <img src="/levemais-logo.png" alt="Leve+ Fibra" style="height: 48px; object-fit: contain; margin-bottom: 15px;">
+            <h2 style="font-size: 26px; font-weight: 800; margin-bottom: 6px;">GESTOR MASTER</h2>
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Acesso restrito ao administrador do sistema (tv.levemaisfibra.com.br)</p>
 
             <div id="masterLoginAlert" class="alert-box"></div>
@@ -357,7 +355,7 @@
                     </div>
 
                     <button type="submit" class="btn-submit" style="width: 100%; padding: 14px; margin-top: 10px;">
-                        <i class="fa-solid fa-lock-open"></i> Entrar no Painel Gestor
+                        <i class="fa-solid fa-lock-open"></i> Entrar no GESTOR MASTER
                     </button>
                 </div>
             </form>
@@ -366,13 +364,16 @@
 
     <header>
         <div class="brand-logo">
-            <div class="brand-icon"><i class="fa-solid fa-network-wired"></i></div>
-            <div class="brand-title">Gestor Master | Provedores Multi-Tenant</div>
+            <img src="/levemais-logo.png" alt="Leve+ Fibra" style="height: 42px; object-fit: contain;">
+            <div class="brand-title" style="font-size: 22px; font-weight: 800; letter-spacing: 0.5px;">GESTOR MASTER</div>
         </div>
 
-        <div style="display: flex; gap: 12px; align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <button onclick="alternarTema()" class="btn-refresh" style="padding: 8px 12px;">
-                <i class="fa-solid fa-moon" id="themeIcon"></i>
+                <i class="fa-solid fa-sun" id="themeIcon" style="color:#f59e0b;"></i>
+            </button>
+            <button onclick="abrirModalSenhaMaster()" class="btn-refresh" style="padding: 8px 14px;">
+                <i class="fa-solid fa-key"></i> Trocar Senha Master
             </button>
             <button onclick="abrirModalNovoProvedor()" class="btn-submit">
                 <i class="fa-solid fa-plus"></i> Novo Provedor
@@ -506,12 +507,44 @@
         </div>
     </div>
 
+    <!-- MODAL DE ALTERAÇÃO DE SENHA MASTER -->
+    <div class="modal-overlay" id="modalSenhaMaster" style="display: none;">
+        <div class="modal-card" style="max-width: 440px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="font-size: 20px; font-weight: 800;"><i class="fa-solid fa-key" style="color: var(--primary);"></i> Trocar Senha Master</h2>
+                <button onclick="fecharModalSenhaMaster()" style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+
+            <div id="modalSenhaAlert" class="alert-box"></div>
+
+            <form onsubmit="alterarSenhaMaster(event)">
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Nova Senha Master</label>
+                        <input type="password" id="novaSenhaMaster" class="input-control" placeholder="Mínimo 4 caracteres" required>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Confirme a Nova Senha</label>
+                        <input type="password" id="confirmaSenhaMaster" class="input-control" placeholder="Repita a nova senha" required>
+                    </div>
+
+                    <button type="submit" class="btn-submit" style="width: 100%; margin-top: 10px; padding: 14px;">
+                        <i class="fa-solid fa-floppy-disk"></i> Salvar Nova Senha Master
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function alternarTema() {
-            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
             const next = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
             document.getElementById('themeIcon').className = next === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+            document.getElementById('themeIcon').style.color = next === 'dark' ? '' : '#f59e0b';
+            localStorage.setItem('theme_master', next);
         }
 
         function abrirModalNovoProvedor() {
@@ -520,6 +553,49 @@
 
         function fecharModalNovoProvedor() {
             document.getElementById('modalNovoProvedor').style.display = 'none';
+        }
+
+        function abrirModalSenhaMaster() {
+            document.getElementById('novaSenhaMaster').value = '';
+            document.getElementById('confirmaSenhaMaster').value = '';
+            document.getElementById('modalSenhaMaster').style.display = 'flex';
+        }
+
+        function fecharModalSenhaMaster() {
+            document.getElementById('modalSenhaMaster').style.display = 'none';
+        }
+
+        async function alterarSenhaMaster(e) {
+            e.preventDefault();
+            const s1 = document.getElementById('novaSenhaMaster').value.trim();
+            const s2 = document.getElementById('confirmaSenhaMaster').value.trim();
+            const alertBox = document.getElementById('modalSenhaAlert');
+
+            if (s1 !== s2) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'As senhas digitadas não coincidem.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/alterar-senha-master', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ novaSenha: s1 })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alertBox.className = 'alert-box success';
+                    alertBox.textContent = '✅ Senha Master alterada com sucesso!';
+                    setTimeout(fecharModalSenhaMaster, 1200);
+                } else {
+                    alertBox.className = 'alert-box error';
+                    alertBox.textContent = data.error || 'Erro ao alterar senha.';
+                }
+            } catch(err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'Falha de conexão com o servidor.';
+            }
         }
 
         function atualizarPreviewSubdominio(input) {
@@ -710,6 +786,11 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme_master') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            document.getElementById('themeIcon').className = savedTheme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+            document.getElementById('themeIcon').style.color = savedTheme === 'dark' ? '' : '#f59e0b';
+
             const isLogado = localStorage.getItem('master_logado');
             if (isLogado === 'true') {
                 document.getElementById('masterLoginScreen').style.display = 'none';

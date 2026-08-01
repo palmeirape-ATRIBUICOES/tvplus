@@ -1850,6 +1850,24 @@ app.post('/api/admin/master-login', async (req, res) => {
 });
 
 /**
+ * ROTA: Alterar Senha Master do Administrador
+ * POST /api/admin/alterar-senha-master
+ */
+app.post('/api/admin/alterar-senha-master', async (req, res) => {
+    const { novaSenha } = req.body;
+    if (!novaSenha || novaSenha.trim().length < 4) {
+        return res.status(400).json({ error: 'A nova senha master deve ter no mínimo 4 caracteres.' });
+    }
+
+    const nClean = novaSenha.trim();
+    process.env.MASTER_ADMIN_PASS = nClean;
+    await helpers.alterarSenhaProvedor('admin', nClean).catch(() => {});
+
+    console.log('[GESTOR MASTER] 🔑 Senha Master de Administrador alterada com sucesso!');
+    res.status(200).json({ success: true, message: 'Senha Master alterada com sucesso!' });
+});
+
+/**
  * ROTA: Listar Todos os Provedores com Total de Clientes em Tempo Real
  * GET /api/admin/provedores
  */

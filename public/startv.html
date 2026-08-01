@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -644,8 +644,8 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            // Tema
-            const savedTheme = localStorage.getItem('theme_startv') || 'dark';
+            // Tema padrão: light (modo claro)
+            const savedTheme = localStorage.getItem('theme_startv') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             document.getElementById('themeToggleBtn').innerHTML = savedTheme === 'dark' ? '<i class="fa-solid fa-moon"></i>' : '<i class="fa-solid fa-sun" style="color:#f59e0b;"></i>';
 
