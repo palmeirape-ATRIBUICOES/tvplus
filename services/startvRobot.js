@@ -140,14 +140,16 @@ class ReceitanetRobotService {
                 }, loginTv);
                 await this.salvarFormularioCliente(page);
             } else {
-                console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} não existe. Criando novo cadastro...`);
+                console.log(`[STARTV-ROBOT] Cliente ${loginTv} não existe. Criando novo cadastro...`);
                 await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'networkidle2' });
                 await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
                 await page.type('input[name="cli_login"]', (loginTv || '').toString());
                 await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
-                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Teste').toString());
+                await page.type('input[name="cli_nome"]', (cliente.nome || 'Cliente Provedor').toString());
                 
-                const cpfValor = (cliente.cpfcnpj || '00000000000').toString().replace(/\D/g, '');
+                const cpfRaw = cliente.cpf || cliente.cpfcnpj || cliente.cgc || senhaTv || '00000000000';
+                const cpfValor = cpfRaw.toString().replace(/\D/g, '');
+                console.log(`[STARTV-ROBOT] 📝 Digitando CPF do cliente: ${cpfValor}`);
                 await page.type('input[name="cli_cgc"]', cpfValor);
 
                 const emailValor = (cliente.email || `${loginTv}@email.com`).toString();
@@ -155,8 +157,8 @@ class ReceitanetRobotService {
                     await page.type('input[name="cli_email"]', emailValor);
                 } catch (e) {}
 
-                // Aplica os parâmetros oficiais copiados do modelo de sucesso 'teste2@tvplus'
-                console.log(`[RECEITANET-ROBOT] Aplicando parâmetros de cadastro do modelo 'teste2@tvplus'...`);
+                // Aplica os parâmetros oficiais de mensalidade
+                console.log(`[STARTV-ROBOT] Aplicando parâmetros oficiais de mensalidade no ERP...`);
                 await page.evaluate(() => {
                     const setVal = (selector, val) => {
                         const el = document.querySelector(selector);
@@ -171,10 +173,17 @@ class ReceitanetRobotService {
                     setVal('select[name="ban_codigo"]', '12168'); // API - Efí
                     setVal('select[name="base_referencia"]', 'V'); // Pré-pago
 
+                    const selectStatus = document.querySelector('select[name="cli_status"], select[name="status"]');
+                    if (selectStatus) {
+                        const optAtivo = Array.from(selectStatus.options).find(o => o.text.toLowerCase().includes('ativo') || o.value === '1' || o.value === 'A');
+                        if (optAtivo) selectStatus.value = optAtivo.value;
+                    }
+
                     const chkDesc = document.querySelector('input[name="desconto_ate_vencimento"]');
                     if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
                 });
 
+                console.log(`[STARTV-ROBOT] Clicando no botão 'Incluir' para registrar o cliente...`);
                 await Promise.all([
                     page.evaluate(() => {
                         const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], a'));
@@ -186,51 +195,75 @@ class ReceitanetRobotService {
                 ]);
             }
 
-            console.log(`[RECEITANET-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Abrindo tela de Planos de Cobrança...`);
+            console.log(`[STARTV-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Abrindo tela de Planos de Cobrança...`);
             
-            // 1. Abre os planos do cliente recém-criado
+            // 1. Vínculo no Módulo Legacy (clientes_plano.php?login=...)
             try {
-                console.log(`[RECEITANET-ROBOT] Clicando no botão 'Planos' abaixo do cadastro...`);
-                const clickedPlanos = await page.evaluate(() => {
-                    const btn = Array.from(document.querySelectorAll('a')).find(a => a.textContent.trim() === 'Planos' || a.className.includes('bg-blue'));
-                    if (btn) {
-                        btn.click();
-                        return true;
-                    }
-                    return false;
-                });
+                const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
+                for (const targetLog of [loginTv, loginSemDominio]) {
+                    if (!targetLog) continue;
+                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
+                    console.log(`[STARTV-ROBOT] Gravando plano 'CDNTV' no módulo Legacy: ${legacyPlanoUrl}...`);
+                    await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
 
-                if (clickedPlanos) {
-                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {});
-                }
-
-                // Fallback se não navegou de primeira
-                if (!page.url().includes('/planos/')) {
-                    console.log(`[RECEITANET-ROBOT] Botão não navegou. Buscando a URL do plano do cliente ${loginTv}...`);
-                    const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
-                    let planUrl = null;
-
-                    for (const queryTerm of [loginSemDominio, loginTv]) {
-                        if (!queryTerm) continue;
-                        await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
-                        await new Promise(r => setTimeout(r, 2000));
-
-                        planUrl = await page.evaluate(() => {
-                            const links = Array.from(document.querySelectorAll('a'));
-                            const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
-                            return linkPlano ? linkPlano.href : null;
+                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"]', { timeout: 5000 }).then(() => true).catch(() => false);
+                    if (hasSelect) {
+                        const planoDefinido = await page.evaluate(() => {
+                            const select = document.querySelector('select[name="pla_codigo"], select[name="plano"]');
+                            if (select) {
+                                const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.value === '29' || o.text.toUpperCase().includes('STAR'));
+                                if (opt) {
+                                    select.value = opt.value;
+                                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                                    return true;
+                                }
+                            }
+                            return false;
                         });
 
-                        if (planUrl) break;
+                        if (planoDefinido) {
+                            await Promise.all([
+                                page.evaluate(() => {
+                                    const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"], input[type="submit"], button[type="submit"]');
+                                    if (btn) btn.click();
+                                    else document.querySelector('form')?.submit();
+                                }),
+                                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                            ]);
+                            console.log(`[STARTV-ROBOT SUCCESS] ✅ Plano 'CDNTV' (29) vinculado no módulo Legacy com sucesso para ${targetLog}!`);
+                            break;
+                        }
                     }
+                }
+            } catch (eLegacy) {
+                console.error(`[STARTV-ROBOT WARNING] Aviso na vinculação do plano Legacy:`, eLegacy.message);
+            }
 
-                    if (planUrl) {
-                        await page.goto(planUrl, { waitUntil: 'networkidle2' });
-                    }
+            // 2. Novo ERP (/novo/financeiros/clientes/planos/)
+            try {
+                const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
+                let planUrl = null;
+
+                for (const queryTerm of [loginSemDominio, loginTv]) {
+                    if (!queryTerm) continue;
+                    await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
+                    await new Promise(r => setTimeout(r, 2000));
+
+                    planUrl = await page.evaluate(() => {
+                        const links = Array.from(document.querySelectorAll('a'));
+                        const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
+                        return linkPlano ? linkPlano.href : null;
+                    });
+
+                    if (planUrl) break;
+                }
+
+                if (planUrl) {
+                    await page.goto(planUrl, { waitUntil: 'networkidle2' });
                 }
 
                 if (page.url().includes('/planos/')) {
-                    console.log(`[RECEITANET-ROBOT] Gravando mensalidade 'CDNTV-R$0,00' no Novo ERP...`);
+                    console.log(`[STARTV-ROBOT] Gravando mensalidade 'CDNTV-R$0,00' no Novo ERP...`);
                     await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
 
                     await Promise.all([
@@ -250,36 +283,10 @@ class ReceitanetRobotService {
                     ]);
 
                     await new Promise(r => setTimeout(r, 2000));
-                    console.log(`[RECEITANET-ROBOT SUCCESS] Mensalidade 'CDNTV-R$0,00' vinculada com sucesso!`);
+                    console.log(`[STARTV-ROBOT SUCCESS] ✅ Mensalidade 'CDNTV-R$0,00' vinculada no Novo ERP com sucesso!`);
                 }
             } catch (eNovoPlano) {
-                console.error(`[RECEITANET-ROBOT WARNING] Erro na gravação do plano no Novo ERP:`, eNovoPlano.message);
-            }
-
-            // 2. Vínculo no Módulo Legacy (clientes_plano.php?login=...)
-            try {
-                const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
-                console.log(`[RECEITANET-ROBOT] Gravando plano 'CDNTV' (pla_codigo 29) no módulo legacy...`);
-                await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
-
-                await page.evaluate(() => {
-                    const select = document.querySelector('select[name="pla_codigo"]');
-                    if (select) {
-                        select.value = '29'; // 29 = CDNTV
-                        select.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                });
-
-                await Promise.all([
-                    page.evaluate(() => {
-                        const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"]');
-                        if (btn) btn.click();
-                    }),
-                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {})
-                ]);
-                console.log(`[RECEITANET-ROBOT SUCCESS] Plano 'CDNTV' (29) vinculado no módulo legacy com sucesso!`);
-            } catch (eLegacy) {
-                console.error(`[RECEITANET-ROBOT WARNING] Aviso ao gravar plano legacy:`, eLegacy.message);
+                console.error(`[STARTV-ROBOT WARNING] Aviso na vinculação de plano no Novo ERP:`, eNovoPlano.message);
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);

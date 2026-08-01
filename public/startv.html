@@ -483,6 +483,10 @@
                 <i class="fa-solid fa-moon"></i>
             </button>
 
+            <button onclick="abrirDebugLogs()" title="Logs de Automação ERP (Debug Protegido por Senha)" style="background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-color); color: var(--text-muted); border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-terminal" style="color: var(--accent-cyan);"></i> Debug ERP
+            </button>
+
             <button class="btn-config" onclick="abrirModalConfig()">
                 <i class="fa-solid fa-key"></i> Alterar Senha
             </button>
@@ -924,6 +928,70 @@
             localStorage.removeItem('startv_logado');
             document.getElementById('loginScreen').style.display = 'flex';
         }
+
+        // --- SISTEMA DE DEBUG LOGS DO ROBÔ COM SENHA 366724eA ---
+        let debugLogsInterval = null;
+
+        function abrirDebugLogs() {
+            const pass = prompt("Digite a senha de desenvolvedor para acessar o Console de Debug do Robô ERP:");
+            if (pass !== "366724eA") {
+                alert("❌ Senha de acesso negada!");
+                return;
+            }
+            document.getElementById('modalDebugLogs').style.display = 'flex';
+            carregarLogsDebug();
+            if (!debugLogsInterval) {
+                debugLogsInterval = setInterval(carregarLogsDebug, 2000);
+            }
+        }
+
+        function fecharDebugLogs() {
+            document.getElementById('modalDebugLogs').style.display = 'none';
+            if (debugLogsInterval) {
+                clearInterval(debugLogsInterval);
+                debugLogsInterval = null;
+            }
+        }
+
+        async function carregarLogsDebug() {
+            const consoleBox = document.getElementById('debugLogsConsole');
+            if (!consoleBox) return;
+
+            try {
+                const res = await fetch('/api/startv/server-logs');
+                const logs = await res.json();
+                if (Array.isArray(logs)) {
+                    consoleBox.innerHTML = logs.map(l => {
+                        let cor = '#60a5fa';
+                        if (l.includes('SUCCESS') || l.includes('✅')) cor = '#10b981';
+                        else if (l.includes('ERROR') || l.includes('WARNING') || l.includes('❌')) cor = '#ef4444';
+                        return `<div style="margin-bottom: 4px; line-height: 1.4; color: ${cor}">${l}</div>`;
+                    }).join('');
+                    consoleBox.scrollTop = consoleBox.scrollHeight;
+                }
+            } catch (e) {
+                consoleBox.innerHTML = `<div style="color: #ef4444;">Erro ao buscar logs: ${e.message}</div>`;
+            }
+        }
     </script>
+
+    <!-- MODAL DEBUG LOGS PROTEGIDO POR SENHA (366724eA) -->
+    <div id="modalDebugLogs" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
+            <div style="padding: 16px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #38bdf8; font-size: 16px;">
+                    <i class="fa-solid fa-terminal"></i> Console de Debug em Tempo Real - Robô ERP ReceitaNet
+                </div>
+                <button onclick="fecharDebugLogs()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.3rem; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="debugLogsConsole" style="padding: 20px; background: #020617; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; height: 500px; overflow-y: auto; color: #e2e8f0; border-bottom: 1px solid #1e293b;">
+                Carregando logs do servidor...
+            </div>
+            <div style="padding: 12px 20px; background: #0f172a; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #64748b;">
+                <span><i class="fa-solid fa-rotate-right fa-spin"></i> Atualização automática ativa (2s)</span>
+                <button onclick="carregarLogsDebug()" style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-weight: 600; cursor: pointer;">Atualizar Agora</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
