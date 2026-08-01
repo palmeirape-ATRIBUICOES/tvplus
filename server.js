@@ -93,17 +93,20 @@ app.use('/api/admin/*', basicAuth);
 // Middleware de Roteamento Inteligente de Subdomínios (tv.levemaisfibra.com.br, startv.levemaisfibra.com.br, etc)
 app.use((req, res, next) => {
     const host = (req.headers.host || '').toLowerCase();
+    const subdominio = host.split('.')[0]; // Pega a primeira parte antes do ponto: 'tv', 'startv', 'cliente1'
 
-    // 1. Subdomínio Master: tv.levemaisfibra.com.br -> Entrega diretamente a página /tv (Gestor Master)
-    if (host.startsWith('tv.') || host.includes('tv.levemaisfibra')) {
+    // 1. Subdomínio EXCLUSIVO do Gestor Master: tv.levemaisfibra.com.br (ou subdomínio exato 'tv')
+    if (subdominio === 'tv' || host === 'tv.levemaisfibra.com.br') {
         if (req.path === '/' || req.path === '/master' || req.path === '/admin') {
             return res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
         }
     }
 
     // 2. Subdomínios de Clientes Provedores: startv.levemaisfibra.com.br, cliente1.levemaisfibra.com.br, etc.
-    if ((host.includes('startv') || (host.includes('.levemaisfibra.com.br') && !host.startsWith('tv.'))) && req.path === '/') {
-        return res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+    if (subdominio === 'startv' || (host.includes('.levemaisfibra.com.br') && subdominio !== 'tv')) {
+        if (req.path === '/') {
+            return res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+        }
     }
 
     next();
