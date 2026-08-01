@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Gestor Master | Provedores Multi-Tenant</title>
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-dark: #070a14;
+            --card-bg: rgba(15, 23, 42, 0.75);
+            --primary: #3b82f6;
+            --primary-glow: #60a5fa;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(0, 0, 0, 0.4);
+            --header-bg: rgba(15, 23, 42, 0.85);
+        }
+
+        [data-theme="light"] {
+            --bg-dark: #f1f5f9;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --primary: #2563eb;
+            --primary-glow: #3b82f6;
+            --accent-cyan: #0284c7;
+            --accent-purple: #7c3aed;
+            --text-light: #0f172a;
+            --text-muted: #64748b;
+            --danger: #dc2626;
+            --success: #059669;
+            --border-color: rgba(0, 0, 0, 0.12);
+            --input-bg: rgba(255, 255, 255, 0.95);
+            --header-bg: rgba(255, 255, 255, 0.95);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--header-bg);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .brand-title {
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            flex: 1;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .kpi-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .kpi-val {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .kpi-lbl {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+            color: #fff;
+            border: none;
+            padding: 12px 22px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-refresh {
+            background: var(--card-bg);
+            color: var(--text-light);
+            border: 1px solid var(--border-color);
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        [data-theme="light"] .btn-refresh {
+            background: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+        }
+
+        .input-control {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: var(--text-light);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 700;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        .subdomain-tag {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--primary-glow);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .count-badge {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 800;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(15px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            z-index: 2000;
+        }
+
+        .modal-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 36px;
+            max-width: 520px;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        }
+
+        .alert-box {
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+            margin-bottom: 15px;
+        }
+
+        .alert-box.success {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            display: block;
+        }
+
+        .alert-box.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            display: block;
+        }
+
+        .btn-action {
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-action.access {
+            background: rgba(6, 182, 212, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+
+        .btn-action.reset {
+            background: rgba(234, 179, 8, 0.15);
+            color: #fde047;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        .btn-action.del {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand-logo">
+            <div class="brand-icon"><i class="fa-solid fa-network-wired"></i></div>
+            <div class="brand-title">Gestor Master | Provedores Multi-Tenant</div>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <button onclick="alternarTema()" class="btn-refresh" style="padding: 8px 12px;">
+                <i class="fa-solid fa-moon" id="themeIcon"></i>
+            </button>
+            <button onclick="abrirModalNovoProvedor()" class="btn-submit">
+                <i class="fa-solid fa-plus"></i> Novo Provedor
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- KPI CARDS METRICAS -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--primary-glow);">
+                    <i class="fa-solid fa-building-user"></i>
+                </div>
+                <div>
+                    <div class="kpi-val" id="kpiTotalProvedores">0</div>
+                    <div class="kpi-lbl">Provedores Cadastrados</div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <div>
+                    <div class="kpi-val" id="kpiTotalAssinantes">0</div>
+                    <div class="kpi-lbl">Total Geral de Assinantes</div>
+                </div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-icon" style="background: rgba(139, 92, 246, 0.15); color: var(--accent-purple);">
+                    <i class="fa-solid fa-globe"></i>
+                </div>
+                <div>
+                    <div class="kpi-val" id="kpiProvedorLider" style="font-size: 20px;">-</div>
+                    <div class="kpi-lbl">Maior Base de Assinantes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABELA DE PROVEDORES -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 style="font-size: 22px; font-weight: 800;"><i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Subdomínios & Provedores Ativos</h2>
+                    <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Gerenciamento master de todas as marcas e contagem em tempo real de clientes por subdomínio.</p>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button onclick="carregarProvedores()" class="btn-refresh">
+                        <i class="fa-solid fa-rotate-right"></i> Atualizar Lista
+                    </button>
+                </div>
+            </div>
+
+            <!-- CAMPO DE BUSCA -->
+            <div style="margin-bottom: 20px; position: relative;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                <input type="text" id="inputBusca" class="input-control" style="padding-left: 44px;" placeholder="🔍 Buscar por Subdomínio, Nome da Marca ou Usuário..." oninput="filtrarTabela()">
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Logo</th>
+                            <th>Subdomínio Oficial</th>
+                            <th>Marca / Empresa</th>
+                            <th>Usuário Login</th>
+                            <th>Assinantes Ativos</th>
+                            <th>Data de Criação</th>
+                            <th>Ações do Gestor</th>
+                        </tr>
+                    </thead>
+                    <tbody id="provedoresTableBody">
+                        <!-- Carregado via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL DE CADASTRO DE NOVO PROVEDOR -->
+    <div class="modal-overlay" id="modalNovoProvedor" style="display: none;">
+        <div class="modal-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="font-size: 20px; font-weight: 800;"><i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> Cadastrar Novo Provedor</h2>
+                <button onclick="fecharModalNovoProvedor()" style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+
+            <div id="modalAlert" class="alert-box"></div>
+
+            <form onsubmit="cadastrarProvedor(event)">
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Subdomínio (apenas letras/números)</label>
+                        <input type="text" id="provSubdominio" class="input-control" placeholder="ex: fibraplus" required oninput="atualizarPreviewSubdominio(this)">
+                        <div style="font-size: 12px; color: var(--primary-glow); margin-top: 4px;" id="previewUrl">URL: https://fibraplus.levemaisfibra.com.br</div>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Nome da Marca / Empresa</label>
+                        <input type="text" id="provMarca" class="input-control" placeholder="ex: FIBRA PLUS TV" required>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Usuário de Acesso do Provedor</label>
+                        <input type="text" id="provUsuario" class="input-control" placeholder="ex: fibraplus" required>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Senha Inicial Padrão</label>
+                        <input type="text" id="provSenha" class="input-control" value="1234" required>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">URL do Logotipo da Empresa (Opcional)</label>
+                        <input type="url" id="provLogo" class="input-control" placeholder="/starnet-logo.jpg ou https://...">
+                    </div>
+
+                    <button type="submit" class="btn-submit" style="width: 100%; margin-top: 10px; padding: 14px;">
+                        <i class="fa-solid fa-floppy-disk"></i> Criar Painel de Provedor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function alternarTema() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            document.getElementById('themeIcon').className = next === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        }
+
+        function abrirModalNovoProvedor() {
+            document.getElementById('modalNovoProvedor').style.display = 'flex';
+        }
+
+        function fecharModalNovoProvedor() {
+            document.getElementById('modalNovoProvedor').style.display = 'none';
+        }
+
+        function atualizarPreviewSubdominio(input) {
+            const val = input.value.toLowerCase().replace(/[^a-z0-9]/g, '');
+            input.value = val;
+            document.getElementById('previewUrl').textContent = `URL: https://${val || 'subdominio'}.levemaisfibra.com.br`;
+            if (!document.getElementById('provUsuario').value || document.getElementById('provUsuario').dataset.auto) {
+                document.getElementById('provUsuario').value = val;
+                document.getElementById('provUsuario').dataset.auto = 'true';
+            }
+        }
+
+        async function carregarProvedores() {
+            const tbody = document.getElementById('provedoresTableBody');
+            try {
+                const res = await fetch('/api/admin/provedores');
+                const provs = await res.json();
+
+                tbody.innerHTML = '';
+                let totalGeral = 0;
+                let liderNome = '-';
+                let maxClientes = -1;
+
+                if (!Array.isArray(provs) || provs.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px;">Nenhum provedor cadastrado.</td></tr>`;
+                    return;
+                }
+
+                document.getElementById('kpiTotalProvedores').textContent = provs.length;
+
+                provs.forEach(p => {
+                    const totalCli = parseInt(p.total_clientes || 0);
+                    totalGeral += totalCli;
+
+                    if (totalCli > maxClientes) {
+                        maxClientes = totalCli;
+                        liderNome = `${p.nome_marca} (${totalCli})`;
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <img src="${p.logo_url || '/starnet-logo.jpg'}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                        </td>
+                        <td><span class="subdomain-tag">${p.subdominio}.levemaisfibra.com.br</span></td>
+                        <td style="font-weight: 800;">${p.nome_marca}</td>
+                        <td style="font-family: monospace;">${p.usuario}</td>
+                        <td><span class="count-badge"><i class="fa-solid fa-users"></i> ${totalCli} clientes</span></td>
+                        <td>${new Date(p.data_criacao).toLocaleDateString('pt-BR')}</td>
+                        <td style="display: flex; gap: 8px;">
+                            <button class="btn-action access" onclick="acessarPainel('${p.usuario}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Acessar</button>
+                            <button class="btn-action reset" onclick="redefinirSenha(${p.id}, '${p.nome_marca}')"><i class="fa-solid fa-key"></i> Reset 1234</button>
+                            ${p.usuario !== 'startv' ? `<button class="btn-action del" onclick="excluirProvedor(${p.id}, '${p.nome_marca}')"><i class="fa-solid fa-trash"></i> Excluir</button>` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('kpiTotalAssinantes').textContent = totalGeral;
+                document.getElementById('kpiProvedorLider').textContent = maxClientes > 0 ? liderNome : '-';
+                filtrarTabela();
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--danger);">Erro ao carregar provedores: ${err.message}</td></tr>`;
+            }
+        }
+
+        function filtrarTabela() {
+            const termo = (document.getElementById('inputBusca')?.value || '').toLowerCase().trim();
+            const trs = document.querySelectorAll('#provedoresTableBody tr');
+
+            trs.forEach(tr => {
+                const texto = tr.textContent.toLowerCase();
+                if (!termo || texto.includes(termo)) tr.style.display = '';
+                else tr.style.display = 'none';
+            });
+        }
+
+        async function cadastrarProvedor(e) {
+            e.preventDefault();
+            const subdominio = document.getElementById('provSubdominio').value.trim();
+            const nomeMarca = document.getElementById('provMarca').value.trim();
+            const usuario = document.getElementById('provUsuario').value.trim();
+            const senha = document.getElementById('provSenha').value.trim();
+            const logoUrl = document.getElementById('provLogo').value.trim();
+
+            const alertBox = document.getElementById('modalAlert');
+
+            try {
+                const res = await fetch('/api/admin/provedores/cadastrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subdominio, nomeMarca, usuario, senha, logoUrl })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alertBox.className = 'alert-box success';
+                    alertBox.textContent = `✅ ${data.message}`;
+                    setTimeout(() => {
+                        fecharModalNovoProvedor();
+                        carregarProvedores();
+                    }, 1200);
+                } else {
+                    alertBox.className = 'alert-box error';
+                    alertBox.textContent = data.error || 'Erro ao cadastrar provedor.';
+                }
+            } catch(err) {
+                alertBox.className = 'alert-box error';
+                alertBox.textContent = 'Falha de comunicação com o servidor.';
+            }
+        }
+
+        async function redefinirSenha(id, nome) {
+            if (!confirm(`Deseja redefinir a senha do provedor "${nome}" para a senha inicial 1234?`)) return;
+
+            try {
+                const res = await fetch('/api/admin/provedores/redefinir-senha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message);
+                    carregarProvedores();
+                } else {
+                    alert(data.error || 'Erro ao redefinir senha.');
+                }
+            } catch(e) { alert('Erro ao comunicar com o servidor.'); }
+        }
+
+        async function excluirProvedor(id, nome) {
+            if (!confirm(`Deseja EXCLUIR permanentemente o provedor "${nome}"?`)) return;
+
+            try {
+                const res = await fetch('/api/admin/provedores/excluir', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    alert(data.message);
+                    carregarProvedores();
+                } else {
+                    alert(data.error || 'Erro ao excluir provedor.');
+                }
+            } catch(e) { alert('Erro ao comunicar com o servidor.'); }
+        }
+
+        function acessarPainel(usuario) {
+            localStorage.setItem('startv_usuario', usuario);
+            localStorage.setItem('startv_logado', 'true');
+            window.location.href = '/startv';
+        }
+
+        window.addEventListener('DOMContentLoaded', carregarProvedores);
+    </script>
+</body>
+</html>

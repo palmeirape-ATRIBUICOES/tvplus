@@ -678,8 +678,17 @@
                 const data = await res.json();
                 if (res.ok && data.success) {
                     usuarioAtual = data.usuario;
+                    const subdominioAtual = data.subdominio || 'startv';
+                    const marcaAtual = data.nome_marca || 'STARNET TV';
+                    const logoAtual = data.logo_url || '/starnet-logo.jpg';
+
                     localStorage.setItem('startv_usuario', usuarioAtual);
+                    localStorage.setItem('startv_subdominio', subdominioAtual);
+                    localStorage.setItem('startv_nome_marca', marcaAtual);
+                    localStorage.setItem('startv_logo_url', logoAtual);
                     localStorage.setItem('startv_logado', 'true');
+
+                    aplicarMarcaProvedor(marcaAtual, logoAtual);
 
                     if (data.precisaTrocarSenha) {
                         document.getElementById('modalTrocaSenha').style.display = 'flex';
@@ -695,6 +704,14 @@
                 alertBox.className = 'alert-box error';
                 alertBox.textContent = 'Falha de conexão com o servidor.';
             }
+        }
+
+        function aplicarMarcaProvedor(marca, logo) {
+            const m = marca || localStorage.getItem('startv_nome_marca') || 'STARNET TV';
+            const l = logo || localStorage.getItem('startv_logo_url') || '/starnet-logo.jpg';
+
+            document.querySelectorAll('.brand-title').forEach(el => el.textContent = m);
+            document.querySelectorAll('.brand-logo-img, header .brand-logo img').forEach(el => el.src = l);
         }
 
         // Realiza Troca Obrigatória de Senha
@@ -778,6 +795,7 @@
             const cpf = document.getElementById('cadCpf').value.trim();
             const email = document.getElementById('cadEmail').value.trim();
             const telefone = document.getElementById('cadTelefone').value.trim();
+            const subdominio = localStorage.getItem('startv_subdominio') || 'startv';
             const alertBox = document.getElementById('cadastroAlert');
 
             // Validação Estrita de CPF
@@ -797,7 +815,7 @@
                 const res = await fetch('/api/startv/cadastrar-cliente', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nome, cpfcnpj: cpf, email, telefone })
+                    body: JSON.stringify({ nome, cpfcnpj: cpf, email, telefone, subdominio })
                 });
 
                 const data = await res.json();
@@ -824,8 +842,11 @@
             const tbody = document.getElementById('clientesTableBody');
             if (!tbody) return;
 
+            const subdominio = localStorage.getItem('startv_subdominio') || 'startv';
+            aplicarMarcaProvedor();
+
             try {
-                const res = await fetch('/api/startv/clientes');
+                const res = await fetch(`/api/startv/clientes?subdominio=${encodeURIComponent(subdominio)}`);
                 const clientes = await res.json();
 
                 tbody.innerHTML = '';

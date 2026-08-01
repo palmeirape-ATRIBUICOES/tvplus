@@ -83,28 +83,39 @@ function initDb() {
             `, (err) => { 
                 if (err) return reject(err);
 
-                // Tabela de Usuários de Provedores (Star TV)
+                // Tabela de Usuários de Provedores Multi-Tenant (Star TV, Fibra Plus, etc.)
                 db.run(`
                     CREATE TABLE IF NOT EXISTS provedor_usuarios (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        subdominio TEXT UNIQUE NOT NULL,
+                        nome_marca TEXT NOT NULL,
                         usuario TEXT UNIQUE NOT NULL,
                         senha TEXT NOT NULL,
+                        logo_url TEXT,
                         senha_alterada INTEGER DEFAULT 0,
                         data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
                 `, () => {
-                    // Insere o provedor padrão 'startv' com a senha '1234' caso ainda não exista
+                    // Migrações dinâmicas de colunas para bancos pré-existentes
+                    db.run("ALTER TABLE provedor_usuarios ADD COLUMN subdominio TEXT", () => {});
+                    db.run("ALTER TABLE provedor_usuarios ADD COLUMN nome_marca TEXT", () => {});
+                    db.run("ALTER TABLE provedor_usuarios ADD COLUMN logo_url TEXT", () => {});
+
+                    // Insere o provedor padrão 'startv' com a marca 'STARNET TV'
                     db.run(`
-                        INSERT INTO provedor_usuarios (usuario, senha, senha_alterada)
-                        VALUES ('startv', '1234', 0)
+                        INSERT INTO provedor_usuarios (subdominio, nome_marca, usuario, senha, logo_url, senha_alterada)
+                        VALUES ('startv', 'STARNET TV', 'startv', '1234', '/starnet-logo.jpg', 0)
                         ON CONFLICT(usuario) DO NOTHING
-                    `);
+                    `, () => {
+                        db.run("UPDATE provedor_usuarios SET subdominio = 'startv', nome_marca = 'STARNET TV', logo_url = '/starnet-logo.jpg' WHERE usuario = 'startv' AND (subdominio IS NULL OR subdominio = '')");
+                    });
                 });
 
-                // Tabela de Clientes do Provedor Star TV (@startv)
+                // Tabela de Clientes do Provedor (Associado por subdominio)
                 db.run(`
                     CREATE TABLE IF NOT EXISTS clientes_startv (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        subdominio TEXT DEFAULT 'startv',
                         nome TEXT NOT NULL,
                         cpfcnpj TEXT NOT NULL,
                         email TEXT NOT NULL,
@@ -116,6 +127,7 @@ function initDb() {
                     )
                 `, (err) => {
                     if (err) return reject(err);
+                    db.run("ALTER TABLE clientes_startv ADD COLUMN subdominio TEXT DEFAULT 'startv'", () => {});
 
                     // Tabela de Atendimento do Bot de IA / Humano
                     db.run(`
@@ -704,7 +716,7 @@ const dbHelpers = {
         `);
     },
 
-    // === MÓDULO EXCLUSIVO PROVEDOR STAR TV (@startv) ===
+    // === MÓDULO EXCLUSIVO DE PROVEDORES MULTI-TENANT ===
     async autenticarProvedor(usuario, senha) {
         const uClean = (usuario || '').toString().trim().toLowerCase();
         const pClean = (senha || '').toString().trim();
@@ -718,7 +730,53 @@ const dbHelpers = {
         await dbRun('UPDATE provedor_usuarios SET senha = ?, senha_alterada = 1 WHERE LOWER(TRIM(usuario)) = ?', [nClean, uClean]).catch(() => {});
     },
 
-    async gerarLoginStartv(nomeCompleto) {
+    async listarProvedoresComTotalClientes() {
+        return await dbAll(`
+            SELECT 
+                p.*,
+                COUNT(c.id) AS total_clientes
+            FROM provedor_usuarios p
+            LEFT JOIN clientes_startv c ON (
+                c.subdominio = p.subdominio OR 
+                ( (p.subdominio = 'startv' OR p.usuario = 'startv') AND (c.subdominio IS NULL OR c.subdominio = '' OR c.subdominio = 'startv') )
+            )
+            GROUP BY p.id
+            ORDER BY p.id DESC
+        `).catch(() => []);
+    },
+
+    async cadastrarProvedor(subdominio, nomeMarca, usuario, senha = '1234', logoUrl = '/starnet-logo.jpg') {
+        const subLimpo = (subdominio || '').toString().trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        const uClean = (usuario || subLimpo).toString().trim().toLowerCase();
+        const marcaClean = (nomeMarca || 'NOVO PROVEDOR TV').toString().trim();
+        const logoClean = (logoUrl || '/starnet-logo.jpg').toString().trim();
+
+        if (!subLimpo || !uClean) throw new Error('Subdomínio e Usuário de login são obrigatórios.');
+
+        const res = await dbRun(`
+            INSERT INTO provedor_usuarios (subdominio, nome_marca, usuario, senha, logo_url, senha_alterada)
+            VALUES (?, ?, ?, ?, ?, 0)
+        `, [subLimpo, marcaClean, uClean, senha, logoClean]);
+
+        return { id: res.lastID, subdominio: subLimpo, nome_marca: marcaClean, usuario: uClean, senha, logo_url: logoClean };
+    },
+
+    async redefinirSenhaProvedor(id) {
+        await dbRun('UPDATE provedor_usuarios SET senha = "1234", senha_alterada = 0 WHERE id = ?', [id]);
+    },
+
+    async excluirProvedor(id) {
+        const prov = await dbGet('SELECT * FROM provedor_usuarios WHERE id = ?', [id]);
+        if (prov) {
+            if (prov.usuario === 'startv' || prov.subdominio === 'startv') {
+                throw new Error('O provedor principal Star TV não pode ser excluído.');
+            }
+            await dbRun('DELETE FROM provedor_usuarios WHERE id = ?', [id]);
+        }
+        return prov;
+    },
+
+    async gerarLoginStartv(nomeCompleto, subdominio = 'startv') {
         const nomeLimpo = (nomeCompleto || 'cliente')
             .toString()
             .normalize('NFD')
@@ -729,12 +787,13 @@ const dbHelpers = {
 
         const partes = nomeLimpo.split(/\s+/);
         const primeiroNome = partes[0] || 'cliente';
+        const dominioClean = (subdominio || 'startv').toLowerCase().replace(/[^a-z0-9]/g, '');
         
         const candidatos = [
-            `${primeiroNome}@startv`,
-            partes.length > 1 ? `${primeiroNome}${partes[partes.length - 1][0]}@startv` : `${primeiroNome}1@startv`,
-            partes.length > 1 ? `${primeiroNome}${partes[partes.length - 1]}@startv` : `${primeiroNome}2@startv`,
-            `${primeiroNome}${Math.floor(100 + Math.random() * 900)}@startv`
+            `${primeiroNome}@${dominioClean}`,
+            partes.length > 1 ? `${primeiroNome}${partes[partes.length - 1][0]}@${dominioClean}` : `${primeiroNome}1@${dominioClean}`,
+            partes.length > 1 ? `${primeiroNome}${partes[partes.length - 1]}@${dominioClean}` : `${primeiroNome}2@${dominioClean}`,
+            `${primeiroNome}${Math.floor(100 + Math.random() * 900)}@${dominioClean}`
         ];
 
         for (const cand of candidatos) {
@@ -742,25 +801,29 @@ const dbHelpers = {
             if (!existe) return cand;
         }
 
-        return `${primeiroNome}${Date.now().toString().slice(-4)}@startv`;
+        return `${primeiroNome}${Date.now().toString().slice(-4)}@${dominioClean}`;
     },
 
-    async cadastrarClienteStartv(nome, cpfcnpj, email, telefone) {
+    async cadastrarClienteStartv(nome, cpfcnpj, email, telefone, subdominio = 'startv') {
         const cpfLimpo = (cpfcnpj || '').replace(/\D/g, '');
         const telLimpo = (telefone || '').replace(/\D/g, '');
-        const loginTv = await this.gerarLoginStartv(nome);
+        const subLimpo = (subdominio || 'startv').toLowerCase().trim();
+        const loginTv = await this.gerarLoginStartv(nome, subLimpo);
         const senhaTv = cpfLimpo; // A senha do cliente no ERP e na TV é o próprio CPF!
 
         const res = await dbRun(`
-            INSERT INTO clientes_startv (nome, cpfcnpj, email, telefone, login_tv, senha_tv, status)
-            VALUES (?, ?, ?, ?, ?, ?, 'ativo')
-        `, [nome, cpfLimpo, email, telLimpo, loginTv, senhaTv]);
+            INSERT INTO clientes_startv (subdominio, nome, cpfcnpj, email, telefone, login_tv, senha_tv, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'ativo')
+        `, [subLimpo, nome, cpfLimpo, email, telLimpo, loginTv, senhaTv]);
 
-        return { id: res.lastID, nome, cpfcnpj: cpfLimpo, email, telefone: telLimpo, login_tv: loginTv, senha_tv: senhaTv };
+        return { id: res.lastID, subdominio: subLimpo, nome, cpfcnpj: cpfLimpo, email, telefone: telLimpo, login_tv: loginTv, senha_tv: senhaTv };
     },
 
-    async listarClientesStartv() {
-        return await dbAll('SELECT * FROM clientes_startv ORDER BY id DESC').catch(() => []);
+    async listarClientesStartv(subdominio = null) {
+        if (!subdominio || subdominio === 'startv' || subdominio === 'todos') {
+            return await dbAll('SELECT * FROM clientes_startv ORDER BY id DESC').catch(() => []);
+        }
+        return await dbAll('SELECT * FROM clientes_startv WHERE subdominio = ? ORDER BY id DESC', [subdominio]).catch(() => []);
     },
 
     async excluirClienteStartv(id) {

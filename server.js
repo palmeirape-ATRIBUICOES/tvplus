@@ -1800,10 +1800,75 @@ app.post('/api/admin/bot-toggle', async (req, res) => {
     }
 });
 
-// === ROTAS EXCLUSIVAS DO PAINEL DE PROVEDOR STAR TV (startv.levemaisfibra.com.br) ===
+// === MÓDULO GESTOR MASTER DE PROVEDORES MULTI-TENANT ===
 
 /**
- * ROTA: Login do Provedor Star TV
+ * ROTA: Listar Todos os Provedores com Total de Clientes em Tempo Real
+ * GET /api/admin/provedores
+ */
+app.get('/api/admin/provedores', async (req, res) => {
+    try {
+        const provedores = await helpers.listarProvedoresComTotalClientes();
+        res.status(200).json(provedores || []);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Cadastrar Novo Provedor Multi-Tenant
+ * POST /api/admin/provedores/cadastrar
+ */
+app.post('/api/admin/provedores/cadastrar', async (req, res) => {
+    const { subdominio, nomeMarca, usuario, senha, logoUrl } = req.body;
+    if (!subdominio || !nomeMarca || !usuario) {
+        return res.status(400).json({ error: 'Subdomínio, Nome da Marca e Usuário são obrigatórios.' });
+    }
+
+    try {
+        const prov = await helpers.cadastrarProvedor(subdominio, nomeMarca, usuario, senha || '1234', logoUrl || '/starnet-logo.jpg');
+        res.status(200).json({ success: true, message: `Provedor ${prov.nome_marca} (${prov.subdominio}) cadastrado com sucesso!`, prov });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Redefinir Senha do Provedor para 1234
+ * POST /api/admin/provedores/redefinir-senha
+ */
+app.post('/api/admin/provedores/redefinir-senha', async (req, res) => {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'ID do provedor é obrigatório.' });
+
+    try {
+        await helpers.redefinirSenhaProvedor(id);
+        res.status(200).json({ success: true, message: 'Senha do provedor redefinida para 1234 com sucesso!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * ROTA: Excluir Provedor
+ * POST /api/admin/provedores/excluir
+ */
+app.post('/api/admin/provedores/excluir', async (req, res) => {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: 'ID do provedor é obrigatório.' });
+
+    try {
+        const prov = await helpers.excluirProvedor(id);
+        res.status(200).json({ success: true, message: `Provedor ${prov.nome_marca} excluído com sucesso!` });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// === ROTAS EXCLUSIVAS DO PAINEL DE PROVEDOR MULTI-TENANT (startv.levemaisfibra.com.br, etc) ===
+
+/**
+ * ROTA: Login do Provedor
  * POST /api/startv/login
  */
 app.post('/api/startv/login', async (req, res) => {
@@ -1820,6 +1885,9 @@ app.post('/api/startv/login', async (req, res) => {
         res.status(200).json({
             success: true,
             usuario: prov.usuario,
+            subdominio: prov.subdominio || 'startv',
+            nome_marca: prov.nome_marca || 'STARNET TV',
+            logo_url: prov.logo_url || '/starnet-logo.jpg',
             precisaTrocarSenha,
             message: precisaTrocarSenha ? 'Você precisa alterar a senha padrão 1234.' : 'Login realizado com sucesso!'
         });
@@ -1847,12 +1915,13 @@ app.post('/api/startv/alterar-senha', async (req, res) => {
 });
 
 /**
- * ROTA: Listar Clientes do Provedor Star TV (@startv)
+ * ROTA: Listar Clientes do Provedor
  * GET /api/startv/clientes
  */
 app.get('/api/startv/clientes', async (req, res) => {
     try {
-        const clientes = await helpers.listarClientesStartv();
+        const subdominio = req.query.subdominio || null;
+        const clientes = await helpers.listarClientesStartv(subdominio);
         res.status(200).json(clientes || []);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1860,11 +1929,11 @@ app.get('/api/startv/clientes', async (req, res) => {
 });
 
 /**
- * ROTA: Cadastrar Novo Cliente no Painel Star TV (@startv)
+ * ROTA: Cadastrar Novo Cliente no Painel de Provedor
  * POST /api/startv/cadastrar-cliente
  */
 app.post('/api/startv/cadastrar-cliente', async (req, res) => {
-    const { nome, cpfcnpj, email, telefone } = req.body;
+    const { nome, cpfcnpj, email, telefone, subdominio } = req.body;
     if (!nome || !cpfcnpj || !email || !telefone) {
         return res.status(400).json({ error: 'Todos os campos (Nome, CPF/CNPJ, E-mail e WhatsApp) são obrigatórios.' });
     }
@@ -1897,7 +1966,7 @@ app.post('/api/startv/cadastrar-cliente', async (req, res) => {
     }
 
     try {
-        const cliente = await helpers.cadastrarClienteStartv(nome, cpfcnpj, email, telefone);
+        const cliente = await helpers.cadastrarClienteStartv(nome, cpfcnpj, email, telefone, subdominio || 'startv');
 
         // Enfileira o cadastro e ativacao no ReceitaNet ERP em segundo plano
         const receitanetQueue = require('./services/receitanetQueue');
@@ -1909,10 +1978,10 @@ app.post('/api/startv/cadastrar-cliente', async (req, res) => {
             telefone: cliente.telefone,
             loginTv: cliente.login_tv,
             senhaTv: cliente.cpfcnpj, // A senha é o CPF do cliente!
-            planoNome: 'STAR TV LEVE MAIS FIBRA'
+            planoNome: `${cliente.subdominio.toUpperCase()} TV LEVE MAIS FIBRA`
         });
 
-        console.log(`[STAR TV PROVEDOR] 🚀 Cliente ${cliente.nome} (${cliente.login_tv}) cadastrado com sucesso! Senha (CPF): ${cliente.cpfcnpj}`);
+        console.log(`[PROVEDOR ${cliente.subdominio.toUpperCase()}] 🚀 Cliente ${cliente.nome} (${cliente.login_tv}) cadastrado com sucesso! Senha (CPF): ${cliente.cpfcnpj}`);
         res.status(200).json({
             success: true,
             message: `Cliente ${cliente.nome} cadastrado com sucesso! Login: ${cliente.login_tv} | Senha: ${cliente.cpfcnpj}`,
@@ -1956,6 +2025,15 @@ app.post('/api/startv/excluir-cliente', async (req, res) => {
  */
 app.get('/api/startv/server-logs', (req, res) => {
     res.status(200).json(serverLogs.slice(-100));
+});
+
+// Rotas de arquivos HTML dos Painéis
+app.get('/startv', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+});
+
+app.get('/admin-provedores', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
 });
 
 // Inicia o servidor Express
