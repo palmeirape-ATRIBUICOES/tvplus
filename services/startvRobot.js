@@ -265,27 +265,44 @@ class StartvRobotService {
                 console.error(`[STARTV-ROBOT EXCLUSIVO WARNING] Aviso ao vincular plano no Novo ERP:`, eNovoPlano.message);
             }
 
-            // 2. Vínculo no Módulo Legacy (clientes_plano.php?login=...)
+            // 2. Vínculo no Módulo Legacy (clientes_plano.php)
             try {
-                const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(loginTv)}`;
-                console.log(`[STARTV-ROBOT EXCLUSIVO] Gravando plano 'CDNTV' (pla_codigo 29) no módulo legacy...`);
-                await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+                const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
+                for (const targetLog of [loginTv, loginSemDominio]) {
+                    if (!targetLog) continue;
+                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
+                    console.log(`[STARTV-ROBOT EXCLUSIVO] Gravando plano 'CDNTV' em ${legacyPlanoUrl}...`);
+                    await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
 
-                await page.evaluate(() => {
-                    const select = document.querySelector('select[name="pla_codigo"]');
-                    if (select) {
-                        select.value = '29'; // 29 = CDNTV
-                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"]', { timeout: 5000 }).then(() => true).catch(() => false);
+                    if (hasSelect) {
+                        const planoDefinido = await page.evaluate(() => {
+                            const select = document.querySelector('select[name="pla_codigo"], select[name="plano"]');
+                            if (select) {
+                                const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.value === '29' || o.text.toUpperCase().includes('STAR'));
+                                if (opt) {
+                                    select.value = opt.value;
+                                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                                    return true;
+                                }
+                            }
+                            return false;
+                        });
+
+                        if (planoDefinido) {
+                            await Promise.all([
+                                page.evaluate(() => {
+                                    const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"], input[type="submit"], button[type="submit"]');
+                                    if (btn) btn.click();
+                                    else document.querySelector('form')?.submit();
+                                }),
+                                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                            ]);
+                            console.log(`[STARTV-ROBOT EXCLUSIVO SUCCESS] Plano CDNTV vinculado no legado com sucesso para ${targetLog}!`);
+                            break;
+                        }
                     }
-                });
-
-                await Promise.all([
-                    page.evaluate(() => {
-                        const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"]');
-                        if (btn) btn.click();
-                    }),
-                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
-                ]);
+                }
             } catch (eLegacy) {
                 console.error(`[STARTV-ROBOT EXCLUSIVO WARNING] Aviso ao vincular plano no módulo legacy:`, eLegacy.message);
             }
