@@ -195,48 +195,75 @@ class ReceitanetRobotService {
                 ]);
             }
 
-            console.log(`[STARTV-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Abrindo tela de Planos de Cobrança...`);
+            console.log(`[STARTV-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Abrindo a tela de Planos de Cobrança...`);
             
             // 1. Vínculo no Módulo Legacy (clientes_plano.php?login=...)
             try {
                 const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
                 for (const targetLog of [loginTv, loginSemDominio]) {
                     if (!targetLog) continue;
-                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
-                    console.log(`[STARTV-ROBOT] Gravando plano 'CDNTV' no módulo Legacy: ${legacyPlanoUrl}...`);
-                    await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+                    
+                    // Tenta clicar no botão 'Planos' que fica logo abaixo do cadastro do cliente
+                    const clickedPlanosBtn = await page.evaluate(() => {
+                        const links = Array.from(document.querySelectorAll('a, button'));
+                        const btn = links.find(a => a.textContent.trim().toUpperCase() === 'PLANOS' || a.href?.includes('clientes_plano.php'));
+                        if (btn) { btn.click(); return true; }
+                        return false;
+                    });
 
-                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"]', { timeout: 5000 }).then(() => true).catch(() => false);
+                    if (clickedPlanosBtn) {
+                        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {});
+                    } else {
+                        const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLog)}`;
+                        console.log(`[STARTV-ROBOT] Abrindo página de planos: ${legacyPlanoUrl}...`);
+                        await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
+                    }
+
+                    const hasSelect = await page.waitForSelector('select[name="pla_codigo"], select[name="plano"], select', { timeout: 6000 }).then(() => true).catch(() => false);
                     if (hasSelect) {
-                        const planoDefinido = await page.evaluate(() => {
-                            const select = document.querySelector('select[name="pla_codigo"], select[name="plano"]');
-                            if (select) {
-                                const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.value === '29' || o.text.toUpperCase().includes('STAR'));
-                                if (opt) {
-                                    select.value = opt.value;
-                                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                                    return true;
-                                }
-                            }
-                            return false;
-                        });
+                        console.log(`[STARTV-ROBOT] Selecionando 'CDNTV' no dropdown e clicando no botão 'Incluir' logo abaixo...`);
+                        
+                        const planoIncluido = await Promise.all([
+                            page.evaluate(() => {
+                                const select = document.querySelector('select[name="pla_codigo"], select[name="plano"], select');
+                                if (select) {
+                                    const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV') || o.value === '29' || o.text.toUpperCase().includes('STAR'));
+                                    if (opt) {
+                                        select.value = opt.value;
+                                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                                        
+                                        // Procura o botão 'Incluir' ou 'Cadastrar' logo abaixo do dropdown
+                                        const buttons = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], input[name="cadastrar"], a.btn'));
+                                        const btnIncluir = buttons.find(b => {
+                                            const val = (b.value || b.textContent || '').trim().toUpperCase();
+                                            return val === 'INCLUIR' || val.includes('INCLUIR') || val === 'CADASTRAR' || val.includes('CADASTRAR');
+                                        });
 
-                        if (planoDefinido) {
-                            await Promise.all([
-                                page.evaluate(() => {
-                                    const btn = document.querySelector('button[name="cadastrar"], input[name="cadastrar"], input[type="submit"], button[type="submit"]');
-                                    if (btn) btn.click();
-                                    else document.querySelector('form')?.submit();
-                                }),
-                                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
-                            ]);
-                            console.log(`[STARTV-ROBOT SUCCESS] ✅ Plano 'CDNTV' (29) vinculado no módulo Legacy com sucesso para ${targetLog}!`);
+                                        if (btnIncluir) {
+                                            btnIncluir.click();
+                                            return true;
+                                        }
+
+                                        const form = select.closest('form');
+                                        if (form) {
+                                            form.submit();
+                                            return true;
+                                        }
+                                    }
+                                }
+                                return false;
+                            }),
+                            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {})
+                        ]);
+
+                        if (planoIncluido[0]) {
+                            console.log(`[STARTV-ROBOT SUCCESS] ✅ Plano 'CDNTV' atribuído e confirmado com sucesso para ${targetLog}!`);
                             break;
                         }
                     }
                 }
             } catch (eLegacy) {
-                console.error(`[STARTV-ROBOT WARNING] Aviso na vinculação do plano Legacy:`, eLegacy.message);
+                console.error(`[STARTV-ROBOT WARNING] Aviso na atribuição do plano CDNTV:`, eLegacy.message);
             }
 
             // 2. Novo ERP (/novo/financeiros/clientes/planos/)
@@ -263,12 +290,12 @@ class ReceitanetRobotService {
                 }
 
                 if (page.url().includes('/planos/')) {
-                    console.log(`[STARTV-ROBOT] Gravando mensalidade 'CDNTV-R$0,00' no Novo ERP...`);
+                    console.log(`[STARTV-ROBOT] Selecionando mensalidade 'CDNTV-R$0,00' no Novo ERP...`);
                     await page.waitForSelector('select[name="mensalidade_id"], select', { timeout: 10000 });
 
                     await Promise.all([
                         page.evaluate(() => {
-                            const select = document.querySelector('select[name="mensalidade_id"]');
+                            const select = document.querySelector('select[name="mensalidade_id"], select');
                             if (select) {
                                 const opt = Array.from(select.options).find(o => o.text.toUpperCase().includes('CDNTV-R$0,00') || o.text.toLowerCase().includes('cdntv') || o.value === '108038');
                                 if (opt) {
@@ -286,7 +313,7 @@ class ReceitanetRobotService {
                     console.log(`[STARTV-ROBOT SUCCESS] ✅ Mensalidade 'CDNTV-R$0,00' vinculada no Novo ERP com sucesso!`);
                 }
             } catch (eNovoPlano) {
-                console.error(`[STARTV-ROBOT WARNING] Aviso na vinculação de plano no Novo ERP:`, eNovoPlano.message);
+                console.error(`[STARTV-ROBOT WARNING] Aviso na atribuição no Novo ERP:`, eNovoPlano.message);
             }
 
             console.log(`[RECEITANET-ROBOT SUCCESS] Cliente ${loginTv} cadastrado e ativado com plano CDNTV!`);
