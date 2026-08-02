@@ -163,55 +163,59 @@ class ReceitanetRobotService {
             await this.tirarScreenshot(page, '02_apos_incluir_cliente_criado');
             console.log(`[STARTV-ROBOT] ETAPA 1 Concluída! Ficha do cliente criada com sucesso.`);
 
-            // ETAPA 2: Abrir a ficha do cliente recém-criado e ir para a área de Planos
+            // ETAPA 2: Obter a URL de Planos do cliente no formato /novo/financeiros/clientes/planos/{ID}
             const editClienteUrl = `${RECEITANET_LOGIN_URL}clientes_cadastro.php?cli_login=${encodeURIComponent(loginClean)}`;
-            console.log(`[STARTV-ROBOT] ETAPA 2: Abrindo ficha do cliente recém-criado (${editClienteUrl})...`);
+            console.log(`[STARTV-ROBOT] ETAPA 2: Abrindo ficha do cliente (${editClienteUrl}) para obter o ID...`);
             await page.goto(editClienteUrl, { waitUntil: 'domcontentloaded' });
-            await page.waitForSelector('a, button', { timeout: 8000 });
+            await page.waitForSelector('a, input', { timeout: 8000 });
 
             await this.tirarScreenshot(page, '03_ficha_cliente_aberta');
 
-            // Procura e navega para o link/botão 'Planos'
-            console.log(`[STARTV-ROBOT] Localizando a opção/botão 'Planos' no topo do cadastro...`);
-            const planosUrl = await page.evaluate(() => {
+            // Extrai a URL ou ID do plano no formato /novo/financeiros/clientes/planos/{ID}
+            let targetPlanUrl = await page.evaluate(() => {
                 const links = Array.from(document.querySelectorAll('a'));
-                const linkPlanos = links.find(a => {
-                    const txt = (a.textContent || '').trim().toUpperCase();
-                    return txt === 'PLANOS' || txt.includes('PLANO DE COBRANÇA') || (a.href && a.href.includes('plano'));
-                });
-                return linkPlanos ? linkPlanos.href : null;
+                const linkPlanos = links.find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
+                if (linkPlanos) return linkPlanos.href;
+
+                // Tenta extrair ID numérico de inputs
+                const inputId = document.querySelector('input[name="cli_codigo"], input[name="cli_id"], input[name="id"]');
+                if (inputId && inputId.value && /^\d+$/.test(inputId.value.trim())) {
+                    return `https://sistema.receitanet.net/novo/financeiros/clientes/planos/${inputId.value.trim()}`;
+                }
+
+                // Tenta buscar no HTML
+                const html = document.body.innerHTML;
+                const m = html.match(/\/novo\/financeiros\/clientes\/planos\/(\d+)/) || html.match(/Identificação:\s*(\d+)/i);
+                if (m) return `https://sistema.receitanet.net/novo/financeiros/clientes/planos/${m[1]}`;
+
+                return null;
             });
 
-            if (planosUrl) {
-                console.log(`[STARTV-ROBOT] Abrindo página de planos do cliente: ${planosUrl}...`);
-                await page.goto(planosUrl, { waitUntil: 'domcontentloaded' });
-            } else {
-                console.log(`[STARTV-ROBOT] Clicando no botão azul 'Planos' diretamente na página...`);
-                await page.evaluate(() => {
-                    const btnPlanos = document.querySelector('#PG_Clientes_Cadastro > section.content > div.hidden-xs > a.btn.bg-blue.btn-app') ||
-                                      document.querySelector('a.btn.bg-blue.btn-app') ||
-                                      Array.from(document.querySelectorAll('a')).find(a => a.textContent.trim().toUpperCase() === 'PLANOS');
-                    if (btnPlanos) btnPlanos.click();
+            // Se não encontrou o ID no cadastro legacy, busca via Novo ERP (/novo/clientes?busca=...)
+            if (!targetPlanUrl) {
+                console.log(`[STARTV-ROBOT] Buscando o cliente '${loginClean}' no Novo ERP (/novo/clientes)...`);
+                await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginClean)}`, { waitUntil: 'domcontentloaded' });
+                await new Promise(r => setTimeout(r, 1500));
+
+                targetPlanUrl = await page.evaluate(() => {
+                    const link = Array.from(document.querySelectorAll('a')).find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
+                    return link ? link.href : null;
                 });
-                await new Promise(r => setTimeout(r, 2000));
             }
+
+            if (!targetPlanUrl) {
+                // Fallback padrao com o login sem dominio
+                targetPlanUrl = `https://sistema.receitanet.net/clientes_plano.php?login=${encodeURIComponent(loginClean)}`;
+            }
+
+            console.log(`[STARTV-ROBOT] 🚀 Navegando DIRETAMENTE para a página de Planos: ${targetPlanUrl}...`);
+            await page.goto(targetPlanUrl, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector('select', { timeout: 8000 });
 
             await this.tirarScreenshot(page, '04_tela_planos_aberta');
 
-            // ETAPA 3: Na área Plano de Cobrança, no dropdown Descrição selecionar 'cdntv' e clicar em INCLUIR
+            // ETAPA 3: Na área Plano de Cobrança, no dropdown Descrição selecionar 'cdntv' e clicar no botão INCLUIR
             console.log(`[STARTV-ROBOT] ETAPA 3: Selecionando 'cdntv' no dropdown Descrição e clicando no botão INCLUIR...`);
-
-            await page.waitForSelector('select', { timeout: 8000 });
-
-            // Diagnóstico de selects presentes na tela
-            const selectLogs = await page.evaluate(() => {
-                return Array.from(document.querySelectorAll('select')).map(s => ({
-                    name: s.name,
-                    id: s.id,
-                    options: Array.from(s.options).map(o => ({ text: o.text, value: o.value }))
-                }));
-            });
-            console.log(`[STARTV-ROBOT DIAGNOSTICO SELECTS]`, JSON.stringify(selectLogs));
 
             await Promise.all([
                 page.evaluate(() => {
