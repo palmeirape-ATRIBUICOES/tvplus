@@ -113,17 +113,18 @@ class ReceitanetRobotService {
         const cpf = cpfRaw.toString().replace(/\D/g, '');
         const senhaTv = cpf; // A senha deve ser o CPF conforme instrução
         const nomeCliente = cliente.nome || 'Cliente Provedor';
+        const loginClean = (loginTv || '').replace(/@.*$/, '').trim();
 
-        console.log(`[ROBO-SEQUENCIA-EXATA] 🚀 Criando usuário '${loginTv}' do zero com CPF/Senha '${cpf}'...`);
+        console.log(`[RECEITANET-ROBOT] 🚀 Criando usuário '${loginTv}' do zero com CPF/Senha '${cpf}'...`);
 
         try {
             // ETAPA 1: Acessar a página https://sistema.receitanet.net/clientes_cadastro.php
-            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 1: Acessando https://sistema.receitanet.net/clientes_cadastro.php...`);
+            console.log(`[RECEITANET-ROBOT] ETAPA 1: Acessando https://sistema.receitanet.net/clientes_cadastro.php...`);
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
 
-            // Preencher campos da foto: login, senha (CPF), nome, cpf
-            console.log(`[ROBO-SEQUENCIA-EXATA] Preenchendo Login: '${loginTv}', Senha (CPF): '${senhaTv}', Nome: '${nomeCliente}', CPF: '${cpf}'...`);
+            // Preencher campos: login, senha (CPF), nome, cpf
+            console.log(`[RECEITANET-ROBOT] Preenchendo Login: '${loginTv}', Senha (CPF): '${senhaTv}', Nome: '${nomeCliente}', CPF: '${cpf}'...`);
             await page.type('input[name="cli_login"]', (loginTv || '').toString());
             await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
             await page.type('input[name="cli_nome"]', (nomeCliente || '').toString());
@@ -146,8 +147,8 @@ class ReceitanetRobotService {
 
             await this.tirarScreenshot(page, '01_formulario_cadastro_preenchido');
 
-            // Clica no botão Incluir seletor: #form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary
-            console.log(`[ROBO-SEQUENCIA-EXATA] Clicando no botão Incluir do cadastro...`);
+            // Clica no botão Incluir
+            console.log(`[RECEITANET-ROBOT] Clicando no botão Incluir do cadastro...`);
             await Promise.all([
                 page.evaluate(() => {
                     const btn = document.querySelector('#form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary') ||
@@ -160,66 +161,96 @@ class ReceitanetRobotService {
             ]);
 
             await this.tirarScreenshot(page, '02_apos_incluir_cliente_criado');
-            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 1 Concluída! Ficha criada: ${page.url()}`);
+            console.log(`[RECEITANET-ROBOT] ETAPA 1 Concluída! Ficha do cliente criada com sucesso.`);
 
-            // ETAPA 2: Clicar no botão azul Planos na MESMA página que acabou de carregar!
-            // Seletor: #PG_Clientes_Cadastro > section.content > div.hidden-xs > a.btn.bg-blue.btn-app
-            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 2: Clicando no botão azul 'Planos' na página do cliente...`);
-            
-            const clickedPlanos = await page.evaluate(() => {
-                const btnPlanos = document.querySelector('#PG_Clientes_Cadastro > section.content > div.hidden-xs > a.btn.bg-blue.btn-app') ||
-                                  document.querySelector('a.btn.bg-blue.btn-app') ||
-                                  Array.from(document.querySelectorAll('a')).find(a => {
-                                      const txt = (a.textContent || '').trim().toUpperCase();
-                                      return txt.includes('PLANOS') || (a.href && a.href.includes('/planos'));
-                                  });
-                if (btnPlanos) {
-                    btnPlanos.click();
-                    return true;
-                }
-                return false;
+            // ETAPA 2: Abrir a ficha do cliente recém-criado e ir para a área de Planos
+            const editClienteUrl = `${RECEITANET_LOGIN_URL}clientes_cadastro.php?cli_login=${encodeURIComponent(loginClean)}`;
+            console.log(`[RECEITANET-ROBOT] ETAPA 2: Abrindo ficha do cliente recém-criado (${editClienteUrl})...`);
+            await page.goto(editClienteUrl, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector('a, button', { timeout: 8000 });
+
+            await this.tirarScreenshot(page, '03_ficha_cliente_aberta');
+
+            // Procura e navega para o link/botão 'Planos'
+            console.log(`[RECEITANET-ROBOT] Localizando a opção/botão 'Planos' no topo do cadastro...`);
+            const planosUrl = await page.evaluate(() => {
+                const links = Array.from(document.querySelectorAll('a'));
+                const linkPlanos = links.find(a => {
+                    const txt = (a.textContent || '').trim().toUpperCase();
+                    return txt === 'PLANOS' || txt.includes('PLANO DE COBRANÇA') || (a.href && a.href.includes('plano'));
+                });
+                return linkPlanos ? linkPlanos.href : null;
             });
 
-            if (clickedPlanos) {
-                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+            if (planosUrl) {
+                console.log(`[RECEITANET-ROBOT] Abrindo página de planos do cliente: ${planosUrl}...`);
+                await page.goto(planosUrl, { waitUntil: 'domcontentloaded' });
+            } else {
+                console.log(`[RECEITANET-ROBOT] Clicando no botão azul 'Planos' diretamente na página...`);
+                await page.evaluate(() => {
+                    const btnPlanos = document.querySelector('#PG_Clientes_Cadastro > section.content > div.hidden-xs > a.btn.bg-blue.btn-app') ||
+                                      document.querySelector('a.btn.bg-blue.btn-app') ||
+                                      Array.from(document.querySelectorAll('a')).find(a => a.textContent.trim().toUpperCase() === 'PLANOS');
+                    if (btnPlanos) btnPlanos.click();
+                });
+                await new Promise(r => setTimeout(r, 2000));
             }
 
-            await this.tirarScreenshot(page, '03_tela_planos_carregada');
-            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 2 Concluída! Tela de Planos: ${page.url()}`);
+            await this.tirarScreenshot(page, '04_tela_planos_aberta');
 
-            // ETAPA 3: Na área Plano de Cobrança, no dropdown Descrição selecionar 'cdntv' e clicar no botão INCLUIR
-            // Seletor dropdown: #app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-body > div:nth-child(1) > select
-            // Seletor botao: #app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-footer > button
-            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 3: Selecionando 'cdntv' no dropdown Descrição e clicando em INCLUIR...`);
+            // ETAPA 3: Na área Plano de Cobrança, no dropdown Descrição selecionar 'cdntv' e clicar em INCLUIR
+            console.log(`[RECEITANET-ROBOT] ETAPA 3: Selecionando 'cdntv' no dropdown Descrição e clicando no botão INCLUIR...`);
 
             await page.waitForSelector('select', { timeout: 8000 });
 
+            // Diagnóstico de selects presentes na tela
+            const selectLogs = await page.evaluate(() => {
+                return Array.from(document.querySelectorAll('select')).map(s => ({
+                    name: s.name,
+                    id: s.id,
+                    options: Array.from(s.options).map(o => ({ text: o.text, value: o.value }))
+                }));
+            });
+            console.log(`[RECEITANET-ROBOT DIAGNOSTICO SELECTS]`, JSON.stringify(selectLogs));
+
             await Promise.all([
                 page.evaluate(() => {
-                    const select = document.querySelector('#app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-body > div:nth-child(1) > select') ||
-                                   document.querySelector('select[name="mensalidade_id"]') ||
-                                   document.querySelector('select[name="pla_codigo"]') ||
-                                   document.querySelector('select');
+                    const selects = Array.from(document.querySelectorAll('select'));
+                    let targetSelect = null;
+                    let cdntvOption = null;
 
-                    if (select) {
-                        const opt = Array.from(select.options).find(o => {
+                    for (const s of selects) {
+                        const opt = Array.from(s.options).find(o => {
                             const txt = (o.text || '').toLowerCase();
-                            return txt.includes('cdntv') || txt.includes('cdn') || o.value === '108038' || o.value === '29';
+                            const val = (o.value || '').toString();
+                            return txt.includes('cdntv') || txt.includes('cdn') || val === '108038' || val === '29';
                         });
-
                         if (opt) {
-                            select.value = opt.value;
-                            select.dispatchEvent(new Event('change', { bubbles: true }));
+                            targetSelect = s;
+                            cdntvOption = opt;
+                            break;
+                        }
+                    }
 
-                            const btnIncluir = document.querySelector('#app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-footer > button') ||
-                                               document.querySelector('form button.btn-primary, form button[type="submit"]') ||
-                                               Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().toUpperCase() === 'INCLUIR');
+                    if (targetSelect && cdntvOption) {
+                        targetSelect.value = cdntvOption.value;
+                        targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        targetSelect.dispatchEvent(new Event('input', { bubbles: true }));
+
+                        const parentForm = targetSelect.closest('form') || document.querySelector('form');
+                        if (parentForm) {
+                            const btnIncluir = parentForm.querySelector('#app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-footer > button') ||
+                                               parentForm.querySelector('button, input[type="submit"]') ||
+                                               Array.from(parentForm.querySelectorAll('button, input')).find(b => {
+                                                   const val = (b.value || b.textContent || '').trim().toUpperCase();
+                                                   return val.includes('INCLUIR');
+                                               });
 
                             if (btnIncluir) {
                                 btnIncluir.click();
                                 return true;
                             } else {
-                                select.closest('form')?.submit();
+                                parentForm.submit();
                                 return true;
                             }
                         }
@@ -230,9 +261,9 @@ class ReceitanetRobotService {
             ]);
 
             await new Promise(r => setTimeout(r, 2000));
-            await this.tirarScreenshot(page, '04_plano_cdntv_confirmado_sucesso');
+            await this.tirarScreenshot(page, '05_plano_cdntv_confirmado_sucesso');
 
-            console.log(`[ROBO-SEQUENCIA-EXATA SUCCESS] 🎉 CRIAÇÃO E ATIVAÇÃO DO USUÁRIO '${loginTv}' FINALIZADA COM SUCESSO!`);
+            console.log(`[RECEITANET-ROBOT SUCCESS] 🎉 CRIAÇÃO DO CLIENTE E INCLUSÃO DO PLANO CDNTV FINALIZADA COM SUCESSO!`);
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha no cadastro de cliente:`, error.message);
