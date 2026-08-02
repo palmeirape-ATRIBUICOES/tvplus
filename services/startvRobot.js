@@ -462,249 +462,130 @@ class ReceitanetRobotService {
     }
 
     async excluirCliente(login, cpf, nome) {
-        const rawLogin = (login || '').toString().trim().toLowerCase();
-        const loginSemDominio = rawLogin.replace(/@.*$/, '').replace(/[\s\+].*$/, '').trim();
-        const loginComDominio = rawLogin.includes('@') ? rawLogin : `${rawLogin}@tvplus`;
+        const rawLogin = (login || '').toString().trim();
+        const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
 
-        console.log(`[RECEITANET-ROBOT OTIMIZADO] ⚡ Iniciando exclusão ultrarrápida do login: '${rawLogin}'...`);
+        console.log('[STARTV-ROBOT] 🗑️ Iniciando exclusão do cliente: ' + rawLogin + ' (sem domínio: ' + loginSemDominio + ')...');
         const page = await this.obterPaginaAutenticada();
 
         try {
-            const variacoesLogin = [
-                loginSemDominio,
-                loginComDominio,
-                `${loginSemDominio}suspenso`,
-                `${loginSemDominio}@tvplussuspenso`
-            ];
+            // PASSO 1: Acessar a página de Rescisão com o login
+            const rescisaoUrl = 'https://sistema.receitanet.net/clientes_rescisao.php?login=' + encodeURIComponent(loginSemDominio);
+            console.log('[STARTV-ROBOT] PASSO 1: Acessando tela de rescisão: ' + rescisaoUrl);
+            await page.goto(rescisaoUrl, { waitUntil: 'domcontentloaded' });
 
-            let excluidoComSucesso = false;
+            // PASSO 2: Motivo do Cancelamento dropdown -> 'cancelado chip' e Detalhe -> 'ok'
+            console.log('[STARTV-ROBOT] PASSO 2: Selecionando motivo cancelado chip e detalhe ok...');
+            await page.waitForSelector('select[name="cancelamento_motivo"], select', { timeout: 10000 });
 
-            for (const targetLogin of variacoesLogin) {
-                if (!targetLogin) continue;
-
-                const cadastroUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(targetLogin)}`;
-                console.log(`[RECEITANET-ROBOT] Abrindo ficha de cadastro do cliente: ${cadastroUrl}...`);
-                await page.goto(cadastroUrl, { waitUntil: 'networkidle2' });
-                
-                const hasInput = await page.waitForSelector('input[name="cli_login"]', { timeout: 5000 }).then(() => true).catch(() => false);
-                if (!hasInput) {
-                    console.log(`[RECEITANET-ROBOT] Ficha de '${targetLogin}' não pôde ser aberta ou não existe.`);
-                    continue;
+            await page.evaluate(() => {
+                const select = document.querySelector('select[name="cancelamento_motivo"]') || document.querySelector('select');
+                if (select) {
+                    const opt = Array.from(select.options).find(o => (o.text || '').toLowerCase().includes('chip') || o.value === '13');
+                    if (opt) {
+                        select.value = opt.value;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }
 
-                // -1. Altera o status do cadastro para SUSPENSO no ERP (cli_boleto='N', men_codigo='2') e salva a ficha
-                // Isso força o ReceitaNet a disparar a sincronização de revogação de API com os servidores da CDNTV na hora para deslogar do celular
-                try {
-                    console.log(`[RECEITANET-ROBOT] Alterando status de '${targetLogin}' para SUSPENSO no ERP para revogar API CDNTV e deslogar do celular...`);
-                    await page.evaluate(() => {
-                        const setVal = (selector, val) => {
-                            const el = document.querySelector(selector);
-                            if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
-                        };
-                        setVal('select[name="cli_boleto"]', 'N'); // Desativado / Suspenso
-                        setVal('select[name="men_codigo"]', '2'); // Suspenso
-                        
-                        const selectStatus = document.querySelector('select[name="cli_status"], select[name="status"]');
-                        if (selectStatus) {
-                            const opt = Array.from(selectStatus.options).find(o => o.text.toLowerCase().includes('suspenso') || o.value === '2' || o.value === 'S');
-                            if (opt) selectStatus.value = opt.value;
-                        }
-                    });
-
-                    await this.salvarFormularioCliente(page);
-                    console.log(`[RECEITANET-ROBOT SUCCESS] Cadastro '${targetLogin}' alterado para SUSPENSO e salvo no ERP (API CDNTV revogada, celular deslogado)!`);
-                } catch (eRenomear) {
-                    console.log(`[RECEITANET-ROBOT] Aviso ao desativar status no ERP antes da rescisão:`, eRenomear.message);
+                const campoDetalhe = document.querySelector('textarea[name="cancelamento_detalhe"]') || 
+                                     document.querySelector('textarea') || 
+                                     document.querySelector('input[name="detalhe"]') || 
+                                     document.querySelector('input[name="observacao"]');
+                if (campoDetalhe) {
+                    campoDetalhe.value = 'ok';
+                    campoDetalhe.dispatchEvent(new Event('input', { bubbles: true }));
+                    campoDetalhe.dispatchEvent(new Event('change', { bubbles: true }));
                 }
+            });
 
-                // 0. Antes da Rescisão, acessa a aba/página de Planos de Cobrança para REMOVER o plano CDNTV
-                // Isso força o ReceitaNet a enviar a ordem de cancelamento de API para os servidores centrais da CDNTV
-                console.log(`[RECEITANET-ROBOT] Removendo/desativando plano CDNTV antes da rescisão para cancelar a API na CDNTV...`);
-                try {
-                    // 0.1 Módulo Legacy de planos (clientes_plano.php?login=...)
-                    const legacyPlanoUrl = `${RECEITANET_LOGIN_URL}clientes_plano.php?login=${encodeURIComponent(targetLogin)}`;
-                    await page.goto(legacyPlanoUrl, { waitUntil: 'networkidle2' });
-                    
-                    const hasPlanoLegacy = await page.waitForSelector('select[name="pla_codigo"]', { timeout: 4000 }).then(() => true).catch(() => false);
-                    if (hasPlanoLegacy) {
-                        await page.evaluate(() => {
-                            const select = document.querySelector('select[name="pla_codigo"]');
-                            if (select) {
-                                const optVazia = Array.from(select.options).find(o => o.value === '0' || o.value === '' || o.text.toLowerCase().includes('nenhum'));
-                                if (optVazia) {
-                                    select.value = optVazia.value;
-                                } else {
-                                    select.value = '0';
-                                }
-                                select.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        });
+            this.tirarScreenshot(page, 'excluir_01_rescisao_preenchida').catch(() => {});
 
-                        await Promise.all([
-                            page.evaluate(() => {
-                                const btn = document.querySelector('input[type="submit"]') || Array.from(document.querySelectorAll('button, input[type="button"]')).find(b => b.value?.includes('Alterar') || b.textContent?.includes('Alterar') || b.value?.includes('Gravar'));
-                                if (btn) btn.click();
-                            }),
-                            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {})
-                        ]);
-                        console.log(`[RECEITANET-ROBOT] Plano CDNTV desvinculado no módulo legacy para '${targetLogin}'!`);
-                    }
-
-                    // 0.2 Módulo Novo ERP de planos (procura e clica em Excluir/Lixeira no plano CDNTV)
-                    const loginSemDominio = targetLogin.replace(/@.*$/, '').trim();
-                    let planUrl = null;
-                    for (const queryTerm of [loginSemDominio, targetLogin]) {
-                        if (!queryTerm) continue;
-                        await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(queryTerm)}`, { waitUntil: 'networkidle2' });
-                        await new Promise(r => setTimeout(r, 1500));
-
-                        planUrl = await page.evaluate(() => {
-                            const links = Array.from(document.querySelectorAll('a'));
-                            const linkPlano = links.find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
-                            return linkPlano ? linkPlano.href : null;
-                        });
-                        if (planUrl) break;
-                    }
-
-                    if (planUrl) {
-                        await page.goto(planUrl, { waitUntil: 'networkidle2' });
-                        await new Promise(r => setTimeout(r, 1500));
-
-                        const clickedDeletePlan = await page.evaluate(() => {
-                            const rows = Array.from(document.querySelectorAll('tr, div.row, div.card'));
-                            for (const r of rows) {
-                                if (r.textContent.toUpperCase().includes('CDNTV')) {
-                                    const btnDelete = r.querySelector('a.btn-danger, button.btn-danger, a[href*="delete"], a[href*="excluir"], i.fa-trash, i.fa-trash-can');
-                                    if (btnDelete) {
-                                        const clickTarget = btnDelete.closest('a, button') || btnDelete;
-                                        clickTarget.click();
-                                        return true;
-                                    }
-                                }
-                            }
-                            return false;
-                        });
-
-                        if (clickedDeletePlan) {
-                            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => {});
-                            console.log(`[RECEITANET-ROBOT] Item de mensalidade CDNTV excluído no Novo ERP para '${targetLogin}'!`);
-                        }
-                    }
-                } catch (ePlano) {
-                    console.log(`[RECEITANET-ROBOT] Aviso ao tentar desativar plano CDNTV para '${targetLogin}':`, ePlano.message);
-                }
-
-                // 1. Ir na aba Rescisão
-                console.log(`[RECEITANET-ROBOT] Acessando aba de Rescisão...`);
-                const hasRescisaoBtn = await page.evaluate(() => {
-                    const btn = Array.from(document.querySelectorAll('a, button')).find(b => b.textContent.trim() === 'Rescisão' || b.href?.includes('clientes_rescisao.php'));
-                    if (btn) { btn.click(); return true; }
-                    return false;
-                });
-
-                if (hasRescisaoBtn) {
-                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 }).catch(() => {});
+            // PASSO 3: Clicar no botão via XPath exato /html/body/div/div/section[2]/form/div[3]/button[1]
+            console.log('[STARTV-ROBOT] PASSO 3: Clicando no botão via XPath exato /html/body/div/div/section[2]/form/div[3]/button[1]...');
+            
+            await page.evaluate(() => {
+                const xpathBtn = document.evaluate('/html/body/div/div/section[2]/form/div[3]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                if (xpathBtn) {
+                    xpathBtn.scrollIntoView();
+                    xpathBtn.click();
                 } else {
-                    const rescisaoUrl = `https://sistema.receitanet.net/clientes_rescisao.php?login=${encodeURIComponent(targetLogin)}`;
-                    await page.goto(rescisaoUrl, { waitUntil: 'networkidle2' });
+                    const btn = Array.from(document.querySelectorAll('button, input[type="submit"]')).find(b => (b.textContent || b.value || '').toUpperCase().includes('CALCULAR')) || document.querySelector('form button');
+                    if (btn) btn.click();
+                    else document.querySelector('form')?.submit();
                 }
+            });
 
-                const hasSelect = await page.waitForSelector('select[name="cancelamento_motivo"]', { timeout: 8000 }).then(() => true).catch(() => false);
-                if (hasSelect) {
-                    // 2. No motivo selecionar Cancelado Chip
-                    console.log(`[RECEITANET-ROBOT] Selecionando motivo 'Cancelado Chip'...`);
-                    await page.evaluate(() => {
-                        const select = document.querySelector('select[name="cancelamento_motivo"]');
-                        if (select) {
-                            const opt = Array.from(select.options).find(o => o.text.toLowerCase().includes('chip') || o.value === '13');
-                            if (opt) {
-                                select.value = opt.value;
-                                select.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        }
-                    });
+            await new Promise(r => setTimeout(r, 1500));
 
-                    // 3. Escrever no detalhe OK
-                    console.log(`[RECEITANET-ROBOT] Escrevendo 'OK' nos detalhes de cancelamento...`);
-                    await page.evaluate(() => {
-                        const input = document.querySelector('textarea') || document.querySelector('input[name="detalhe"]') || document.querySelector('input[name="observacao"]') || document.querySelector('textarea[name="cancelamento_detalhe"]');
-                        if (input) {
-                            input.value = 'OK';
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    });
-
-                    // 4. Clicar em Calcular
-                    console.log(`[RECEITANET-ROBOT] Clicando em 'Calcular'...`);
-                    await Promise.all([
-                        page.evaluate(() => {
-                            const btn = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a.btn')).find(b => b.textContent.trim().toUpperCase().includes('CALCULAR'));
-                            if (btn) btn.click();
-                            else document.querySelector('form')?.submit();
-                        }),
-                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
-                    ]);
-
-                    await new Promise(r => setTimeout(r, 1500));
-
-                    // Fecha com segurança qualquer nova aba aberta e reconecta o ponteiro oficial da página
-                    try {
-                        const pages = await this.browser.pages();
-                        if (pages && pages.length > 1) {
-                            console.log(`[RECEITANET-ROBOT] Fechando ${pages.length - 1} aba(s) popup secundária(s)...`);
-                            for (let i = 1; i < pages.length; i++) {
-                                await pages[i].close().catch(() => {});
-                            }
-                        }
-                        const activePages = await this.browser.pages();
-                        if (activePages && activePages.length > 0) {
-                            this.page = activePages[0];
-                            page = activePages[0];
-                        }
-                    } catch (ePage) {}
+            // PASSO 4: Fechar qualquer nova guia/aba popup aberta
+            try {
+                const pages = await this.browser.pages();
+                if (pages && pages.length > 1) {
+                    console.log('[STARTV-ROBOT] PASSO 4: Fechando ' + (pages.length - 1) + ' guia(s) popup secundaria(s)...');
+                    for (let i = 1; i < pages.length; i++) {
+                        await pages[i].close().catch(() => {});
+                    }
                 }
-
-                // 5. Depois o sistema volta para o cadastro
-                console.log(`[RECEITANET-ROBOT] Voltando para a ficha do cliente: ${cadastroUrl}...`);
-                await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' });
-
-                // 6. Atualiza a página
-                console.log(`[RECEITANET-ROBOT] Atualizando a página de cadastro...`);
-                await page.reload({ waitUntil: 'domcontentloaded' });
-
-                // 7. E vai aparecer o campo Excluir. Clica nele
-                console.log(`[RECEITANET-ROBOT] Procurando o botão 'Excluir'...`);
-                const hasExcluirBtn = await page.evaluate(() => {
-                    const btn = document.getElementById('Excluir') || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find(b => b.textContent.trim() === 'Excluir' || b.value?.trim() === 'Excluir');
-                    return btn ? true : false;
-                });
-
-                if (hasExcluirBtn) {
-                    console.log(`[RECEITANET-ROBOT] Clicando no botão 'Excluir' para remoção definitiva...`);
-                    await Promise.all([
-                        page.evaluate(() => {
-                            const btn = document.getElementById('Excluir') || Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a')).find(b => b.textContent.trim() === 'Excluir' || b.value?.trim() === 'Excluir');
-                            if (btn) btn.click();
-                        }),
-                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {})
-                    ]);
-                    console.log(`[RECEITANET-ROBOT] Cliente '${targetLogin}' excluído com sucesso!`);
-                    excluidoComSucesso = true;
-                } else {
-                    console.log(`[RECEITANET-ROBOT] O botão 'Excluir' não apareceu na ficha de '${targetLogin}'.`);
+                const activePages = await this.browser.pages();
+                if (activePages && activePages.length > 0) {
+                    this.page = activePages[0];
                 }
+            } catch (ePopup) {
+                console.log('[STARTV-ROBOT] Aviso ao gerenciar guias popup:', ePopup.message);
             }
 
-            console.log(`[RECEITANET-ROBOT SUCCESS] Processo de exclusão do teste '${rawLogin}' concluído no ReceitaNet ERP!`);
+            // PASSO 5: Voltar para a ficha de cadastro do cliente
+            const cadastroUrl = 'https://sistema.receitanet.net/clientes_cadastro.php?cli_login=' + encodeURIComponent(loginSemDominio);
+            console.log('[STARTV-ROBOT] PASSO 5: Voltando para o cadastro do cliente: ' + cadastroUrl);
+            await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' });
+
+            // PASSO 6: F5 (reload) para atualizar a página e liberar a opção Excluir
+            console.log('[STARTV-ROBOT] PASSO 6: Atualizando a pagina (F5) para liberar o botao Excluir...');
+            await page.reload({ waitUntil: 'domcontentloaded' });
+            await new Promise(r => setTimeout(r, 1000));
+
+            this.tirarScreenshot(page, 'excluir_02_cadastro_atualizado').catch(() => {});
+
+            // PASSO 7: Clicar no botão Excluir no XPath exato: /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]
+            console.log('[STARTV-ROBOT] PASSO 7: Clicando no botao Excluir no XPath /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]...');
+            
+            const clicouExcluir = await page.evaluate(() => {
+                const xpathExcluir = document.evaluate('/html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                if (xpathExcluir) {
+                    xpathExcluir.scrollIntoView();
+                    xpathExcluir.click();
+                    return 'xpath_exato';
+                }
+
+                const btnExcluir = document.getElementById('Excluir') || 
+                                   Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], a'))
+                                   .find(b => (b.textContent || b.value || '').trim() === 'Excluir');
+                if (btnExcluir) {
+                    btnExcluir.scrollIntoView();
+                    btnExcluir.click();
+                    return 'seletor_texto';
+                }
+                return false;
+            });
+
+            if (!clicouExcluir) {
+                console.log('[STARTV-ROBOT] Aviso: Botao Excluir nao encontrado na ficha. Verificando se ja foi excluido.');
+            } else {
+                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+                console.log('[STARTV-ROBOT SUCCESS] 🎉 Cliente ' + rawLogin + ' excluido com sucesso via ' + clicouExcluir + '!');
+            }
+
+            this.tirarScreenshot(page, 'excluir_03_finalizado').catch(() => {});
             return true;
+
         } catch (error) {
-            console.error(`[RECEITANET-ROBOT ERROR] Falha ao excluir cliente de teste:`, error.message);
-            await this.fecharNavegador();
+            console.error('[STARTV-ROBOT ERROR] Falha na exclusao do cliente ' + rawLogin + ':', error.message);
+            try { this.tirarScreenshot(page, 'ERRO_exclusao').catch(() => {}); } catch(e) {}
+            try { await this.fecharNavegador(); } catch(e) {}
             throw error;
         }
     }
-
     async abrirFichaClienteReal(page, login, cpf, nome) {
         console.log(`[RECEITANET-ROBOT] Acessando ficha de cadastro do cliente: ${login}...`);
         
