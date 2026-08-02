@@ -971,18 +971,23 @@
                     consoleBox.scrollTop = consoleBox.scrollHeight;
                 }
 
-                // Busca Prints de cada etapa
+                // Busca Prints em Base64 de cada etapa
                 if (galleryBox) {
                     const resPrints = await fetch('/api/startv/debug-screenshots');
                     const prints = await resPrints.json();
                     if (Array.isArray(prints) && prints.length > 0) {
                         galleryBox.innerHTML = prints.map(p => `
-                            <a href="${p.url}" target="_blank" style="text-decoration: none; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; color: #38bdf8; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: 0.2s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#334155'">
-                                <i class="fa-solid fa-camera"></i> ${p.filename}
-                            </a>
+                            <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; max-width: 220px;">
+                                <div style="font-size: 0.75rem; font-weight: 700; color: #38bdf8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    <i class="fa-solid fa-camera"></i> ${p.stepName} (${p.timestamp})
+                                </div>
+                                <a href="${p.dataUrl}" target="_blank">
+                                    <img src="${p.dataUrl}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid #475569; cursor: pointer; transition: 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="Clique para abrir imagem inteira" />
+                                </a>
+                            </div>
                         `).join('');
                     } else {
-                        galleryBox.innerHTML = `<span style="color: #64748b; font-size: 0.8rem;">Nenhum print capturado ainda. Os prints serão gerados automaticamente durante a criação do usuário.</span>`;
+                        galleryBox.innerHTML = `<span style="color: #64748b; font-size: 0.8rem;">Nenhum print capturado ainda. Os prints aparecem aqui automaticamente durante a criação do usuário.</span>`;
                     }
                 }
             } catch (e) {
@@ -996,7 +1001,7 @@
         <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; width: 100%; max-width: 950px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
             <div style="padding: 16px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #38bdf8; font-size: 16px;">
-                    <i class="fa-solid fa-terminal"></i> Console & Prints de Cada Etapa - Robô ERP
+                    <i class="fa-solid fa-terminal"></i> Console & Prints Visuais em Tempo Real - Robô ERP
                 </div>
                 <button onclick="fecharDebugLogs()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.3rem; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -1004,9 +1009,9 @@
             <!-- GALERIA DE PRINTS DA TELA -->
             <div style="padding: 12px 20px; background: #090d16; border-bottom: 1px solid #1e293b;">
                 <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    <i class="fa-solid fa-images"></i> Capturas de Tela de Cada Etapa (Clique para abrir a imagem):
+                    <i class="fa-solid fa-images"></i> Fotos Visuais de Cada Etapa do Robô (Clique na imagem para expandir):
                 </div>
-                <div id="debugScreenshotsGallery" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 90px; overflow-y: auto;">
+                <div id="debugScreenshotsGallery" style="display: flex; gap: 12px; max-height: 160px; overflow-x: auto; overflow-y: hidden; padding-bottom: 6px;">
                     <span style="color: #64748b; font-size: 0.8rem;">Carregando prints da tela...</span>
                 </div>
             </div>

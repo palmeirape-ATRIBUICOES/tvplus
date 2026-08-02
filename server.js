@@ -8,6 +8,17 @@ dotenv.config();
 
 // Cache de logs em memória para diagnóstico administrativo
 const serverLogs = [];
+const globalDebugScreenshots = [];
+
+global.registrarScreenshotDebug = function(stepName, base64Data) {
+    globalDebugScreenshots.unshift({
+        stepName,
+        timestamp: new Date().toLocaleTimeString('pt-BR'),
+        dataUrl: `data:image/png;base64,${base64Data}`
+    });
+    if (globalDebugScreenshots.length > 20) globalDebugScreenshots.pop();
+};
+
 const originalLog = console.log;
 const originalError = console.error;
 
@@ -2108,24 +2119,7 @@ app.get('/api/startv/server-logs', (req, res) => {
 });
 
 app.get('/api/startv/debug-screenshots', (req, res) => {
-    try {
-        const dir = path.join(__dirname, 'public/screenshots');
-        if (!fs.existsSync(dir)) return res.json([]);
-        const files = fs.readdirSync(dir)
-            .filter(f => f.endsWith('.png'))
-            .map(f => {
-                const stat = fs.statSync(path.join(dir, f));
-                return {
-                    filename: f,
-                    url: `/screenshots/${f}`,
-                    mtime: stat.mtime
-                };
-            })
-            .sort((a, b) => b.mtime - a.mtime);
-        res.json(files);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    res.status(200).json(globalDebugScreenshots);
 });
 
 // Roteamento Inteligente de Subdomínios (Locaweb / Render)

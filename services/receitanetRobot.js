@@ -15,12 +15,11 @@ class ReceitanetRobotService {
     async tirarScreenshot(page, stepName) {
         if (!page || page.isClosed()) return;
         try {
-            const dir = path.join(__dirname, '../public/screenshots');
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            const filename = `${stepName}.png`;
-            const filePath = path.join(dir, filename);
-            await page.screenshot({ path: filePath, fullPage: false }).catch(() => {});
-            console.log(`[ERP-SCREENSHOT] 📸 Print salvo com sucesso: /screenshots/${filename}`);
+            const base64 = await page.screenshot({ encoding: 'base64', fullPage: false }).catch(() => null);
+            if (base64 && global.registrarScreenshotDebug) {
+                global.registrarScreenshotDebug(stepName, base64);
+                console.log(`[ERP-SCREENSHOT] 📸 Print da etapa '${stepName}' registrado em memória!`);
+            }
         } catch (e) {
             console.log(`[ERP-SCREENSHOT] Aviso ao salvar print '${stepName}':`, e.message);
         }
