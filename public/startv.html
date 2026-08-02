@@ -955,6 +955,7 @@
 
         async function carregarLogsDebug() {
             const consoleBox = document.getElementById('debugLogsConsole');
+            const galleryBox = document.getElementById('debugScreenshotsGallery');
             if (!consoleBox) return;
 
             try {
@@ -963,11 +964,26 @@
                 if (Array.isArray(logs)) {
                     consoleBox.innerHTML = logs.map(l => {
                         let cor = '#60a5fa';
-                        if (l.includes('SUCCESS') || l.includes('✅')) cor = '#10b981';
+                        if (l.includes('SUCCESS') || l.includes('✅') || l.includes('SCREENSHOT')) cor = '#10b981';
                         else if (l.includes('ERROR') || l.includes('WARNING') || l.includes('❌')) cor = '#ef4444';
                         return `<div style="margin-bottom: 4px; line-height: 1.4; color: ${cor}">${l}</div>`;
                     }).join('');
                     consoleBox.scrollTop = consoleBox.scrollHeight;
+                }
+
+                // Busca Prints de cada etapa
+                if (galleryBox) {
+                    const resPrints = await fetch('/api/startv/debug-screenshots');
+                    const prints = await resPrints.json();
+                    if (Array.isArray(prints) && prints.length > 0) {
+                        galleryBox.innerHTML = prints.map(p => `
+                            <a href="${p.url}" target="_blank" style="text-decoration: none; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 8px 12px; color: #38bdf8; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: 0.2s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#334155'">
+                                <i class="fa-solid fa-camera"></i> ${p.filename}
+                            </a>
+                        `).join('');
+                    } else {
+                        galleryBox.innerHTML = `<span style="color: #64748b; font-size: 0.8rem;">Nenhum print capturado ainda. Os prints serão gerados automaticamente durante a criação do usuário.</span>`;
+                    }
                 }
             } catch (e) {
                 consoleBox.innerHTML = `<div style="color: #ef4444;">Erro ao buscar logs: ${e.message}</div>`;
@@ -975,16 +991,27 @@
         }
     </script>
 
-    <!-- MODAL DEBUG LOGS PROTEGIDO POR SENHA (366724eA) -->
+    <!-- MODAL DEBUG LOGS E GALERIA DE PRINTS (366724eA) -->
     <div id="modalDebugLogs" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 2000; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
+        <div style="background: #0f172a; border: 1px solid #1e293b; border-radius: 16px; width: 100%; max-width: 950px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
             <div style="padding: 16px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; color: #38bdf8; font-size: 16px;">
-                    <i class="fa-solid fa-terminal"></i> Console de Debug em Tempo Real - Robô ERP ReceitaNet
+                    <i class="fa-solid fa-terminal"></i> Console & Prints de Cada Etapa - Robô ERP
                 </div>
                 <button onclick="fecharDebugLogs()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.3rem; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div id="debugLogsConsole" style="padding: 20px; background: #020617; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; height: 500px; overflow-y: auto; color: #e2e8f0; border-bottom: 1px solid #1e293b;">
+            
+            <!-- GALERIA DE PRINTS DA TELA -->
+            <div style="padding: 12px 20px; background: #090d16; border-bottom: 1px solid #1e293b;">
+                <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-images"></i> Capturas de Tela de Cada Etapa (Clique para abrir a imagem):
+                </div>
+                <div id="debugScreenshotsGallery" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 90px; overflow-y: auto;">
+                    <span style="color: #64748b; font-size: 0.8rem;">Carregando prints da tela...</span>
+                </div>
+            </div>
+
+            <div id="debugLogsConsole" style="padding: 20px; background: #020617; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; height: 420px; overflow-y: auto; color: #e2e8f0; border-bottom: 1px solid #1e293b;">
                 Carregando logs do servidor...
             </div>
             <div style="padding: 12px 20px; background: #0f172a; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #64748b;">

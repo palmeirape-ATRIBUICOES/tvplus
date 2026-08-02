@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const RECEITANET_LOGIN_URL = 'https://sistema.receitanet.net/';
@@ -8,6 +10,20 @@ class ReceitanetRobotService {
     constructor() {
         this.browser = null;
         this.page = null;
+    }
+
+    async tirarScreenshot(page, stepName) {
+        if (!page || page.isClosed()) return;
+        try {
+            const dir = path.join(__dirname, '../public/screenshots');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const filename = `${stepName}.png`;
+            const filePath = path.join(dir, filename);
+            await page.screenshot({ path: filePath, fullPage: false }).catch(() => {});
+            console.log(`[ERP-SCREENSHOT] 📸 Print salvo com sucesso: /screenshots/${filename}`);
+        } catch (e) {
+            console.log(`[ERP-SCREENSHOT] Aviso ao salvar print '${stepName}':`, e.message);
+        }
     }
 
     async obterPaginaAutenticada() {

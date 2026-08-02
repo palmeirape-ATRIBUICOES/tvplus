@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 const RECEITANET_LOGIN_URL = 'https://sistema.receitanet.net/';
@@ -8,6 +10,20 @@ class ReceitanetRobotService {
     constructor() {
         this.browser = null;
         this.page = null;
+    }
+
+    async tirarScreenshot(page, stepName) {
+        if (!page || page.isClosed()) return;
+        try {
+            const dir = path.join(__dirname, '../public/screenshots');
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            const filename = `${stepName}.png`;
+            const filePath = path.join(dir, filename);
+            await page.screenshot({ path: filePath, fullPage: false }).catch(() => {});
+            console.log(`[ERP-SCREENSHOT] 📸 Print salvo com sucesso: /screenshots/${filename}`);
+        } catch (e) {
+            console.log(`[ERP-SCREENSHOT] Aviso ao salvar print '${stepName}':`, e.message);
+        }
     }
 
     async obterPaginaAutenticada() {
@@ -186,6 +202,8 @@ class ReceitanetRobotService {
                     if (chkDesc && !chkDesc.checked) chkDesc.checked = true;
                 });
 
+                await this.tirarScreenshot(page, '01_formulario_preenchido');
+
                 console.log(`[STARTV-ROBOT] Clicando no botão 'Incluir' para registrar o cliente...`);
                 await Promise.all([
                     page.evaluate(() => {
@@ -196,6 +214,8 @@ class ReceitanetRobotService {
                     }),
                     page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {})
                 ]);
+
+                await this.tirarScreenshot(page, '02_apos_incluir_cliente');
             }
 
             console.log(`[STARTV-ROBOT] Cliente ${loginTv} cadastrado com sucesso! Abrindo a tela de Planos de Cobrança...`);
@@ -229,6 +249,8 @@ class ReceitanetRobotService {
                         console.log(`[STARTV-ROBOT] Abrindo página de Planos de Cobrança: ${legacyPlanoUrl}...`);
                         await page.goto(legacyPlanoUrl, { waitUntil: 'domcontentloaded' });
                     }
+
+                    await this.tirarScreenshot(page, '03_tela_planos_aberta');
 
                     const selectExists = await page.waitForSelector('select', { timeout: 6000 }).then(() => true).catch(() => false);
                     if (selectExists) {
@@ -278,6 +300,8 @@ class ReceitanetRobotService {
                             }),
                             page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
                         ]);
+
+                        await this.tirarScreenshot(page, '04_dropdown_cdntv_selecionado');
 
                         if (result[0]) {
                             console.log(`[STARTV-ROBOT SUCCESS] ✅ Plano 'CDNTV' ativado com sucesso no ERP para ${targetLog}!`);

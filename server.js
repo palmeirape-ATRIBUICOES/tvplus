@@ -2107,6 +2107,27 @@ app.get('/api/startv/server-logs', (req, res) => {
     res.status(200).json(serverLogs.slice(-100));
 });
 
+app.get('/api/startv/debug-screenshots', (req, res) => {
+    try {
+        const dir = path.join(__dirname, 'public/screenshots');
+        if (!fs.existsSync(dir)) return res.json([]);
+        const files = fs.readdirSync(dir)
+            .filter(f => f.endsWith('.png'))
+            .map(f => {
+                const stat = fs.statSync(path.join(dir, f));
+                return {
+                    filename: f,
+                    url: `/screenshots/${f}`,
+                    mtime: stat.mtime
+                };
+            })
+            .sort((a, b) => b.mtime - a.mtime);
+        res.json(files);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Roteamento Inteligente de Subdomínios (Locaweb / Render)
 app.use((req, res, next) => {
     const host = (req.headers.host || '').toLowerCase();
