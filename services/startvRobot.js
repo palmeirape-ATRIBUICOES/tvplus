@@ -114,22 +114,22 @@ class ReceitanetRobotService {
         const senhaTv = cpf; // A senha deve ser o CPF conforme instrução
         const nomeCliente = cliente.nome || 'Cliente Provedor';
 
-        console.log(`[ROBO-NOVO] 🚀 Criando usuário '${loginTv}' do zero com CPF/Senha '${cpf}'...`);
+        console.log(`[ROBO-SEQUENCIA-EXATA] 🚀 Criando usuário '${loginTv}' do zero com CPF/Senha '${cpf}'...`);
 
         try {
             // ETAPA 1: Acessar a página https://sistema.receitanet.net/clientes_cadastro.php
-            console.log(`[ROBO-NOVO] ETAPA 1: Acessando https://sistema.receitanet.net/clientes_cadastro.php...`);
+            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 1: Acessando https://sistema.receitanet.net/clientes_cadastro.php...`);
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
             await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
 
             // Preencher campos da foto: login, senha (CPF), nome, cpf
-            console.log(`[ROBO-NOVO] Preenchendo Login: '${loginTv}', Senha (CPF): '${senhaTv}', Nome: '${nomeCliente}', CPF: '${cpf}'...`);
+            console.log(`[ROBO-SEQUENCIA-EXATA] Preenchendo Login: '${loginTv}', Senha (CPF): '${senhaTv}', Nome: '${nomeCliente}', CPF: '${cpf}'...`);
             await page.type('input[name="cli_login"]', (loginTv || '').toString());
             await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
             await page.type('input[name="cli_nome"]', (nomeCliente || '').toString());
             await page.type('input[name="cli_cgc"]', (cpf || '').toString());
 
-            // Parâmetros oficiais adicionais
+            // Parâmetros oficiais de mensalidade
             await page.evaluate(() => {
                 const setVal = (sel, val) => {
                     const el = document.querySelector(sel);
@@ -147,7 +147,7 @@ class ReceitanetRobotService {
             await this.tirarScreenshot(page, '01_formulario_cadastro_preenchido');
 
             // Clica no botão Incluir seletor: #form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary
-            console.log(`[ROBO-NOVO] Clicando no botão Incluir do cadastro...`);
+            console.log(`[ROBO-SEQUENCIA-EXATA] Clicando no botão Incluir do cadastro...`);
             await Promise.all([
                 page.evaluate(() => {
                     const btn = document.querySelector('#form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary') ||
@@ -160,132 +160,79 @@ class ReceitanetRobotService {
             ]);
 
             await this.tirarScreenshot(page, '02_apos_incluir_cliente_criado');
-            console.log(`[ROBO-NOVO] ETAPA 1 Concluída! Ficha criada: ${page.url()}`);
+            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 1 Concluída! Ficha criada: ${page.url()}`);
 
-            // ETAPA 2 & 3: Clicar no botão azul Planos e ativar o plano CDNTV
-            console.log(`[ROBO-NOVO] ETAPA 2 & 3: Atribuindo o Plano de Cobrança CDNTV...`);
+            // ETAPA 2: Clicar no botão azul Planos na MESMA página que acabou de carregar!
+            // Seletor: #PG_Clientes_Cadastro > section.content > div.hidden-xs > a.btn.bg-blue.btn-app
+            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 2: Clicando no botão azul 'Planos' na página do cliente...`);
             
-            const loginSemDominio = (loginTv || '').replace(/@.*$/, '').trim();
-            const legacyUrls = [
-                `https://sistema.receitanet.net/clientes_plano.php?login=${encodeURIComponent(loginTv)}`,
-                `https://sistema.receitanet.net/clientes_plano.php?login=${encodeURIComponent(loginSemDominio)}`,
-                `https://sistema.receitanet.net/clientes_plano.php?cli_login=${encodeURIComponent(loginTv)}`
-            ];
+            const clickedPlanos = await page.evaluate(() => {
+                const btnPlanos = document.querySelector('#PG_Clientes_Cadastro > section.content > div.hidden-xs > a.btn.bg-blue.btn-app') ||
+                                  document.querySelector('a.btn.bg-blue.btn-app') ||
+                                  Array.from(document.querySelectorAll('a')).find(a => {
+                                      const txt = (a.textContent || '').trim().toUpperCase();
+                                      return txt.includes('PLANOS') || (a.href && a.href.includes('/planos'));
+                                  });
+                if (btnPlanos) {
+                    btnPlanos.click();
+                    return true;
+                }
+                return false;
+            });
 
-            let planoAtribuido = false;
+            if (clickedPlanos) {
+                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+            }
 
-            // 1. Tenta atribuição pelas URLs do módulo Legacy (clientes_plano.php)
-            for (const legUrl of legacyUrls) {
-                try {
-                    console.log(`[ROBO-NOVO] Navegando para a página de planos: ${legUrl}...`);
-                    await page.goto(legUrl, { waitUntil: 'domcontentloaded' });
-                    await new Promise(r => setTimeout(r, 1000));
-                    await this.tirarScreenshot(page, '03_tela_planos_legacy');
+            await this.tirarScreenshot(page, '03_tela_planos_carregada');
+            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 2 Concluída! Tela de Planos: ${page.url()}`);
 
-                    const selectExists = await page.waitForSelector('select', { timeout: 4000 }).then(() => true).catch(() => false);
-                    if (selectExists) {
-                        console.log(`[ROBO-NOVO] Formulario de planos localizado em ${legUrl}. Selecionando 'cdntv' e submetendo...`);
-                        
-                        const resSubmit = await Promise.all([
-                            page.evaluate(() => {
-                                const selects = Array.from(document.querySelectorAll('select'));
-                                let targetSelect = null;
-                                let cdntvOption = null;
+            // ETAPA 3: Na área Plano de Cobrança, no dropdown Descrição selecionar 'cdntv' e clicar no botão INCLUIR
+            // Seletor dropdown: #app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-body > div:nth-child(1) > select
+            // Seletor botao: #app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-footer > button
+            console.log(`[ROBO-SEQUENCIA-EXATA] ETAPA 3: Selecionando 'cdntv' no dropdown Descrição e clicando em INCLUIR...`);
 
-                                for (const s of selects) {
-                                    const opt = Array.from(s.options).find(o => {
-                                        const txt = (o.text || '').toLowerCase();
-                                        const val = (o.value || '').toString();
-                                        return txt.includes('cdntv') || txt.includes('cdn') || val === '29' || val === '108038';
-                                    });
-                                    if (opt) {
-                                        targetSelect = s;
-                                        cdntvOption = opt;
-                                        break;
-                                    }
-                                }
+            await page.waitForSelector('select', { timeout: 8000 });
 
-                                if (targetSelect && cdntvOption) {
-                                    targetSelect.value = cdntvOption.value;
-                                    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            await Promise.all([
+                page.evaluate(() => {
+                    const select = document.querySelector('#app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-body > div:nth-child(1) > select') ||
+                                   document.querySelector('select[name="mensalidade_id"]') ||
+                                   document.querySelector('select[name="pla_codigo"]') ||
+                                   document.querySelector('select');
 
-                                    const parentForm = targetSelect.closest('form') || document.querySelector('form');
-                                    if (parentForm) {
-                                        const btnIncluir = parentForm.querySelector('button, input[type="submit"], input[name="cadastrar"]') ||
-                                                           Array.from(parentForm.querySelectorAll('button, input')).find(b => {
-                                                               const val = (b.value || b.textContent || '').trim().toUpperCase();
-                                                               return val.includes('INCLUIR');
-                                                           });
-                                        if (btnIncluir) {
-                                            btnIncluir.click();
-                                            return true;
-                                        } else {
-                                            parentForm.submit();
-                                            return true;
-                                        }
-                                    }
-                                }
-                                return false;
-                            }),
-                            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
-                        ]);
+                    if (select) {
+                        const opt = Array.from(select.options).find(o => {
+                            const txt = (o.text || '').toLowerCase();
+                            return txt.includes('cdntv') || txt.includes('cdn') || o.value === '108038' || o.value === '29';
+                        });
 
-                        await new Promise(r => setTimeout(r, 1500));
-                        await this.tirarScreenshot(page, '04_apos_submeter_plano_legacy');
+                        if (opt) {
+                            select.value = opt.value;
+                            select.dispatchEvent(new Event('change', { bubbles: true }));
 
-                        if (resSubmit[0]) {
-                            console.log(`[ROBO-NOVO SUCCESS] ✅ Plano CDNTV atribuído com sucesso via Módulo Legacy!`);
-                            planoAtribuido = true;
-                            break;
+                            const btnIncluir = document.querySelector('#app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-footer > button') ||
+                                               document.querySelector('form button.btn-primary, form button[type="submit"]') ||
+                                               Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim().toUpperCase() === 'INCLUIR');
+
+                            if (btnIncluir) {
+                                btnIncluir.click();
+                                return true;
+                            } else {
+                                select.closest('form')?.submit();
+                                return true;
+                            }
                         }
                     }
-                } catch (eLeg) {
-                    console.log(`[ROBO-NOVO AVISO] Tentativa na URL ${legUrl}:`, eLeg.message);
-                }
-            }
+                    return false;
+                }),
+                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
+            ]);
 
-            // 2. Se não atribuiu no Módulo Legacy, tenta pelo Novo ERP (/novo/financeiros/clientes/planos/)
-            if (!planoAtribuido) {
-                try {
-                    console.log(`[ROBO-NOVO] Tentando atribuição via Novo ERP (/novo/clientes)...`);
-                    await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginSemDominio)}`, { waitUntil: 'domcontentloaded' });
-                    await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 2000));
+            await this.tirarScreenshot(page, '04_plano_cdntv_confirmado_sucesso');
 
-                    const planUrl = await page.evaluate(() => {
-                        const linkPlano = Array.from(document.querySelectorAll('a')).find(a => a.href.includes('/novo/financeiros/clientes/planos/'));
-                        return linkPlano ? linkPlano.href : null;
-                    });
-
-                    if (planUrl) {
-                        await page.goto(planUrl, { waitUntil: 'domcontentloaded' });
-                        await page.waitForSelector('select', { timeout: 5000 });
-
-                        await Promise.all([
-                            page.evaluate(() => {
-                                const select = document.querySelector('select[name="mensalidade_id"], select');
-                                if (select) {
-                                    const opt = Array.from(select.options).find(o => o.text.toLowerCase().includes('cdntv') || o.value === '108038' || o.value === '29');
-                                    if (opt) {
-                                        select.value = opt.value;
-                                        select.dispatchEvent(new Event('change', { bubbles: true }));
-                                        const form = select.closest('form');
-                                        if (form) form.submit();
-                                    }
-                                }
-                            }),
-                            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }).catch(() => {})
-                        ]);
-
-                        await new Promise(r => setTimeout(r, 1500));
-                        await this.tirarScreenshot(page, '05_apos_submeter_novo_erp');
-                        console.log(`[ROBO-NOVO SUCCESS] ✅ Plano CDNTV atribuído via Novo ERP!`);
-                    }
-                } catch (eNovo) {
-                    console.log(`[ROBO-NOVO AVISO] Tentativa via Novo ERP:`, eNovo.message);
-                }
-            }
-
-            console.log(`[ROBO-NOVO SUCCESS] 🎉 CRIAÇÃO E ATIVAÇÃO DO USUÁRIO '${loginTv}' FINALIZADA COM SUCESSO!`);
+            console.log(`[ROBO-SEQUENCIA-EXATA SUCCESS] 🎉 CRIAÇÃO E ATIVAÇÃO DO USUÁRIO '${loginTv}' FINALIZADA COM SUCESSO!`);
             return true;
         } catch (error) {
             console.error(`[RECEITANET-ROBOT ERROR] Falha no cadastro de cliente:`, error.message);
