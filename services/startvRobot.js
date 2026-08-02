@@ -465,14 +465,14 @@ class ReceitanetRobotService {
         const rawLogin = (login || '').toString().trim();
         const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
 
-        console.log('[STARTV-ROBOT] 🗑️ Iniciando exclusão estrita do cliente: ' + rawLogin + ' (loginSemDominio: ' + loginSemDominio + ')...');
+        console.log('[STARTV-ROBOT] 🗑️ REINICIANDO LÓGICA DE EXCLUSÃO para cliente: ' + rawLogin + '...');
         let page = await this.obterPaginaAutenticada();
 
-        // Configurar manipulador automático para caixas de diálogo/confirmação alert/confirm
+        // Handler para caixas de diálogo (alert/confirm)
         const setupDialogHandler = (targetPage) => {
             targetPage.removeAllListeners('dialog');
             targetPage.on('dialog', async (dialog) => {
-                console.log('[STARTV-ROBOT] 💬 Diálogo popup detectado ("' + dialog.message() + '"). Confirmando (accept)...');
+                console.log('[STARTV-ROBOT] 💬 Confirmando diálogo popup: "' + dialog.message() + '"');
                 await dialog.accept().catch(() => {});
             });
         };
@@ -480,20 +480,45 @@ class ReceitanetRobotService {
         setupDialogHandler(page);
 
         try {
-            // PASSO 0: Selecionar o cliente abrindo a ficha de cadastro principal primeiro
-            console.log('[STARTV-ROBOT] PASSO 0: Selecionando o cliente no ERP (' + rawLogin + ')...');
-            const selectClienteUrl = 'https://sistema.receitanet.net/clientes_cadastro.php?cli_login=' + encodeURIComponent(rawLogin);
-            await page.goto(selectClienteUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+            // ============================================================
+            // PASSO 1: Acessar https://sistema.receitanet.net/clientes_cadastro.php?cli_login=
+            //          e ir para a aba Rescisão
+            // ============================================================
+            const cadastroUrl = 'https://sistema.receitanet.net/clientes_cadastro.php?cli_login=' + encodeURIComponent(rawLogin);
+            console.log('[STARTV-ROBOT] PASSO 1: Acessando ' + cadastroUrl);
+            await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' });
+            await page.waitForSelector('a, button, input', { timeout: 10000 });
 
-            // PASSO 1: Clicar/Acessar o caminho da rescisão
-            const rescisaoUrl = 'https://sistema.receitanet.net/clientes_rescisao.php?login=' + encodeURIComponent(loginSemDominio);
-            console.log('[STARTV-ROBOT] PASSO 1: Acessando caminho da rescisão: ' + rescisaoUrl);
-            await page.goto(rescisaoUrl, { waitUntil: 'domcontentloaded' });
+            // Clica na aba/botão "Rescisão" na página de cadastro ou navega para a URL da rescisão
+            console.log('[STARTV-ROBOT] Clicando na aba/opção Rescisão...');
+            const clicouRescisao = await page.evaluate(() => {
+                const btnRescisao = Array.from(document.querySelectorAll('a, button'))
+                    .find(b => (b.textContent || '').trim() === 'Rescisão' || (b.href && b.href.includes('clientes_rescisao.php')));
+                if (btnRescisao) {
+                    btnRescisao.click();
+                    return true;
+                }
+                return false;
+            });
+
+            if (clicouRescisao) {
+                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {});
+            } else {
+                const rescisaoUrl = 'https://sistema.receitanet.net/clientes_rescisao.php?login=' + encodeURIComponent(loginSemDominio);
+                console.log('[STARTV-ROBOT] Navegando diretamente para a URL de rescisão: ' + rescisaoUrl);
+                await page.goto(rescisaoUrl, { waitUntil: 'domcontentloaded' });
+            }
+
+            // ============================================================
+            // PASSO 2: Motivo e Detalhe
+            //          - Selecionar "cancelado chip" em cancelamento_motivo
+            //          - Escrever "ok" no campo detalhe
+            // ============================================================
+            console.log('[STARTV-ROBOT] PASSO 2: Selecionando "cancelado chip" e escrevendo "ok" em detalhe...');
             await page.waitForSelector('select', { timeout: 10000 });
 
-            // PASSO 2: Motivo do cancelamento -> "cancelado chip" | Detalhe -> "ok"
-            console.log('[STARTV-ROBOT] PASSO 2: Selecionando motivo "cancelado chip" no dropdown e escrevendo "ok" em detalhe...');
             await page.evaluate(() => {
+                // Dropdown Motivo
                 const select = document.querySelector('select[name="cancelamento_motivo"]') || document.querySelector('select');
                 if (select) {
                     const opt = Array.from(select.options).find(o => (o.text || '').toLowerCase().includes('chip') || o.value === '13');
@@ -503,6 +528,7 @@ class ReceitanetRobotService {
                     }
                 }
 
+                // Campo Detalhe
                 const campoDetalhe = document.querySelector('textarea[name="cancelamento_detalhe"]') || 
                                      document.querySelector('textarea') || 
                                      document.querySelector('input[name="detalhe"]') || 
@@ -516,11 +542,13 @@ class ReceitanetRobotService {
 
             this.tirarScreenshot(page, 'excluir_01_rescisao_preenchida').catch(() => {});
 
-            // PASSO 3: Clicar no botão /html/body/div/div/section[2]/form/div[3]/button[1]
-            console.log('[STARTV-ROBOT] PASSO 3: Clicando no botão /html/body/div/div/section[2]/form/div[3]/button[1]...');
-            
-            // Inicia ouvinte para a nova guia que o sistema irá abrir
-            const targetCreatedPromise = new Promise(resolve => {
+            // ============================================================
+            // PASSO 3: Clicar no botão /html/body/div/div/section[2]/form/div[3]/button[1] (Calcular)
+            // ============================================================
+            console.log('[STARTV-ROBOT] PASSO 3: Clicando no botão Calcular via XPath /html/body/div/div/section[2]/form/div[3]/button[1]...');
+
+            // Prepara escuta para a nova guia que o sistema irá abrir
+            const novaGuiaPromise = new Promise(resolve => {
                 const listener = (target) => {
                     if (target.type() === 'page') {
                         this.browser.off('targetcreated', listener);
@@ -531,7 +559,7 @@ class ReceitanetRobotService {
                 setTimeout(() => {
                     this.browser.off('targetcreated', listener);
                     resolve(null);
-                }, 5000);
+                }, 4000);
             });
 
             await page.evaluate(() => {
@@ -546,46 +574,53 @@ class ReceitanetRobotService {
                 }
             });
 
-            // PASSO 4: O sistema irá abrir uma nova guia que deverá ser fechada
-            console.log('[STARTV-ROBOT] PASSO 4: Aguardando nova guia abrir para fechá-la...');
-            const newTarget = await targetCreatedPromise;
-            if (newTarget) {
+            // ============================================================
+            // PASSO 4: Após clicar em calcular, fechar a guia que vai abrir
+            // ============================================================
+            console.log('[STARTV-ROBOT] PASSO 4: Fechando a nova guia aberta...');
+            const targetGuia = await novaGuiaPromise;
+            if (targetGuia) {
                 try {
-                    const newPage = await newTarget.page();
-                    if (newPage && !newPage.isClosed()) {
-                        console.log('[STARTV-ROBOT] Nova guia detectada (' + newPage.url() + '). Fechando guia...');
-                        await newPage.close().catch(() => {});
+                    const pageGuia = await targetGuia.page();
+                    if (pageGuia && !pageGuia.isClosed()) {
+                        console.log('[STARTV-ROBOT] Fechando guia secundária (' + pageGuia.url() + ')...');
+                        await pageGuia.close().catch(() => {});
                     }
-                } catch(eTab) {}
+                } catch (eG) {}
             }
 
-            // Fecha também quaisquer outras abas extras secundárias
+            // Fecha quaisquer outras abas extras
             try {
-                const currentPages = await this.browser.pages();
-                if (currentPages.length > 1) {
-                    for (let i = 1; i < currentPages.length; i++) {
-                        await currentPages[i].close().catch(() => {});
+                const pages = await this.browser.pages();
+                if (pages.length > 1) {
+                    for (let i = 1; i < pages.length; i++) {
+                        await pages[i].close().catch(() => {});
                     }
                 }
-            } catch(eClose) {}
+            } catch (eC) {}
 
-            // Garante que o ponteiro principal de página está recuperado e funcional
+            // Reconecta o ponteiro de página ativo
             page = await this.obterPaginaAutenticada();
             setupDialogHandler(page);
 
-            // PASSO 5: Vamos novamente voltar ao cadastro do cliente
-            const cadastroUrl = 'https://sistema.receitanet.net/clientes_cadastro.php?cli_login=' + encodeURIComponent(rawLogin);
-            console.log('[STARTV-ROBOT] PASSO 5: Voltando ao cadastro do cliente: ' + cadastroUrl);
-            await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
+            // ============================================================
+            // PASSO 5: Voltar para https://sistema.receitanet.net/clientes_cadastro.php?cli_login=
+            // ============================================================
+            console.log('[STARTV-ROBOT] PASSO 5: Voltando para ' + cadastroUrl);
+            await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' });
 
-            // PASSO 6: Utilizar F5 para atualizar a página e liberar a opção de Excluir
-            console.log('[STARTV-ROBOT] PASSO 6: Utilizando F5 (reload) para atualizar a página e liberar o botão Excluir...');
-            await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+            // ============================================================
+            // PASSO 6: Ao carregar a página aperta F5 reload para aparecer o botão Excluir
+            // ============================================================
+            console.log('[STARTV-ROBOT] PASSO 6: Apertando F5 (reload) para liberar o botão Excluir...');
+            await page.reload({ waitUntil: 'domcontentloaded' });
             await new Promise(r => setTimeout(r, 1000));
 
             this.tirarScreenshot(page, 'excluir_02_cadastro_atualizado').catch(() => {});
 
-            // PASSO 7: Liberar opção de Excluir no caminho /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]
+            // ============================================================
+            // PASSO 7: Clica no botão Excluir via XPath exato /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]
+            // ============================================================
             console.log('[STARTV-ROBOT] PASSO 7: Clicando no botão Excluir via XPath /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]...');
 
             const clicouExcluir = await page.evaluate(() => {
@@ -608,11 +643,11 @@ class ReceitanetRobotService {
             });
 
             if (clicouExcluir) {
-                console.log('[STARTV-ROBOT] Botão Excluir acionado (' + clicouExcluir + '). Aguardando confirmação final...');
+                console.log('[STARTV-ROBOT] Botão Excluir acionado (' + clicouExcluir + '). Aguardando navegação...');
                 await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
                 console.log('[STARTV-ROBOT SUCCESS] 🎉 CLIENTE ' + rawLogin + ' EXCLUÍDO COM SUCESSO!');
             } else {
-                console.log('[STARTV-ROBOT] Aviso: Botão Excluir não localizado. Verificando se já foi removido.');
+                console.log('[STARTV-ROBOT] Botão Excluir não encontrado na página.');
             }
 
             this.tirarScreenshot(page, 'excluir_03_finalizado').catch(() => {});
