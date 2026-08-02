@@ -13,16 +13,8 @@ class ReceitanetRobotService {
     }
 
     async tirarScreenshot(page, stepName) {
-        if (!page || page.isClosed()) return;
-        try {
-            const base64 = await page.screenshot({ encoding: 'base64', fullPage: false }).catch(() => null);
-            if (base64 && global.registrarScreenshotDebug) {
-                global.registrarScreenshotDebug(stepName, base64);
-                console.log(`[ERP-SCREENSHOT] 📸 Print da etapa '${stepName}' registrado em memória!`);
-            }
-        } catch (e) {
-            console.log(`[ERP-SCREENSHOT] Aviso ao salvar print '${stepName}':`, e.message);
-        }
+        // Prints/screenshots desativados para economizar CPU, RAM e memória do servidor
+        return;
     }
 
     async obterPaginaAutenticada() {
