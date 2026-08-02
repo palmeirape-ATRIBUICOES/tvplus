@@ -465,13 +465,13 @@ class ReceitanetRobotService {
         const rawLogin = (login || '').toString().trim();
         const loginSemDominio = rawLogin.replace(/@.*$/, '').trim();
 
-        console.log('[RECEITANET-ROBOT] 🗑️ Iniciando exclusão do cliente: ' + rawLogin + ' (sem domínio: ' + loginSemDominio + ')...');
-        const page = await this.obterPaginaAutenticada();
+        console.log('[RECEITANET-ROBOT] 🗑️ Iniciando exclusao do cliente: ' + rawLogin + ' (sem dominio: ' + loginSemDominio + ')...');
+        let page = await this.obterPaginaAutenticada();
 
         try {
-            // PASSO 1: Acessar a página de Rescisão com o login
+            // PASSO 1: Acessar a pagina de Rescisao com o login
             const rescisaoUrl = 'https://sistema.receitanet.net/clientes_rescisao.php?login=' + encodeURIComponent(loginSemDominio);
-            console.log('[RECEITANET-ROBOT] PASSO 1: Acessando tela de rescisão: ' + rescisaoUrl);
+            console.log('[RECEITANET-ROBOT] PASSO 1: Acessando tela de rescisao: ' + rescisaoUrl);
             await page.goto(rescisaoUrl, { waitUntil: 'domcontentloaded' });
 
             // PASSO 2: Motivo do Cancelamento dropdown -> 'cancelado chip' e Detalhe -> 'ok'
@@ -501,8 +501,8 @@ class ReceitanetRobotService {
 
             this.tirarScreenshot(page, 'excluir_01_rescisao_preenchida').catch(() => {});
 
-            // PASSO 3: Clicar no botão via XPath exato /html/body/div/div/section[2]/form/div[3]/button[1]
-            console.log('[RECEITANET-ROBOT] PASSO 3: Clicando no botão via XPath exato /html/body/div/div/section[2]/form/div[3]/button[1]...');
+            // PASSO 3: Clicar no botao via XPath exato /html/body/div/div/section[2]/form/div[3]/button[1]
+            console.log('[RECEITANET-ROBOT] PASSO 3: Clicando no botao via XPath exato /html/body/div/div/section[2]/form/div[3]/button[1]...');
             
             await page.evaluate(() => {
                 const xpathBtn = document.evaluate('/html/body/div/div/section[2]/form/div[3]/button[1]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
@@ -516,9 +516,9 @@ class ReceitanetRobotService {
                 }
             });
 
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 2000));
 
-            // PASSO 4: Fechar qualquer nova guia/aba popup aberta
+            // PASSO 4: Fechar qualquer nova guia/aba popup secundaria e RECONECTAR ponteiro de pagina seguro
             try {
                 const pages = await this.browser.pages();
                 if (pages && pages.length > 1) {
@@ -527,27 +527,26 @@ class ReceitanetRobotService {
                         await pages[i].close().catch(() => {});
                     }
                 }
-                const activePages = await this.browser.pages();
-                if (activePages && activePages.length > 0) {
-                    this.page = activePages[0];
-                }
             } catch (ePopup) {
                 console.log('[RECEITANET-ROBOT] Aviso ao gerenciar guias popup:', ePopup.message);
             }
+
+            // Reconecta a página viva usando o gerenciador de sessão resiliente
+            page = await this.obterPaginaAutenticada();
 
             // PASSO 5: Voltar para a ficha de cadastro do cliente
             const cadastroUrl = 'https://sistema.receitanet.net/clientes_cadastro.php?cli_login=' + encodeURIComponent(loginSemDominio);
             console.log('[RECEITANET-ROBOT] PASSO 5: Voltando para o cadastro do cliente: ' + cadastroUrl);
             await page.goto(cadastroUrl, { waitUntil: 'domcontentloaded' });
 
-            // PASSO 6: F5 (reload) para atualizar a página e liberar a opção Excluir
+            // PASSO 6: F5 (reload) para atualizar a pagina e liberar o botao Excluir
             console.log('[RECEITANET-ROBOT] PASSO 6: Atualizando a pagina (F5) para liberar o botao Excluir...');
             await page.reload({ waitUntil: 'domcontentloaded' });
             await new Promise(r => setTimeout(r, 1000));
 
             this.tirarScreenshot(page, 'excluir_02_cadastro_atualizado').catch(() => {});
 
-            // PASSO 7: Clicar no botão Excluir no XPath exato: /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]
+            // PASSO 7: Clicar no botao Excluir no XPath exato: /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]
             console.log('[RECEITANET-ROBOT] PASSO 7: Clicando no botao Excluir no XPath /html/body/div/div[1]/section[2]/div[2]/div[1]/form/div[1]/div[2]/button[3]...');
             
             const clicouExcluir = await page.evaluate(() => {
