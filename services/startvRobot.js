@@ -113,24 +113,23 @@ class ReceitanetRobotService {
         const cpf = cpfRaw.toString().replace(/\D/g, '');
         const senhaTv = cpf;
         const nomeCliente = cliente.nome || 'Cliente Provedor';
+        // IMPORTANTE: Manter o login COMPLETO com dominio (ex: thiago@startv)
         const loginClean = (loginTv || '').replace(/@.*$/, '').trim();
 
-        console.log(`[STARTV-ROBOT] 🚀 Criando usuário '${loginTv}' | Nome: '${nomeCliente}' | CPF/Senha: '${cpf}'...`);
+        console.log('[STARTV-ROBOT] Criando usuario ' + loginTv + ' | Nome: ' + nomeCliente + ' | CPF/Senha: ' + cpf);
 
         try {
-            // ============================================================
-            // ETAPA 1: CADASTRO DO CLIENTE EM clientes_cadastro.php
-            // ============================================================
-            console.log(`[STARTV-ROBOT] ETAPA 1: Acessando a tela de cadastro...`);
+            // ETAPA 1: CADASTRO DO CLIENTE
+            console.log('[STARTV-ROBOT] ETAPA 1: Acessando tela de cadastro...');
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
             await page.waitForSelector('input[name="cli_login"]', { timeout: 12000 });
 
-            // Limpar e preencher campo a campo (sem page.type acumulado)
+            // Limpar e preencher campo a campo
             const camposCadastro = [
-                { sel: 'input[name="cli_login"]',  val: loginTv    },
-                { sel: 'input[name="cli_senha"]',  val: senhaTv    },
-                { sel: 'input[name="cli_nome"]',   val: nomeCliente},
-                { sel: 'input[name="cli_cgc"]',    val: cpf        }
+                { sel: 'input[name="cli_login"]',  val: loginTv     },
+                { sel: 'input[name="cli_senha"]',  val: senhaTv     },
+                { sel: 'input[name="cli_nome"]',   val: nomeCliente },
+                { sel: 'input[name="cli_cgc"]',    val: cpf         }
             ];
 
             for (const campo of camposCadastro) {
@@ -142,7 +141,7 @@ class ReceitanetRobotService {
                 await page.type(campo.sel, campo.val, { delay: 30 });
             }
 
-            // Selects de configuração
+            // Selects de configuracao
             await page.evaluate(() => {
                 const setVal = (sel, val) => {
                     const el = document.querySelector(sel);
@@ -158,9 +157,9 @@ class ReceitanetRobotService {
             });
 
             await this.tirarScreenshot(page, '01_formulario_preenchido');
-            console.log(`[STARTV-ROBOT] Campos preenchidos. Clicando em INCLUIR...`);
+            console.log('[STARTV-ROBOT] Campos preenchidos. Clicando em INCLUIR...');
 
-            // Clica no botão INCLUIR de forma sequencial (mais seguro)
+            // Clica no botao INCLUIR de forma sequencial
             const btnIncluirSel = '#form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary';
             const btnExiste = await page.$(btnIncluirSel);
             if (btnExiste) {
@@ -170,137 +169,127 @@ class ReceitanetRobotService {
                     const btn = document.querySelector('button.btn-primary') ||
                                 Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').trim().toLowerCase() === 'incluir');
                     if (btn) btn.click();
-                    else throw new Error('Botão INCLUIR do cadastro não encontrado.');
+                    else throw new Error('Botao INCLUIR do cadastro nao encontrado.');
                 });
             }
 
-            // Aguarda a navegação (redirect após criação contém o ID do cliente na URL)
+            // Aguarda a navegacao
             await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
             await new Promise(r => setTimeout(r, 1500));
 
             const urlPosCriacao = page.url();
-            console.log(`[STARTV-ROBOT] ETAPA 1 ✅ Concluída. URL pós-criação: ${urlPosCriacao}`);
+            console.log('[STARTV-ROBOT] ETAPA 1 OK. URL pos-criacao: ' + urlPosCriacao);
             await this.tirarScreenshot(page, '02_cliente_criado');
 
-            // ============================================================
-            // ETAPA 2: DESCOBRIR O ID NUMÉRICO DO CLIENTE PARA ACESSAR
-            //          https://sistema.receitanet.net/novo/financeiros/clientes/planos/{ID}
-            // ============================================================
-            console.log(`[STARTV-ROBOT] ETAPA 2: Descobrindo ID numérico do cliente recém-criado...`);
+            // ETAPA 2: DESCOBRIR O ID NUMERICO DO CLIENTE
+            // Testa loginTv completo (thiago@startv) E loginClean (thiago)
+            console.log('[STARTV-ROBOT] ETAPA 2: Descobrindo ID numerico do cliente...');
 
             let clienteId = null;
 
-            // Método A: ID está na URL de redirect pós-criação (ex: ?cli_codigo=12345)
+            // Metodo A: ID na URL de redirect pos-criacao
             const matchUrl = urlPosCriacao.match(/[?&]cli_codigo=([\d]+)/) ||
                              urlPosCriacao.match(/\/clientes\/(\d+)/) ||
                              urlPosCriacao.match(/id=(\d+)/);
             if (matchUrl) {
                 clienteId = matchUrl[1];
-                console.log(`[STARTV-ROBOT] ID capturado da URL pós-criação: ${clienteId}`);
+                console.log('[STARTV-ROBOT] ID capturado da URL pos-criacao: ' + clienteId);
             }
 
-            // Método B: Abrir a ficha via login e extrair ID de input oculto, link ou URL da página
+            // Metodo B: Abrir ficha com AMBOS logins (completo e limpo)
             if (!clienteId) {
-                const fichaUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginClean)}`;
-                console.log(`[STARTV-ROBOT] Abrindo ficha via login para extrair ID: ${fichaUrl}`);
-                await page.goto(fichaUrl, { waitUntil: 'domcontentloaded' });
-                await page.waitForSelector('input, a', { timeout: 10000 });
+                for (const tentativaLogin of [loginTv, loginClean]) {
+                    if (!tentativaLogin) continue;
+                    const fichaUrl = CADASTRO_CLIENTE_URL + '?cli_login=' + encodeURIComponent(tentativaLogin);
+                    console.log('[STARTV-ROBOT] Metodo B tentativa com: ' + tentativaLogin);
+                    await page.goto(fichaUrl, { waitUntil: 'domcontentloaded' });
+                    await page.waitForSelector('input, a', { timeout: 10000 });
 
-                await this.tirarScreenshot(page, '03_ficha_para_extrair_id');
+                    await this.tirarScreenshot(page, '03_ficha_' + tentativaLogin.replace('@','_'));
 
-                const extractResult = await page.evaluate(() => {
-                    // Prioridade 1: link direto para /novo/financeiros/clientes/planos/{ID}
-                    const linkPlano = Array.from(document.querySelectorAll('a'))
-                        .find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
-                    if (linkPlano) {
-                        const m = linkPlano.href.match(/\/planos\/(\d+)/);
-                        return m ? m[1] : null;
+                    const extractResult = await page.evaluate(() => {
+                        const linkPlano = Array.from(document.querySelectorAll('a'))
+                            .find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
+                        if (linkPlano) {
+                            const m = linkPlano.href.match(/\/planos\/(\d+)/);
+                            return m ? m[1] : null;
+                        }
+                        const inputCodigo = document.querySelector('input[name="cli_codigo"], input[name="id"], input[name="cli_id"]');
+                        if (inputCodigo && /^\d+$/.test((inputCodigo.value || '').trim())) {
+                            return inputCodigo.value.trim();
+                        }
+                        const html = document.body.innerHTML;
+                        const mHtml = html.match(/\/novo\/financeiros\/clientes\/planos\/(\d+)/);
+                        if (mHtml) return mHtml[1];
+                        const mPage = window.location.href.match(/[?&]cli_codigo=([\d]+)/);
+                        if (mPage) return mPage[1];
+                        return null;
+                    });
+
+                    if (extractResult) {
+                        clienteId = extractResult;
+                        console.log('[STARTV-ROBOT] ID extraido (login=' + tentativaLogin + '): ' + clienteId);
+                        break;
                     }
-
-                    // Prioridade 2: input oculto com cli_codigo
-                    const inputCodigo = document.querySelector('input[name="cli_codigo"], input[name="id"], input[name="cli_id"]');
-                    if (inputCodigo && /^\d+$/.test((inputCodigo.value || '').trim())) {
-                        return inputCodigo.value.trim();
-                    }
-
-                    // Prioridade 3: busca no HTML por qualquer ocorrência do padrão de ID
-                    const html = document.body.innerHTML;
-                    const mHtml = html.match(/\/novo\/financeiros\/clientes\/planos\/(\d+)/);
-                    if (mHtml) return mHtml[1];
-
-                    // Prioridade 4: URL atual
-                    const mPage = window.location.href.match(/[?&]cli_codigo=([\d]+)/);
-                    if (mPage) return mPage[1];
-
-                    return null;
-                });
-
-                if (extractResult) {
-                    clienteId = extractResult;
-                    console.log(`[STARTV-ROBOT] ID extraído da ficha do cliente: ${clienteId}`);
                 }
             }
 
-            // Método C: Busca no Novo ERP pela lista de clientes
+            // Metodo C: Busca no Novo ERP com AMBOS logins
             if (!clienteId) {
-                console.log(`[STARTV-ROBOT] Buscando cliente '${loginClean}' no Novo ERP para obter ID...`);
-                await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginClean)}`, { waitUntil: 'domcontentloaded' });
-                await new Promise(r => setTimeout(r, 2000));
+                for (const buscaTermo of [loginTv, loginClean]) {
+                    if (!buscaTermo) continue;
+                    console.log('[STARTV-ROBOT] Buscando no Novo ERP: ' + buscaTermo);
+                    await page.goto('https://sistema.receitanet.net/novo/clientes?busca=' + encodeURIComponent(buscaTermo), { waitUntil: 'domcontentloaded' });
+                    await new Promise(r => setTimeout(r, 2000));
 
-                await this.tirarScreenshot(page, '03b_busca_novo_erp');
+                    await this.tirarScreenshot(page, '03b_erp_' + buscaTermo.replace('@','_'));
 
-                const idFromNovoErp = await page.evaluate(() => {
-                    const link = Array.from(document.querySelectorAll('a'))
-                        .find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
-                    if (link) {
-                        const m = link.href.match(/\/planos\/(\d+)/);
-                        return m ? m[1] : null;
+                    const idFromNovoErp = await page.evaluate(() => {
+                        const link = Array.from(document.querySelectorAll('a'))
+                            .find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
+                        if (link) {
+                            const m = link.href.match(/\/planos\/(\d+)/);
+                            return m ? m[1] : null;
+                        }
+                        return null;
+                    });
+
+                    if (idFromNovoErp) {
+                        clienteId = idFromNovoErp;
+                        console.log('[STARTV-ROBOT] ID encontrado no Novo ERP: ' + clienteId);
+                        break;
                     }
-                    return null;
-                });
-
-                if (idFromNovoErp) {
-                    clienteId = idFromNovoErp;
-                    console.log(`[STARTV-ROBOT] ID encontrado no Novo ERP: ${clienteId}`);
                 }
             }
 
-            // ============================================================
-            // ETAPA 3: NAVEGAR PARA /novo/financeiros/clientes/planos/{ID}
-            //          E INCLUIR O PLANO CDNTV
-            // ============================================================
-            let planosPageUrl;
-            if (clienteId) {
-                planosPageUrl = `https://sistema.receitanet.net/novo/financeiros/clientes/planos/${clienteId}`;
-            } else {
-                // Fallback: Usa a página de planos legacy se não encontrou o ID
-                planosPageUrl = `https://sistema.receitanet.net/clientes_plano.php?login=${encodeURIComponent(loginClean)}`;
-                console.log(`[STARTV-ROBOT] ⚠️ ID não encontrado. Usando fallback legacy: ${planosPageUrl}`);
+            // ETAPA 3: NAVEGAR PARA /novo/financeiros/clientes/planos/{ID} E INCLUIR CDNTV
+            if (!clienteId) {
+                throw new Error('[STARTV-ROBOT] Nao foi possivel descobrir o ID numerico do cliente ' + loginTv + '. Metodos A, B e C falharam.');
             }
 
-            console.log(`[STARTV-ROBOT] ETAPA 3: Acessando página de Planos: ${planosPageUrl}`);
+            const planosPageUrl = 'https://sistema.receitanet.net/novo/financeiros/clientes/planos/' + clienteId;
+            console.log('[STARTV-ROBOT] ETAPA 3: Acessando pagina de Planos: ' + planosPageUrl);
             await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded' });
 
-            // Aguarda o select de planos aparecer (a página /novo/ é SPA/Vue, pode precisar de mais tempo)
+            // Aguarda o select de planos (SPA Vue pode levar mais tempo)
             const selectApareceu = await page.waitForSelector('select', { timeout: 15000 }).then(() => true).catch(() => false);
-
             if (!selectApareceu) {
-                console.log(`[STARTV-ROBOT] ⚠️ Select não apareceu. Aguardando 3s adicionais e tentando novamente...`);
+                console.log('[STARTV-ROBOT] Select nao apareceu. Aguardando 3s adicionais...');
                 await new Promise(r => setTimeout(r, 3000));
             }
 
             await this.tirarScreenshot(page, '04_pagina_planos');
 
-            // Loga todos os selects disponíveis para diagnóstico
+            // Log de diagnostico dos selects
             const selectDiag = await page.evaluate(() =>
                 Array.from(document.querySelectorAll('select')).map(s => ({
                     name: s.name, id: s.id,
                     options: Array.from(s.options).map(o => ({ text: o.text, value: o.value }))
                 }))
             );
-            console.log(`[STARTV-ROBOT DIAG SELECTS]`, JSON.stringify(selectDiag));
+            console.log('[STARTV-ROBOT DIAG SELECTS]', JSON.stringify(selectDiag));
 
-            // Encontra o select que tem a opção CDNTV e o valor desta opção
+            // Encontra o select com a opcao CDNTV
             const cdntvInfo = await page.evaluate(() => {
                 for (const s of document.querySelectorAll('select')) {
                     for (const o of s.options) {
@@ -316,31 +305,31 @@ class ReceitanetRobotService {
 
             if (!cdntvInfo) {
                 await this.tirarScreenshot(page, '04_ERRO_cdntv_nao_encontrado');
-                throw new Error(`[STARTV-ROBOT] Opção CDNTV não encontrada em nenhum select. URL: ${page.url()}. Selects: ${JSON.stringify(selectDiag)}`);
+                throw new Error('[STARTV-ROBOT] Opcao CDNTV nao encontrada. URL: ' + page.url());
             }
 
-            console.log(`[STARTV-ROBOT] Opção CDNTV encontrada → Select: '${cdntvInfo.selectName || cdntvInfo.selectId}', Valor: '${cdntvInfo.optionValue}', Texto: '${cdntvInfo.optionText}'`);
+            console.log('[STARTV-ROBOT] CDNTV encontrada -> Select: ' + (cdntvInfo.selectName || cdntvInfo.selectId) + ', Valor: ' + cdntvInfo.optionValue);
 
-            // Seleciona a opção usando page.select() nativo do Puppeteer (mais confiável)
+            // Seleciona usando page.select() nativo
             const selectSel = cdntvInfo.selectName
-                ? `select[name="${cdntvInfo.selectName}"]`
-                : cdntvInfo.selectId ? `select#${cdntvInfo.selectId}` : 'select';
+                ? 'select[name="' + cdntvInfo.selectName + '"]'
+                : cdntvInfo.selectId ? 'select#' + cdntvInfo.selectId : 'select';
 
             await page.select(selectSel, cdntvInfo.optionValue);
-            await new Promise(r => setTimeout(r, 500)); // Aguarda reatividade Vue/Angular se houver
+            await new Promise(r => setTimeout(r, 500));
 
             await this.tirarScreenshot(page, '05_cdntv_selecionado');
-            console.log(`[STARTV-ROBOT] CDNTV selecionado. Clicando no botão INCLUIR...`);
+            console.log('[STARTV-ROBOT] CDNTV selecionado. Clicando no botao INCLUIR...');
 
-            // Loga todos os botões disponíveis para diagnóstico
+            // Log de diagnostico dos botoes
             const btnDiag = await page.evaluate(() =>
                 Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"]')).map(b => ({
-                    tag: b.tagName, text: (b.textContent || b.value || '').trim(), type: b.type, id: b.id, class: b.className
+                    tag: b.tagName, text: (b.textContent || b.value || '').trim(), type: b.type, id: b.id
                 }))
             );
-            console.log(`[STARTV-ROBOT DIAG BOTOES]`, JSON.stringify(btnDiag));
+            console.log('[STARTV-ROBOT DIAG BOTOES]', JSON.stringify(btnDiag));
 
-            // Clica no botão INCLUIR — sequencialmente, sem Promise.all instável
+            // Clica no botao INCLUIR sequencialmente
             const clicouIncluir = await page.evaluate(() => {
                 const parentForm = document.querySelector('form');
                 const candidatos = parentForm
@@ -358,21 +347,20 @@ class ReceitanetRobotService {
             });
 
             if (!clicouIncluir) {
-                throw new Error(`[STARTV-ROBOT] Nenhum botão INCLUIR encontrado na página de planos. URL: ${page.url()}`);
+                throw new Error('[STARTV-ROBOT] Nenhum botao INCLUIR na pagina de planos. URL: ' + page.url());
             }
 
-            // Aguarda resposta do servidor
             await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
             await new Promise(r => setTimeout(r, 2000));
 
             await this.tirarScreenshot(page, '06_plano_cdntv_incluido');
-            console.log(`[STARTV-ROBOT SUCCESS] 🎉 CLIENTE '${loginTv}' CRIADO E PLANO CDNTV INCLUÍDO COM SUCESSO! URL final: ${page.url()}`);
+            console.log('[STARTV-ROBOT SUCCESS] CLIENTE ' + loginTv + ' CRIADO E PLANO CDNTV INCLUIDO COM SUCESSO! URL: ' + page.url());
             return true;
 
         } catch (error) {
-            console.error(`[STARTV-ROBOT ERROR] Falha no cadastro + inclusão CDNTV:`, error.message);
+            console.error('[STARTV-ROBOT ERROR] Falha no cadastro + inclusao CDNTV:', error.message);
             try { await this.tirarScreenshot(page, 'ERRO_exception'); } catch(e) {}
-            await this.fecharNavegador();
+            try { await this.fecharNavegador(); } catch(e) {}
             throw error;
         }
     }
@@ -836,6 +824,19 @@ class ReceitanetRobotService {
 
         console.log(`[RECEITANET-ROBOT] Aguardando processamento da gravação assíncrona (5 segundos)...`);
         await new Promise(r => setTimeout(r, 5000));
+    }
+
+    async fecharNavegador() {
+        try {
+            if (this.browser) {
+                await this.browser.close();
+            }
+        } catch(e) {
+            console.log(`[RECEITANET-ROBOT] Aviso ao fechar navegador:`, e.message);
+        } finally {
+            this.browser = null;
+            this.page = null;
+        }
     }
 }
 
