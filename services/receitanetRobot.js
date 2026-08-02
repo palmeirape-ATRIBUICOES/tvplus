@@ -111,166 +111,267 @@ class ReceitanetRobotService {
         const loginTv = loginTvInput || cliente.login || cliente.cli_login;
         const cpfRaw = cliente.cpf || cliente.cpfcnpj || cliente.cgc || senhaTvInput || '00000000000';
         const cpf = cpfRaw.toString().replace(/\D/g, '');
-        const senhaTv = cpf; // A senha deve ser o CPF conforme instrução
+        const senhaTv = cpf;
         const nomeCliente = cliente.nome || 'Cliente Provedor';
         const loginClean = (loginTv || '').replace(/@.*$/, '').trim();
 
-        console.log(`[RECEITANET-ROBOT] 🚀 Criando usuário '${loginTv}' do zero com CPF/Senha '${cpf}'...`);
+        console.log(`[RECEITANET-ROBOT] 🚀 Criando usuário '${loginTv}' | Nome: '${nomeCliente}' | CPF/Senha: '${cpf}'...`);
 
         try {
-            // ETAPA 1: Acessar a página https://sistema.receitanet.net/clientes_cadastro.php
-            console.log(`[RECEITANET-ROBOT] ETAPA 1: Acessando https://sistema.receitanet.net/clientes_cadastro.php...`);
+            // ============================================================
+            // ETAPA 1: CADASTRO DO CLIENTE EM clientes_cadastro.php
+            // ============================================================
+            console.log(`[RECEITANET-ROBOT] ETAPA 1: Acessando a tela de cadastro...`);
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
-            await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
+            await page.waitForSelector('input[name="cli_login"]', { timeout: 12000 });
 
-            // Preencher campos: login, senha (CPF), nome, cpf
-            console.log(`[RECEITANET-ROBOT] Preenchendo Login: '${loginTv}', Senha (CPF): '${senhaTv}', Nome: '${nomeCliente}', CPF: '${cpf}'...`);
-            await page.type('input[name="cli_login"]', (loginTv || '').toString());
-            await page.type('input[name="cli_senha"]', (senhaTv || '').toString());
-            await page.type('input[name="cli_nome"]', (nomeCliente || '').toString());
-            await page.type('input[name="cli_cgc"]', (cpf || '').toString());
+            // Limpar e preencher campo a campo (sem page.type acumulado)
+            const camposCadastro = [
+                { sel: 'input[name="cli_login"]',  val: loginTv    },
+                { sel: 'input[name="cli_senha"]',  val: senhaTv    },
+                { sel: 'input[name="cli_nome"]',   val: nomeCliente},
+                { sel: 'input[name="cli_cgc"]',    val: cpf        }
+            ];
 
-            // Parâmetros oficiais de mensalidade
+            for (const campo of camposCadastro) {
+                await page.evaluate((sel) => {
+                    const el = document.querySelector(sel);
+                    if (el) { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); }
+                }, campo.sel);
+                await page.click(campo.sel, { clickCount: 3 });
+                await page.type(campo.sel, campo.val, { delay: 30 });
+            }
+
+            // Selects de configuração
             await page.evaluate(() => {
                 const setVal = (sel, val) => {
                     const el = document.querySelector(sel);
                     if (el) { el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); }
                 };
-                setVal('select[name="cli_tipo"]', '1');
-                setVal('select[name="cli_diatari"]', '10');
-                setVal('select[name="cli_boleto"]', 'S');
-                setVal('select[name="men_codigo"]', '1');
-                setVal('select[name="plano"]', '2');
-                setVal('select[name="ban_codigo"]', '12168');
-                setVal('select[name="base_referencia"]', 'V');
+                setVal('select[name="cli_tipo"]',       '1');
+                setVal('select[name="cli_diatari"]',    '10');
+                setVal('select[name="cli_boleto"]',     'S');
+                setVal('select[name="men_codigo"]',     '1');
+                setVal('select[name="plano"]',          '2');
+                setVal('select[name="ban_codigo"]',     '12168');
+                setVal('select[name="base_referencia"]','V');
             });
 
-            await this.tirarScreenshot(page, '01_formulario_cadastro_preenchido');
+            await this.tirarScreenshot(page, '01_formulario_preenchido');
+            console.log(`[RECEITANET-ROBOT] Campos preenchidos. Clicando em INCLUIR...`);
 
-            // Clica no botão Incluir
-            console.log(`[RECEITANET-ROBOT] Clicando no botão Incluir do cadastro...`);
-            await Promise.all([
-                page.evaluate(() => {
-                    const btn = document.querySelector('#form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary') ||
-                                document.querySelector('button.btn-primary') ||
-                                Array.from(document.querySelectorAll('button')).find(b => b.textContent.trim() === 'Incluir');
+            // Clica no botão INCLUIR de forma sequencial (mais seguro)
+            const btnIncluirSel = '#form-cliente > div.nav-tabs-custom > div.box-footer > button.btn.btn-primary';
+            const btnExiste = await page.$(btnIncluirSel);
+            if (btnExiste) {
+                await page.click(btnIncluirSel);
+            } else {
+                await page.evaluate(() => {
+                    const btn = document.querySelector('button.btn-primary') ||
+                                Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').trim().toLowerCase() === 'incluir');
                     if (btn) btn.click();
-                    else throw new Error("Botão Incluir de cadastro não encontrado.");
-                }),
-                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {})
-            ]);
-
-            await this.tirarScreenshot(page, '02_apos_incluir_cliente_criado');
-            console.log(`[RECEITANET-ROBOT] ETAPA 1 Concluída! Ficha do cliente criada com sucesso.`);
-
-            // ETAPA 2: Obter a URL de Planos do cliente no formato /novo/financeiros/clientes/planos/{ID}
-            const editClienteUrl = `${RECEITANET_LOGIN_URL}clientes_cadastro.php?cli_login=${encodeURIComponent(loginClean)}`;
-            console.log(`[RECEITANET-ROBOT] ETAPA 2: Abrindo ficha do cliente (${editClienteUrl}) para obter o ID...`);
-            await page.goto(editClienteUrl, { waitUntil: 'domcontentloaded' });
-            await page.waitForSelector('a, input', { timeout: 8000 });
-
-            await this.tirarScreenshot(page, '03_ficha_cliente_aberta');
-
-            // Extrai a URL ou ID do plano no formato /novo/financeiros/clientes/planos/{ID}
-            let targetPlanUrl = await page.evaluate(() => {
-                const links = Array.from(document.querySelectorAll('a'));
-                const linkPlanos = links.find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
-                if (linkPlanos) return linkPlanos.href;
-
-                // Tenta extrair ID numérico de inputs
-                const inputId = document.querySelector('input[name="cli_codigo"], input[name="cli_id"], input[name="id"]');
-                if (inputId && inputId.value && /^\d+$/.test(inputId.value.trim())) {
-                    return `https://sistema.receitanet.net/novo/financeiros/clientes/planos/${inputId.value.trim()}`;
-                }
-
-                // Tenta buscar no HTML
-                const html = document.body.innerHTML;
-                const m = html.match(/\/novo\/financeiros\/clientes\/planos\/(\d+)/) || html.match(/Identificação:\s*(\d+)/i);
-                if (m) return `https://sistema.receitanet.net/novo/financeiros/clientes/planos/${m[1]}`;
-
-                return null;
-            });
-
-            // Se não encontrou o ID no cadastro legacy, busca via Novo ERP (/novo/clientes?busca=...)
-            if (!targetPlanUrl) {
-                console.log(`[RECEITANET-ROBOT] Buscando o cliente '${loginClean}' no Novo ERP (/novo/clientes)...`);
-                await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginClean)}`, { waitUntil: 'domcontentloaded' });
-                await new Promise(r => setTimeout(r, 1500));
-
-                targetPlanUrl = await page.evaluate(() => {
-                    const link = Array.from(document.querySelectorAll('a')).find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
-                    return link ? link.href : null;
+                    else throw new Error('Botão INCLUIR do cadastro não encontrado.');
                 });
             }
 
-            if (!targetPlanUrl) {
-                // Fallback padrao com o login sem dominio
-                targetPlanUrl = `https://sistema.receitanet.net/clientes_plano.php?login=${encodeURIComponent(loginClean)}`;
+            // Aguarda a navegação (redirect após criação contém o ID do cliente na URL)
+            await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+            await new Promise(r => setTimeout(r, 1500));
+
+            const urlPosCriacao = page.url();
+            console.log(`[RECEITANET-ROBOT] ETAPA 1 ✅ Concluída. URL pós-criação: ${urlPosCriacao}`);
+            await this.tirarScreenshot(page, '02_cliente_criado');
+
+            // ============================================================
+            // ETAPA 2: DESCOBRIR O ID NUMÉRICO DO CLIENTE PARA ACESSAR
+            //          https://sistema.receitanet.net/novo/financeiros/clientes/planos/{ID}
+            // ============================================================
+            console.log(`[RECEITANET-ROBOT] ETAPA 2: Descobrindo ID numérico do cliente recém-criado...`);
+
+            let clienteId = null;
+
+            // Método A: ID está na URL de redirect pós-criação (ex: ?cli_codigo=12345)
+            const matchUrl = urlPosCriacao.match(/[?&]cli_codigo=([\d]+)/) ||
+                             urlPosCriacao.match(/\/clientes\/(\d+)/) ||
+                             urlPosCriacao.match(/id=(\d+)/);
+            if (matchUrl) {
+                clienteId = matchUrl[1];
+                console.log(`[RECEITANET-ROBOT] ID capturado da URL pós-criação: ${clienteId}`);
             }
 
-            console.log(`[RECEITANET-ROBOT] 🚀 Navegando DIRETAMENTE para a página de Planos: ${targetPlanUrl}...`);
-            await page.goto(targetPlanUrl, { waitUntil: 'domcontentloaded' });
-            await page.waitForSelector('select', { timeout: 8000 });
+            // Método B: Abrir a ficha via login e extrair ID de input oculto, link ou URL da página
+            if (!clienteId) {
+                const fichaUrl = `${CADASTRO_CLIENTE_URL}?cli_login=${encodeURIComponent(loginClean)}`;
+                console.log(`[RECEITANET-ROBOT] Abrindo ficha via login para extrair ID: ${fichaUrl}`);
+                await page.goto(fichaUrl, { waitUntil: 'domcontentloaded' });
+                await page.waitForSelector('input, a', { timeout: 10000 });
 
-            await this.tirarScreenshot(page, '04_tela_planos_aberta');
+                await this.tirarScreenshot(page, '03_ficha_para_extrair_id');
 
-            // ETAPA 3: Na área Plano de Cobrança, no dropdown Descrição selecionar 'cdntv' e clicar no botão INCLUIR
-            console.log(`[RECEITANET-ROBOT] ETAPA 3: Selecionando 'cdntv' no dropdown Descrição e clicando no botão INCLUIR...`);
-
-            await Promise.all([
-                page.evaluate(() => {
-                    const selects = Array.from(document.querySelectorAll('select'));
-                    let targetSelect = null;
-                    let cdntvOption = null;
-
-                    for (const s of selects) {
-                        const opt = Array.from(s.options).find(o => {
-                            const txt = (o.text || '').toLowerCase();
-                            const val = (o.value || '').toString();
-                            return txt.includes('cdntv') || txt.includes('cdn') || val === '108038' || val === '29';
-                        });
-                        if (opt) {
-                            targetSelect = s;
-                            cdntvOption = opt;
-                            break;
-                        }
+                const extractResult = await page.evaluate(() => {
+                    // Prioridade 1: link direto para /novo/financeiros/clientes/planos/{ID}
+                    const linkPlano = Array.from(document.querySelectorAll('a'))
+                        .find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
+                    if (linkPlano) {
+                        const m = linkPlano.href.match(/\/planos\/(\d+)/);
+                        return m ? m[1] : null;
                     }
 
-                    if (targetSelect && cdntvOption) {
-                        targetSelect.value = cdntvOption.value;
-                        targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
-                        targetSelect.dispatchEvent(new Event('input', { bubbles: true }));
+                    // Prioridade 2: input oculto com cli_codigo
+                    const inputCodigo = document.querySelector('input[name="cli_codigo"], input[name="id"], input[name="cli_id"]');
+                    if (inputCodigo && /^\d+$/.test((inputCodigo.value || '').trim())) {
+                        return inputCodigo.value.trim();
+                    }
 
-                        const parentForm = targetSelect.closest('form') || document.querySelector('form');
-                        if (parentForm) {
-                            const btnIncluir = parentForm.querySelector('#app > div.content-wrapper > section.content > div > div.col-sm-5.col-md-7 > form > div.box-footer > button') ||
-                                               parentForm.querySelector('button, input[type="submit"]') ||
-                                               Array.from(parentForm.querySelectorAll('button, input')).find(b => {
-                                                   const val = (b.value || b.textContent || '').trim().toUpperCase();
-                                                   return val.includes('INCLUIR');
-                                               });
+                    // Prioridade 3: busca no HTML por qualquer ocorrência do padrão de ID
+                    const html = document.body.innerHTML;
+                    const mHtml = html.match(/\/novo\/financeiros\/clientes\/planos\/(\d+)/);
+                    if (mHtml) return mHtml[1];
 
-                            if (btnIncluir) {
-                                btnIncluir.click();
-                                return true;
-                            } else {
-                                parentForm.submit();
-                                return true;
-                            }
+                    // Prioridade 4: URL atual
+                    const mPage = window.location.href.match(/[?&]cli_codigo=([\d]+)/);
+                    if (mPage) return mPage[1];
+
+                    return null;
+                });
+
+                if (extractResult) {
+                    clienteId = extractResult;
+                    console.log(`[RECEITANET-ROBOT] ID extraído da ficha do cliente: ${clienteId}`);
+                }
+            }
+
+            // Método C: Busca no Novo ERP pela lista de clientes
+            if (!clienteId) {
+                console.log(`[RECEITANET-ROBOT] Buscando cliente '${loginClean}' no Novo ERP para obter ID...`);
+                await page.goto(`https://sistema.receitanet.net/novo/clientes?busca=${encodeURIComponent(loginClean)}`, { waitUntil: 'domcontentloaded' });
+                await new Promise(r => setTimeout(r, 2000));
+
+                await this.tirarScreenshot(page, '03b_busca_novo_erp');
+
+                const idFromNovoErp = await page.evaluate(() => {
+                    const link = Array.from(document.querySelectorAll('a'))
+                        .find(a => a.href && a.href.includes('/novo/financeiros/clientes/planos/'));
+                    if (link) {
+                        const m = link.href.match(/\/planos\/(\d+)/);
+                        return m ? m[1] : null;
+                    }
+                    return null;
+                });
+
+                if (idFromNovoErp) {
+                    clienteId = idFromNovoErp;
+                    console.log(`[RECEITANET-ROBOT] ID encontrado no Novo ERP: ${clienteId}`);
+                }
+            }
+
+            // ============================================================
+            // ETAPA 3: NAVEGAR PARA /novo/financeiros/clientes/planos/{ID}
+            //          E INCLUIR O PLANO CDNTV
+            // ============================================================
+            let planosPageUrl;
+            if (clienteId) {
+                planosPageUrl = `https://sistema.receitanet.net/novo/financeiros/clientes/planos/${clienteId}`;
+            } else {
+                // Fallback: Usa a página de planos legacy se não encontrou o ID
+                planosPageUrl = `https://sistema.receitanet.net/clientes_plano.php?login=${encodeURIComponent(loginClean)}`;
+                console.log(`[RECEITANET-ROBOT] ⚠️ ID não encontrado. Usando fallback legacy: ${planosPageUrl}`);
+            }
+
+            console.log(`[RECEITANET-ROBOT] ETAPA 3: Acessando página de Planos: ${planosPageUrl}`);
+            await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded' });
+
+            // Aguarda o select de planos aparecer (a página /novo/ é SPA/Vue, pode precisar de mais tempo)
+            const selectApareceu = await page.waitForSelector('select', { timeout: 15000 }).then(() => true).catch(() => false);
+
+            if (!selectApareceu) {
+                console.log(`[RECEITANET-ROBOT] ⚠️ Select não apareceu. Aguardando 3s adicionais...`);
+                await new Promise(r => setTimeout(r, 3000));
+            }
+
+            await this.tirarScreenshot(page, '04_pagina_planos');
+
+            // Loga todos os selects disponíveis para diagnóstico
+            const selectDiag = await page.evaluate(() =>
+                Array.from(document.querySelectorAll('select')).map(s => ({
+                    name: s.name, id: s.id,
+                    options: Array.from(s.options).map(o => ({ text: o.text, value: o.value }))
+                }))
+            );
+            console.log(`[RECEITANET-ROBOT DIAG SELECTS]`, JSON.stringify(selectDiag));
+
+            // Encontra o select que tem a opção CDNTV e o valor desta opção
+            const cdntvInfo = await page.evaluate(() => {
+                for (const s of document.querySelectorAll('select')) {
+                    for (const o of s.options) {
+                        const txt = (o.text || '').toLowerCase();
+                        const val = (o.value || '').toString();
+                        if (txt.includes('cdntv') || txt.includes('cdn') || val === '108038' || val === '29') {
+                            return { selectName: s.name, selectId: s.id, optionValue: o.value, optionText: o.text };
                         }
                     }
-                    return false;
-                }),
-                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }).catch(() => {})
-            ]);
+                }
+                return null;
+            });
 
+            if (!cdntvInfo) {
+                await this.tirarScreenshot(page, '04_ERRO_cdntv_nao_encontrado');
+                throw new Error(`[RECEITANET-ROBOT] Opção CDNTV não encontrada em nenhum select. URL: ${page.url()}. Selects: ${JSON.stringify(selectDiag)}`);
+            }
+
+            console.log(`[RECEITANET-ROBOT] Opção CDNTV encontrada → Select: '${cdntvInfo.selectName || cdntvInfo.selectId}', Valor: '${cdntvInfo.optionValue}', Texto: '${cdntvInfo.optionText}'`);
+
+            // Seleciona a opção usando page.select() nativo do Puppeteer (mais confiável)
+            const selectSel = cdntvInfo.selectName
+                ? `select[name="${cdntvInfo.selectName}"]`
+                : cdntvInfo.selectId ? `select#${cdntvInfo.selectId}` : 'select';
+
+            await page.select(selectSel, cdntvInfo.optionValue);
+            await new Promise(r => setTimeout(r, 500)); // Aguarda reatividade Vue/Angular se houver
+
+            await this.tirarScreenshot(page, '05_cdntv_selecionado');
+            console.log(`[RECEITANET-ROBOT] CDNTV selecionado. Clicando no botão INCLUIR...`);
+
+            // Loga todos os botões disponíveis para diagnóstico
+            const btnDiag = await page.evaluate(() =>
+                Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"]')).map(b => ({
+                    tag: b.tagName, text: (b.textContent || b.value || '').trim(), type: b.type, id: b.id, class: b.className
+                }))
+            );
+            console.log(`[RECEITANET-ROBOT DIAG BOTOES]`, JSON.stringify(btnDiag));
+
+            // Clica no botão INCLUIR — sequencialmente, sem Promise.all instável
+            const clicouIncluir = await page.evaluate(() => {
+                const parentForm = document.querySelector('form');
+                const candidatos = parentForm
+                    ? Array.from(parentForm.querySelectorAll('button, input[type="submit"], input[type="button"]'))
+                    : Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"]'));
+
+                const btn = candidatos.find(b => {
+                    const txt = (b.value || b.textContent || '').trim().toUpperCase();
+                    return txt === 'INCLUIR' || txt === 'SALVAR' || txt === 'ADICIONAR';
+                }) || candidatos[0];
+
+                if (btn) { btn.click(); return true; }
+                if (parentForm) { parentForm.submit(); return true; }
+                return false;
+            });
+
+            if (!clicouIncluir) {
+                throw new Error(`[RECEITANET-ROBOT] Nenhum botão INCLUIR encontrado na página de planos. URL: ${page.url()}`);
+            }
+
+            // Aguarda resposta do servidor
+            await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
             await new Promise(r => setTimeout(r, 2000));
-            await this.tirarScreenshot(page, '05_plano_cdntv_confirmado_sucesso');
 
-            console.log(`[RECEITANET-ROBOT SUCCESS] 🎉 CRIAÇÃO DO CLIENTE E INCLUSÃO DO PLANO CDNTV FINALIZADA COM SUCESSO!`);
+            await this.tirarScreenshot(page, '06_plano_cdntv_incluido');
+            console.log(`[RECEITANET-ROBOT SUCCESS] 🎉 CLIENTE '${loginTv}' CRIADO E PLANO CDNTV INCLUÍDO COM SUCESSO! URL final: ${page.url()}`);
             return true;
+
         } catch (error) {
-            console.error(`[RECEITANET-ROBOT ERROR] Falha no cadastro de cliente:`, error.message);
+            console.error(`[RECEITANET-ROBOT ERROR] Falha no cadastro + inclusão CDNTV:`, error.message);
+            try { await this.tirarScreenshot(page, 'ERRO_exception'); } catch(e) {}
             await this.fecharNavegador();
             throw error;
         }
