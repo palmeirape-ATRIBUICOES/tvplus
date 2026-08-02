@@ -318,7 +318,18 @@ class ReceitanetRobotService {
             );
             console.log('[RECEITANET-ROBOT DIAG BOTOES]', JSON.stringify(btnDiag));
 
+            // Clica no botao INCLUIR usando o XPath exato fornecido pelo usuario + fallbacks
+            console.log('[RECEITANET-ROBOT] Clicando no botao INCLUIR plano via XPath exato /html/body/div/div[1]/section[2]/div/div[2]/form/div[3]/button...');
             const clicouIncluir = await page.evaluate(() => {
+                // 1. XPath exato fornecido pelo usuario
+                const xpathExato = document.evaluate('/html/body/div/div[1]/section[2]/div/div[2]/form/div[3]/button', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                if (xpathExato) {
+                    xpathExato.scrollIntoView();
+                    xpathExato.click();
+                    return 'xpath_exato';
+                }
+
+                // 2. Seletor CSS do formulario de plano
                 const parentForm = document.querySelector('form');
                 const candidatos = parentForm
                     ? Array.from(parentForm.querySelectorAll('button, input[type="submit"], input[type="button"]'))
@@ -326,13 +337,24 @@ class ReceitanetRobotService {
 
                 const btn = candidatos.find(b => {
                     const txt = (b.value || b.textContent || '').trim().toUpperCase();
-                    return txt === 'INCLUIR' || txt === 'SALVAR' || txt === 'ADICIONAR';
+                    return txt.includes('INCLUIR') || txt.includes('SALVAR') || txt.includes('ADICIONAR');
                 }) || candidatos[0];
 
-                if (btn) { btn.click(); return true; }
-                if (parentForm) { parentForm.submit(); return true; }
+                if (btn) {
+                    btn.scrollIntoView();
+                    btn.click();
+                    return 'seletor_texto';
+                }
+
+                if (parentForm) {
+                    parentForm.submit();
+                    return 'form_submit';
+                }
+
                 return false;
             });
+
+            console.log('[RECEITANET-ROBOT] Resultado do clique no botao INCLUIR: ' + clicouIncluir);
 
             if (!clicouIncluir) {
                 throw new Error('[RECEITANET-ROBOT] Nenhum botao INCLUIR na pagina de planos. URL: ' + page.url());
