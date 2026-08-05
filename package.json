@@ -1,6 +1,6 @@
 {
   "name": "tv-pix-platform",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Landing page de vendas com checkout Pix, integrador Iespyfy e notificações WhatsApp",
   "main": "server.js",
   "scripts": {
