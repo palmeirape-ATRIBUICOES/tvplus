@@ -173,12 +173,7 @@
                             <span>Aguardando confirmação de pagamento...</span>
                         </div>
 
-                        <!-- Sandbox para testadores rápidos -->
-                        <div class="sandbox-area" style="display:none;" id="sandboxAreaContainer">
-                            <button id="btnSimularPix" class="btn-secondary">
-                                <i class="fa-solid fa-circle-check"></i> [Modo Teste] Simular Aprovação
-                            </button>
-                        </div>
+
                     </div>
 
                     <!-- PASSO 3: Sucesso e Acesso Liberado -->
@@ -477,8 +472,6 @@
         </section>
 
     </main>
-    <button class="cad-float" id="btnCadFloat" onclick="document.getElementById('checkoutSection').scrollIntoView({behavior:'smooth'})"><i class="fa-solid fa-user-plus"></i> Fazer meu cadastro</button>
-    <script>(function(){const b=document.getElementById('btnCadFloat'),s=document.getElementById('checkoutSection');new IntersectionObserver(e=>b.classList.toggle('show',!e[0].isIntersecting&&window.scrollY>300),{threshold:.1}).observe(s);window.addEventListener('scroll',()=>{const r=s.getBoundingClientRect();b.classList.toggle('show',window.scrollY>300&&(r.bottom<0||r.top>innerHeight));},{passive:true});})();</script>
 
     <!-- Área Administrativa de Testes Rápida e Oculta -->
     <footer class="footer">

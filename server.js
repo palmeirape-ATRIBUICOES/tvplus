@@ -877,32 +877,8 @@ app.post('/api/admin/gerar-pix-teste', async (req, res) => {
     }
 });
 app.post('/api/simular-pagamento', async (req, res) => {
-    const { txid } = req.body;
-    
-    if (!txid) {
-        return res.status(400).json({ error: 'Indique o txid do pagamento a ser simulado.' });
-    }
-
-    try {
-        const pagamento = await helpers.obterPagamentoPorTxid(txid);
-        if (!pagamento) {
-            return res.status(404).json({ error: 'Pagamento não localizado no banco.' });
-        }
-
-        if (pagamento.status === 'pago') {
-            return res.status(200).json({ message: 'Este pagamento já foi aprovado.' });
-        }
-
-        const dadosAcesso = await processarConfirmacaoPagamento(txid);
-        res.status(200).json({
-            message: 'Sucesso! Pagamento simulado com aprovação imediata.',
-            login: dadosAcesso.login_tv,
-            senha: dadosAcesso.senha_tv
-        });
-    } catch (error) {
-        console.error('Erro na simulação de pagamento:', error);
-        res.status(500).json({ error: error.message });
-    }
+    // Rota desativada por segurança para evitar liberações indevidas sem pagamento real
+    return res.status(403).json({ error: 'Simulação desativada em ambiente de produção.' });
 });
 
 /**

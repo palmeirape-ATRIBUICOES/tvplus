@@ -191,7 +191,7 @@ async function submeterFormulario(tipoCadastro) {
                 pixInstructionsText.style.display = 'block';
                 copiaColaContainer.style.display = 'flex';
                 statusIndicatorContainer.style.display = 'block';
-                sandboxAreaContainer.style.display = 'block';
+                if (sandboxAreaContainer) sandboxAreaContainer.style.display = 'none';
                 
                 // Inicia pooling de confirmação
                 iniciarChecagemStatus(currentTxid);
@@ -293,7 +293,7 @@ btnGerarNovoPix.addEventListener('click', async () => {
         pixInstructionsText.style.display = 'block';
         copiaColaContainer.style.display = 'flex';
         statusIndicatorContainer.style.display = 'block';
-        sandboxAreaContainer.style.display = 'block';
+        if (sandboxAreaContainer) sandboxAreaContainer.style.display = 'none';
 
         btnGerarNovoPix.innerHTML = `<span>Pix Gerado com Sucesso</span> <i class="fa-solid fa-check"></i>`;
 
@@ -325,32 +325,30 @@ btnCopiarPix.addEventListener('click', () => {
     });
 });
 
-// 4. Simular Pagamento Pix (Botão Sandbox)
-btnSimularPix.addEventListener('click', async () => {
-    if (!currentTxid) return;
-    
-    qrOverlay.classList.add('active');
-    
-    try {
-        const response = await fetch('/api/simular-pagamento', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txid: currentTxid })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            pararChecagemStatus();
-            mostrarSucesso(data.login, data.senha);
-        } else {
-            throw new Error(data.error);
+// 4. Simular Pagamento Pix (Removido por segurança em produção)
+if (btnSimularPix) {
+    btnSimularPix.addEventListener('click', async () => {
+        if (!currentTxid) return;
+        qrOverlay.classList.add('active');
+        try {
+            const response = await fetch('/api/simular-pagamento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ txid: currentTxid })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                pararChecagemStatus();
+                mostrarSucesso(data.login, data.senha);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            alert(`Erro na simulação: ${error.message}`);
+            qrOverlay.classList.remove('active');
         }
-    } catch (error) {
-        alert(`Erro na simulação: ${error.message}`);
-        qrOverlay.classList.remove('active');
-    }
-});
+    });
+}
 
 // Helpers de Transição e Pooling
 function syncCadSteps(toStep) {
@@ -367,6 +365,13 @@ function switchStep(fromStep, toStep) {
         toStep.style.display = 'block';
         setTimeout(() => {
             toStep.classList.add('active');
+            // Quando avançar para o passo do Pix ou Sucesso, centraliza a tela no card
+            if (toStep.id === 'stepPix' || toStep.id === 'stepSuccess') {
+                const checkoutCardEl = document.getElementById('checkoutCard');
+                if (checkoutCardEl) {
+                    checkoutCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
         }, 50);
     }, 400);
 }
