@@ -340,7 +340,14 @@ btnSimularPix.addEventListener('click', async () => {
 });
 
 // Helpers de Transição e Pooling
+function syncCadSteps(toStep) {
+    const idx = { stepForm: 0, stepPix: 1, stepSuccess: 2 }[toStep && toStep.id];
+    if (idx === undefined) return;
+    document.querySelectorAll('.cad-steps li').forEach((li, i) => li.classList.toggle('on', i <= idx));
+}
+
 function switchStep(fromStep, toStep) {
+    syncCadSteps(toStep);
     fromStep.classList.remove('active');
     setTimeout(() => {
         fromStep.style.display = 'none';
@@ -418,7 +425,8 @@ function resetFlow() {
     btnSubmitTrial.disabled = false;
     btnSubmitBuy.disabled = false;
     btnSubmitTrial.innerHTML = `<i class="fa-solid fa-bolt" style="color: #eab308;"></i> <span>Teste Grátis (1 Hora)</span>`;
-    btnSubmitBuy.innerHTML = `<i class="fa-solid fa-cart-shopping"></i> <span>Comprar Agora (R$ 10)</span>`;
+    btnSubmitBuy.innerHTML = `<i class="fa-solid fa-user-check"></i> <span>CRIAR CADASTRO E PAGAR R$ 10</span>`;
+    if (typeof syncCadSteps === 'function') syncCadSteps(stepForm);
     
     // Voltar para o Passo 1
     stepSuccess.classList.remove('active');

@@ -1,21 +1,22 @@
 /* Design System & Variáveis */
 :root {
-    --bg-dark: #0a0712; /* Obsidian Purple */
-    --bg-card: rgba(20, 15, 35, 0.75); /* Deep Violet Translucent */
-    --border-color: rgba(255, 255, 255, 0.06);
-    --border-hover: rgba(255, 51, 102, 0.3); /* Glowing Pink Border */
-    
-    --primary-gradient: linear-gradient(135deg, #FF3366 0%, #8A2BE2 100%); /* Electric Pink to Purple */
-    --accent-gradient: linear-gradient(135deg, #FF8C00 0%, #FF0080 100%); /* Sunset Amber to Coral */
-    --success-gradient: linear-gradient(135deg, #00FF87 0%, #60EFFF 100%); /* Electric Cyan-Green */
-    
-    --text-primary: #ffffff;
-    --text-secondary: #c1b9d4; /* Lavender Muted Text */
-    --text-muted: #8b7d9f;
-    
-    --neon-cyan: #FF3366;   /* Re-mapped to Pink */
-    --neon-purple: #8A2BE2; /* Re-mapped to Royal Purple */
-    --neon-green: #00FF87;  /* Re-mapped to Neon Mint */
+    /* Paleta inspirada no SignalHub Tutoriais: azul-marinho + laranja */
+    --bg-dark: hsl(214 60% 9%);
+    --bg-card: hsl(214 55% 15% / .85);
+    --border-color: hsl(214 35% 22%);
+    --border-hover: hsl(24 90% 54% / .45);
+
+    --primary-gradient: linear-gradient(135deg, hsl(24 95% 56%) 0%, hsl(14 90% 50%) 100%);
+    --accent-gradient: linear-gradient(135deg, hsl(214 70% 50%) 0%, hsl(200 85% 50%) 100%);
+    --success-gradient: linear-gradient(135deg, hsl(24 95% 60%) 0%, hsl(40 95% 60%) 100%);
+
+    --text-primary: hsl(210 40% 96%);
+    --text-secondary: hsl(214 25% 75%);
+    --text-muted: hsl(215 15% 58%);
+
+    --neon-cyan: hsl(24 90% 54%);
+    --neon-purple: hsl(214 70% 45%);
+    --neon-green: hsl(24 95% 60%);
 }
 
 /* Reset Geral & Prevenção de Transbordo Lateral */
@@ -1364,3 +1365,43 @@ html {
         font-size: 16px !important; /* Previne zoom automático do Safari no iOS ao focar input */
     }
 }
+
+/* ================= TEMA V4 - AZUL MARINHO + LARANJA (SignalHub) ================= */
+body{background:linear-gradient(135deg,hsl(214 60% 8%) 0%,hsl(214 55% 12%) 50%,hsl(214 50% 15%) 100%) fixed !important;}
+.navbar{background:hsl(214 60% 9% / .85) !important;backdrop-filter:blur(16px);border-bottom:1px solid hsl(214 35% 22%) !important;}
+.logo-icon,.logo span span{color:hsl(24 90% 54%) !important;}
+.btn-nav-cta,.btn-primary,.btn-hero-cta{background:linear-gradient(135deg,hsl(24 95% 56%),hsl(14 90% 50%)) !important;color:#fff !important;box-shadow:0 0 30px hsl(24 90% 54% / .35) !important;border:none !important;}
+.gradient-text{background:linear-gradient(135deg,#fff 0%,hsl(24 85% 68%) 100%) !important;-webkit-background-clip:text !important;background-clip:text !important;color:transparent !important;}
+.live-badge-glow,.section-tag{background:hsl(24 90% 54% / .12) !important;color:hsl(24 90% 60%) !important;border:1px solid hsl(24 90% 54% / .4) !important;}
+.blink-dot{color:hsl(24 95% 58%) !important;}
+.hero-guarantees i,.checkout-bullets i,.card-footer i{color:hsl(24 90% 58%) !important;}
+.step-card-explain,.benefit-card,.checkout-card{background:linear-gradient(145deg,hsl(214 55% 17%) 0%,hsl(214 55% 12%) 100%) !important;border:1px solid hsl(214 35% 22%) !important;}
+.step-num{background:linear-gradient(135deg,hsl(24 95% 56%),hsl(14 90% 50%)) !important;-webkit-background-clip:text;color:transparent !important;}
+.showcase-badge{background:hsl(24 90% 54%) !important;color:#fff !important;}
+.footer{border-top:1px solid hsl(214 35% 22%) !important;}
+
+/* ---------- DESTAQUE DO CADASTRO ---------- */
+.cad-highlight{position:relative;scroll-margin-top:80px;}
+.cad-banner{max-width:1100px;margin:0 auto 26px;text-align:center;padding:26px 20px;border-radius:22px;background:linear-gradient(135deg,hsl(24 95% 56% / .18),hsl(214 70% 45% / .18));border:1px solid hsl(24 90% 54% / .45);box-shadow:0 0 50px hsl(24 90% 54% / .15);}
+.cad-banner-tag{display:inline-flex;gap:8px;align-items:center;background:hsl(24 90% 54%);color:#fff;font-weight:800;font-size:13px;letter-spacing:1.5px;padding:7px 16px;border-radius:30px;animation:cadPulse 2s infinite;}
+.cad-banner-tag i{animation:cadBounce 1.2s infinite;}
+.cad-banner h2{font-size:clamp(1.5rem,3.4vw,2.4rem);margin:14px 0 18px;color:#fff;}
+.cad-banner h2 em{font-style:normal;color:hsl(24 95% 60%);}
+.cad-steps{list-style:none;padding:0;margin:0;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;}
+.cad-steps li{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:14px;background:hsl(214 60% 9% / .7);border:1px solid hsl(214 35% 25%);color:hsl(214 25% 75%);font-weight:600;font-size:14px;transition:all .3s;}
+.cad-steps li b{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:hsl(214 40% 25%);color:#fff;}
+.cad-steps li.on{border-color:hsl(24 90% 54%);color:#fff;box-shadow:0 0 20px hsl(24 90% 54% / .3);}
+.cad-steps li.on b{background:hsl(24 90% 54%);}
+.cad-highlight .checkout-card{position:relative;border:2px solid hsl(24 90% 54%) !important;box-shadow:0 0 0 6px hsl(24 90% 54% / .1),0 0 60px hsl(24 90% 54% / .25) !important;overflow:visible !important;padding-top:34px !important;}
+.cad-ribbon{position:absolute;top:-16px;left:50%;transform:translateX(-50%);white-space:nowrap;background:linear-gradient(135deg,hsl(24 95% 56%),hsl(14 90% 50%));color:#fff;font-weight:800;font-size:13px;letter-spacing:1.2px;padding:8px 18px;border-radius:30px;box-shadow:0 6px 20px hsl(24 90% 40% / .5);z-index:2;}
+.cad-highlight .card-header h2{color:#fff !important;font-size:1.6rem !important;}
+.cad-highlight .card-header p{color:hsl(24 90% 65%) !important;font-weight:600;}
+.cad-highlight .input-group label{color:#fff !important;font-weight:600 !important;}
+.cad-highlight .input-group label i{color:hsl(24 90% 58%) !important;}
+.cad-highlight .input-group input,.cad-highlight select{background:hsl(214 60% 8%) !important;border:1.5px solid hsl(214 35% 28%) !important;color:#fff !important;height:50px;font-size:16px !important;border-radius:10px !important;}
+.cad-highlight .input-group input:focus{border-color:hsl(24 90% 54%) !important;box-shadow:0 0 0 4px hsl(24 90% 54% / .2) !important;outline:none;}
+.cad-float{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;display:none;gap:8px;align-items:center;padding:14px 24px;border-radius:40px;background:linear-gradient(135deg,hsl(24 95% 56%),hsl(14 90% 50%));color:#fff;font-weight:800;font-family:inherit;font-size:15px;border:none;box-shadow:0 10px 30px hsl(24 90% 40% / .55);cursor:pointer;animation:cadPulse 2s infinite;}
+.cad-float.show{display:inline-flex;}
+@keyframes cadPulse{0%,100%{box-shadow:0 0 0 0 hsl(24 90% 54% / .55)}50%{box-shadow:0 0 0 12px hsl(24 90% 54% / 0)}}
+@keyframes cadBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+@media(max-width:600px){.cad-steps{flex-direction:column;align-items:stretch}.cad-ribbon{font-size:11px}}
