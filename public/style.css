@@ -1404,4 +1404,120 @@ body{background:linear-gradient(135deg,hsl(214 60% 8%) 0%,hsl(214 55% 12%) 50%,h
 .cad-float.show{display:inline-flex;}
 @keyframes cadPulse{0%,100%{box-shadow:0 0 0 0 hsl(24 90% 54% / .55)}50%{box-shadow:0 0 0 12px hsl(24 90% 54% / 0)}}
 @keyframes cadBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
-@media(max-width:600px){.cad-steps{flex-direction:column;align-items:stretch}.cad-ribbon{font-size:11px}}
+@media(max-width:768px){
+    /* Previne qualquer transbordo lateral no mobile */
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        position: relative !important;
+    }
+    *, *::before, *::after {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Ajuste da seção de cadastro / checkout */
+    .checkout-section-block.cad-highlight {
+        padding: 30px 12px 50px 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    /* Banner "Crie seu cadastro em 1 minuto" */
+    .cad-banner {
+        width: 100% !important;
+        padding: 20px 14px !important;
+        margin-bottom: 20px !important;
+        border-radius: 16px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Os 3 quadros de etapas: um abaixo do outro e 100% alinhados */
+    .cad-steps {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .cad-steps li {
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 14px !important;
+        font-size: 14px !important;
+        border-radius: 12px !important;
+        box-sizing: border-box !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+    }
+
+    .cad-steps li b {
+        min-width: 32px !important;
+        height: 32px !important;
+        font-size: 14px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Container com o texto lateral e o card do checkout */
+    .checkout-container-wrapper {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 20px !important;
+        margin: 0 auto !important;
+    }
+
+    .checkout-text-side {
+        width: 100% !important;
+        text-align: center !important;
+    }
+
+    .checkout-bullets {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .checkout-bullets li {
+        justify-content: flex-start !important;
+        text-align: left !important;
+        font-size: 13px !important;
+    }
+
+    /* Card do formulário */
+    .cad-highlight .checkout-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 26px 14px 20px 14px !important;
+        border-radius: 18px !important;
+        box-sizing: border-box !important;
+        overflow: visible !important;
+    }
+
+    .cad-ribbon {
+        font-size: 11px !important;
+        padding: 6px 14px !important;
+        top: -14px !important;
+    }
+
+    /* Evita que botões ou cards de tutorial transbordem */
+    .tsec {
+        padding: 40px 12px !important;
+        margin: 20px 0 !important;
+        border-radius: 16px !important;
+    }
+
+    .tsec .tdevs {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+}
