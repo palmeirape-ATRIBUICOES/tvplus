@@ -24,7 +24,7 @@
             <span>AURA<span>TV</span></span>
         </div>
         <div class="nav-actions">
-            <a href="/tutorial.html" id="navTutorial" style="color:#00ff80;font-weight:600;margin-right:14px;text-decoration:none;"><i class="fa-solid fa-circle-play"></i> Tutoriais</a>
+            <a href="#downloadApp" id="navTutorial" style="color:#00ff80;font-weight:600;margin-right:14px;text-decoration:none;"><i class="fa-solid fa-circle-play"></i> Tutoriais</a>
             <button class="btn-nav-cta" onclick="scrollToCheckout()"><i class="fa-solid fa-bolt"></i> Assinar Agora</button>
         </div>
     </header>
@@ -84,61 +84,170 @@
             </div>
         </section>
 
-        <!-- 3. SEÇÃO GUIA DE DOWNLOAD & APLICATIVO SIGNALPLAY -->
-        <section class="download-guide-section" id="downloadApp">
-            <div class="section-header">
-                <span class="section-tag" style="background: rgba(34, 197, 94, 0.15); color: #00ff80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 5px 14px; border-radius: 20px; font-weight: 700; font-size: 12px;"><i class="fa-solid fa-download"></i> APLICATIVO OFICIAL</span>
-                <h2 style="margin-top: 10px;">Como baixar e assistir no SIGNALPLAY?</h2>
-                <p>Escolha o seu dispositivo abaixo para baixar o aplicativo oficial ou assistir direto do navegador:</p>
+        <!-- 3. SEÇÃO TUTORIAL / DOWNLOAD SIGNALPLAY (acoplado) -->
+        <style>
+            .tsec{--t-bg:hsl(214 60% 11%);--t-card:hsl(214 55% 15%);--t-border:hsl(214 35% 22%);--t-pri:hsl(24 90% 54%);--t-acc:hsl(214 70% 45%);--t-muted:hsl(215 15% 60%);--t-fg:hsl(210 40% 96%);
+                position:relative;padding:70px 5vw;background:linear-gradient(135deg,hsl(214 60% 8%) 0%,hsl(214 55% 14%) 50%,hsl(214 50% 18%) 100%);color:var(--t-fg);overflow:hidden;border-radius:28px;margin:40px auto;max-width:1240px}
+            .tsec .tblob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none}
+            .tsec .tb1{width:460px;height:460px;background:hsl(24 90% 54% / .15);top:-140px;left:20%}.tsec .tb2{width:420px;height:420px;background:hsl(214 70% 45% / .18);bottom:-160px;right:10%}
+            .tsec>*{position:relative}
+            .tsec .thead{text-align:center;margin-bottom:28px}
+            .tsec .ttag{display:inline-block;padding:5px 14px;border-radius:30px;border:1px solid hsl(24 90% 54% / .45);background:hsl(24 90% 54% / .12);color:var(--t-pri);font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+            .tsec h2{font-size:clamp(1.6rem,3.2vw,2.4rem);margin:12px 0 6px}.tsec h2 em{font-style:normal;background:linear-gradient(135deg,#fff 0%,hsl(24 80% 75%) 100%);-webkit-background-clip:text;color:transparent}
+            .tsec .thead p{color:var(--t-muted)}
+            .tsec .tfeats{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 22px;margin-top:14px;list-style:none;padding:0}
+            .tsec .tfeats li{display:flex;gap:8px;align-items:center;font-size:.9rem}.tsec .tfeats i{color:var(--t-pri)}
+            .tsec .tdevs{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:1150px;margin:0 auto}
+            .tsec .tdev{display:block;border:0;padding:0;background:none;cursor:pointer;border-radius:18px;overflow:hidden;transition:transform .3s,box-shadow .3s}
+            .tsec .tdev img{display:block;width:100%;height:auto;pointer-events:none}
+            .tsec .tdev:hover{transform:translateY(-5px);box-shadow:0 0 40px hsl(24 90% 54% / .25)}
+            .tsec .tdev.active{outline:2px solid var(--t-pri);outline-offset:3px}
+            .tsec .tpanel{max-width:1000px;margin:22px auto 0;scroll-margin-top:90px}
+            .tsec .tut{display:none;border:1px solid var(--t-border);background:linear-gradient(145deg,hsl(214 55% 17%) 0%,hsl(214 55% 12%) 100%);border-radius:22px;padding:26px;animation:tfade .4s ease}
+            .tsec .tut.show{display:block}
+            @keyframes tfade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+            .tsec .tut h3{font-size:1.5rem;display:flex;gap:10px;align-items:center;margin-bottom:4px}.tsec .tut h3 i{color:var(--t-pri)}
+            .tsec .tsub{color:var(--t-muted);margin-bottom:18px}
+            .tsec .tsteps{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:20px;counter-reset:s}
+            .tsec .tstep{border:1px solid var(--t-border);border-radius:14px;padding:16px;background:hsl(214 60% 9% / .6);counter-increment:s}
+            .tsec .tstep::before{content:counter(s);display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--t-pri);color:#fff;font-weight:800;margin-bottom:10px}
+            .tsec .tstep b{display:block}.tsec .tstep span{color:var(--t-muted);font-size:.9rem}
+            .tsec .tcred{border:1px solid hsl(24 90% 54% / .35);background:hsl(24 90% 54% / .07);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+            .tsec .tcred h4{margin:0 0 8px;display:flex;gap:8px;align-items:center}.tsec .tcred h4 i{color:var(--t-pri)}
+            .tsec .trow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px dashed var(--t-border);font-size:.95rem}.tsec .trow:first-of-type{border-top:0}
+            .tsec .trow span{color:var(--t-muted)}.tsec .trow b{display:flex;gap:8px;align-items:center;text-align:right}
+            .tsec .tcopy{border:0;background:hsl(214 50% 22%);color:var(--t-fg);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.8rem;font-family:inherit}.tsec .tcopy:hover{background:var(--t-pri)}
+            .tsec .twarn{border:1px solid hsl(40 90% 60% / .4);background:hsl(40 90% 60% / .08);color:hsl(40 95% 75%);border-radius:12px;padding:12px 16px;margin:16px 0 12px;font-weight:600;display:flex;gap:10px;align-items:center}
+            .tsec .tmedia{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+            .tsec .tmedia figure{margin:0;border:1px solid var(--t-border);border-radius:14px;overflow:hidden;background:#000}
+            .tsec .tmedia img,.tsec .tmedia video{width:100%;display:block;max-height:420px;object-fit:contain}
+            .tsec .tmedia figcaption{padding:10px 14px;font-size:.85rem;color:var(--t-muted);background:var(--t-card)}
+            .tsec .tcode{font-size:2.3rem;font-weight:800;letter-spacing:6px;color:var(--t-pri);text-align:center;padding:16px;border:2px dashed hsl(24 90% 54% / .5);border-radius:14px;margin:12px 0}
+            .tsec .tbtn{display:inline-flex;gap:8px;align-items:center;padding:12px 20px;border-radius:12px;background:var(--t-pri);color:#fff;font-weight:700;text-decoration:none;box-shadow:0 0 40px hsl(24 90% 54% / .25);transition:transform .2s}.tsec .tbtn:hover{transform:translateY(-2px)}
+            #tToast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(90px);background:hsl(24 90% 54%);color:#fff;padding:10px 20px;border-radius:30px;font-weight:700;transition:transform .3s;z-index:9999}
+            #tToast.on{transform:translateX(-50%) translateY(0)}
+            @media(max-width:900px){.tsec .tdevs{grid-template-columns:repeat(2,1fr)}}
+            @media(max-width:520px){.tsec{padding:50px 4vw;border-radius:0}.tsec .tdevs{grid-template-columns:1fr}.tsec .tut{padding:18px}}
+        </style>
+        <section class="tsec download-guide-section" id="downloadApp">
+            <div class="tblob tb1"></div><div class="tblob tb2"></div>
+            <div class="thead">
+                <span class="ttag"><i class="fa-solid fa-circle-play"></i> Tutoriais oficiais</span>
+                <h2>Instale o <em>SIGNALPLAY</em> no seu dispositivo</h2>
+                <p>Toque no seu aparelho e veja o passo a passo completo para baixar, instalar e começar a assistir.</p>
+                <ul class="tfeats">
+                    <li><i class="fa-solid fa-list-check"></i> Passo a passo simples e rápido</li>
+                    <li><i class="fa-solid fa-circle-play"></i> Tutoriais em vídeo e imagens</li>
+                    <li><i class="fa-solid fa-tv"></i> Funciona em vários dispositivos</li>
+                </ul>
             </div>
 
-            <div class="download-grid">
-                <!-- Card Android -->
-                <div class="download-card android-card">
-                    <div class="app-icon-badge android-badge">
-                        <i class="fa-brands fa-google-play"></i>
-                    </div>
-                    <h3>Android (TV, Box & Celular)</h3>
-                    <p>Baixe gratuitamente na Google Play Store para Celular, Tablet, Smart TV Android, TV Box ou Amazon Firestick.</p>
-                    <a href="https://play.google.com/store/apps/details?id=br.com.signalplay.tv.mobile&hl=pt_BR" target="_blank" class="btn-download btn-android">
-                        <i class="fa-brands fa-google-play"></i>
-                        <span>Baixar na Play Store</span>
-                    </a>
-                </div>
-
-                <!-- Card iOS -->
-                <div class="download-card ios-card">
-                    <div class="app-icon-badge ios-badge">
-                        <i class="fa-brands fa-apple"></i>
-                    </div>
-                    <h3>iOS (iPhone, iPad & Apple TV)</h3>
-                    <p>Baixe com segurança diretamente na App Store da Apple para o seu iPhone, iPad ou Apple TV.</p>
-                    <a href="https://apps.apple.com/br/app/signalplay/id6749374183" target="_blank" class="btn-download btn-ios">
-                        <i class="fa-brands fa-apple"></i>
-                        <span>Baixar na App Store</span>
-                    </a>
-                </div>
-
-                <!-- Card Web / PC -->
-                <div class="download-card web-card">
-                    <div class="app-icon-badge web-badge">
-                        <i class="fa-solid fa-desktop"></i>
-                    </div>
-                    <h3>Computador & Web PC</h3>
-                    <p>Assista diretamente pelo navegador do seu Computador ou Notebook sem precisar instalar nenhum aplicativo.</p>
-                    <a href="https://tv.signalplay.com.br/login" target="_blank" class="btn-download btn-web">
-                        <i class="fa-solid fa-globe"></i>
-                        <span>Assistir no Navegador</span>
-                    </a>
-                </div>
+            <div class="tdevs">
+                <a class="tdev" id="dev-app-store" href="https://apps.apple.com/br/app/signalplay/id6749374183" target="_blank" rel="noopener"><img src="tutorial/dev-app-store.webp" alt="App Store - iPhone e iPad" loading="lazy"></a>
+                <a class="tdev" id="dev-play-store" href="https://play.google.com/store/apps/details?id=br.com.signalplay.tv.mobile" target="_blank" rel="noopener"><img src="tutorial/dev-play-store.webp" alt="Play Store - Celular e Tablet" loading="lazy"></a>
+                <a class="tdev" id="dev-google-tv" href="https://play.google.com/store/apps/details?id=br.com.signalplay.tv.stb" target="_blank" rel="noopener"><img src="tutorial/dev-google-tv.webp" alt="Google TV - Android TV ou STB" loading="lazy"></a>
+                <button class="tdev" id="dev-smart-tv" data-tut="smart-tv"><img src="tutorial/dev-smart-tv.webp" alt="Smart TV - Samsung e LG" loading="lazy"></button>
+                <button class="tdev" id="dev-fire-stick" data-tut="fire-stick"><img src="tutorial/dev-fire-stick.webp" alt="Fire Stick - Amazon Fire TV" loading="lazy"></button>
+                <button class="tdev" id="dev-roku" data-tut="roku"><img src="tutorial/dev-roku.webp" alt="Roku TV - Loja Roku" loading="lazy"></button>
+                <button class="tdev" id="dev-tv-box" data-tut="tv-box"><img src="tutorial/dev-tv-box.webp" alt="TV Box MXQ - Downloader e APK" loading="lazy"></button>
+                <a class="tdev" id="dev-web" href="https://tv.signalplay.com.br/login" target="_blank" rel="noopener"><img src="tutorial/dev-web.webp" alt="Assista agora - Acesso Web" loading="lazy"></a>
             </div>
-            <div style="text-align:center;margin-top:28px;">
-                <a href="/tutorial.html" id="btnVerTutoriais" class="btn-download btn-android" style="display:inline-flex;max-width:420px;">
-                    <i class="fa-solid fa-circle-play"></i>
-                    <span>Ver tutorial: Smart TV, Fire Stick, Roku e TV Box</span>
-                </a>
+
+            <div class="tpanel" id="tPanel">
+                <article class="tut" id="tut-smart-tv">
+                    <h3><i class="fa-solid fa-tv"></i> Smart TV Samsung / LG</h3>
+                    <p class="tsub">Compatível com Samsung Smart TV e LG Smart TV.</p>
+                    <div class="tsteps">
+                        <div class="tstep"><b>Abra a loja da TV</b><span>Samsung Apps ou LG Content Store.</span></div>
+                        <div class="tstep"><b>Busque "SIGNALPLAY"</b><span>Instale o aplicativo oficial.</span></div>
+                        <div class="tstep"><b>Faça login</b><span>Use o login e senha recebidos no WhatsApp.</span></div>
+                    </div>
+                    <div class="tcred"><h4><i class="fa-solid fa-key"></i> App SIGNALPLAY</h4>
+                        <div class="trow"><span>Login</span><b>Enviado no seu WhatsApp</b></div>
+                        <div class="trow"><span>Senha</span><b>Enviada no seu WhatsApp</b></div>
+                    </div>
+                    <div class="twarn"><i class="fa-solid fa-triangle-exclamation"></i> Não encontrou o SIGNALPLAY na sua TV? Use o app CDNTV PLAY:</div>
+                    <div class="tcred"><h4><i class="fa-solid fa-server"></i> App CDNTV PLAY</h4>
+                        <div class="trow"><span>Provedor</span><b>SIGNAL PLAY <button class="tcopy" data-c="SIGNAL PLAY">Copiar</button></b></div>
+                        <div class="trow"><span>Domínio</span><b>tv.signalplay.com.br <button class="tcopy" data-c="tv.signalplay.com.br">Copiar</button></b></div>
+                        <div class="trow"><span>Login e senha</span><b>Enviados no seu WhatsApp</b></div>
+                    </div>
+                    <div class="tmedia"><figure><video src="tutorial/como-baixar-cdntvplay.mp4" controls preload="none" playsinline></video><figcaption>Vídeo: como baixar e configurar o CDNTV PLAY</figcaption></figure></div>
+                </article>
+
+                <article class="tut" id="tut-fire-stick">
+                    <h3><i class="fa-solid fa-fire"></i> Amazon Fire Stick</h3>
+                    <p class="tsub">Instale o CDNTV direto da loja da Amazon e configure o servidor.</p>
+                    <div class="tsteps">
+                        <div class="tstep"><b>Busque CDNTV</b><span>Na loja de apps da Amazon.</span></div>
+                        <div class="tstep"><b>Instale o aplicativo</b><span>Clique em Obter / Baixar.</span></div>
+                        <div class="tstep"><b>Configure o servidor</b><span>Preencha os dados abaixo.</span></div>
+                    </div>
+                    <div class="tcred"><h4><i class="fa-solid fa-server"></i> Configuração do CDNTV</h4>
+                        <div class="trow"><span>Provedor</span><b>SIGNAL PLAY <button class="tcopy" data-c="SIGNAL PLAY">Copiar</button></b></div>
+                        <div class="trow"><span>Domínio</span><b>tv.signalplay.com.br <button class="tcopy" data-c="tv.signalplay.com.br">Copiar</button></b></div>
+                        <div class="trow"><span>Login</span><b>Enviado no seu WhatsApp</b></div>
+                        <div class="trow"><span>Senha</span><b>Enviada no seu WhatsApp</b></div>
+                    </div>
+                    <div class="tmedia">
+                        <figure><img src="tutorial/cdntv-loja.webp" alt="CDNTV na loja da Amazon" loading="lazy"><figcaption>CDNTV na loja da Amazon</figcaption></figure>
+                        <figure><video src="tutorial/como-baixar-cdntvplay.mp4" controls preload="none" playsinline></video><figcaption>Vídeo passo a passo</figcaption></figure>
+                    </div>
+                </article>
+
+                <article class="tut" id="tut-roku">
+                    <h3><i class="fa-solid fa-tv"></i> Roku TV</h3>
+                    <p class="tsub">O SIGNALPLAY está disponível na loja oficial Roku.</p>
+                    <div class="tsteps">
+                        <div class="tstep"><b>Abra Pesquisar</b><span>No menu inicial da Roku.</span></div>
+                        <div class="tstep"><b>Busque "signalplay"</b><span>Digite o nome do app.</span></div>
+                        <div class="tstep"><b>Adicione o app</b><span>Clique em "Adicionar app" e faça login.</span></div>
+                    </div>
+                    <div class="tcred"><h4><i class="fa-solid fa-key"></i> App SIGNALPLAY</h4>
+                        <div class="trow"><span>Login</span><b>Enviado no seu WhatsApp</b></div>
+                        <div class="trow"><span>Senha</span><b>Enviada no seu WhatsApp</b></div>
+                    </div>
+                    <div class="tmedia">
+                        <figure><img src="tutorial/roku-busca.webp" alt="Busca por signalplay na loja Roku" loading="lazy"><figcaption>1. Pesquisar "signalplay"</figcaption></figure>
+                        <figure><img src="tutorial/roku-app.webp" alt="Página do app SIGNALPLAY na Roku" loading="lazy"><figcaption>2. Adicionar app</figcaption></figure>
+                    </div>
+                </article>
+
+                <article class="tut" id="tut-tv-box">
+                    <h3><i class="fa-solid fa-box"></i> TV Box MXQ</h3>
+                    <p class="tsub">Baixe o Downloader na loja do seu TV Box. Abra o app e digite o código abaixo para baixar o SIGNALPLAY.</p>
+                    <div class="tcode">3511998 <button class="tcopy" data-c="3511998">Copiar</button></div>
+                    <div class="tsteps">
+                        <div class="tstep"><b>Baixe o app</b><span>Use o código no Downloader ou o APK direto.</span></div>
+                        <div class="tstep"><b>Instale</b><span>Ative "fontes desconhecidas" e abra o arquivo.</span></div>
+                        <div class="tstep"><b>Faça login</b><span>Use o login e senha recebidos no WhatsApp.</span></div>
+                        <div class="tstep"><b>Assista</b><span>Acesse o SIGNALPLAY e aproveite.</span></div>
+                    </div>
+                    <a class="tbtn" id="btnApk" href="https://tutorial.sigpremium.shop/downloads/signalplay.apk"><i class="fa-solid fa-download"></i> Baixar APK direto</a>
+                    <p class="tsub" style="margin-top:10px">Você também pode instalar via pen drive.</p>
+                    <div class="tmedia">
+                        <figure><img src="tutorial/downloader-logo.png" alt="App Downloader" loading="lazy"><figcaption>1. App Downloader</figcaption></figure>
+                        <figure><img src="tutorial/downloader-home.png" alt="Tela do Downloader" loading="lazy"><figcaption>2. Digite o código na tela do app</figcaption></figure>
+                    </div>
+                </article>
             </div>
         </section>
+        <div id="tToast">Copiado!</div>
+        <script>
+        (function(){
+            const tuts=document.querySelectorAll('.tsec .tut'),devs=document.querySelectorAll('.tsec [data-tut]');
+            function abrir(id){
+                const já=document.getElementById('tut-'+id).classList.contains('show');
+                tuts.forEach(t=>t.classList.toggle('show',!já&&t.id==='tut-'+id));
+                devs.forEach(d=>d.classList.toggle('active',!já&&d.dataset.tut===id));
+                if(!já)document.getElementById('tPanel').scrollIntoView({behavior:'smooth',block:'start'});
+            }
+            devs.forEach(d=>d.addEventListener('click',()=>abrir(d.dataset.tut)));
+            document.querySelectorAll('.tsec .tcopy').forEach(b=>b.addEventListener('click',()=>{
+                navigator.clipboard.writeText(b.dataset.c).then(()=>{const t=document.getElementById('tToast');t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1500);});
+            }));
+        })();
+        </script>
 
         <!-- 4. SEÇÃO BENEFÍCIOS -->
         <section class="benefits-section">
