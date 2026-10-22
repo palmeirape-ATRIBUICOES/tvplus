@@ -19,12 +19,13 @@
     --neon-green: hsl(24 95% 60%);
 }
 
-/* Reset Geral & Prevenção de Transbordo Lateral */
+/* Reset Geral & Prevenção de Transbordo Lateral e Bloqueio de Zoom / Pinch */
 html {
     scroll-behavior: smooth;
     overflow-x: hidden !important;
     width: 100%;
     max-width: 100vw;
+    touch-action: pan-y !important;
 }
 
 body {
@@ -39,6 +40,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    touch-action: pan-y !important;
 }
 
 /* Luzes Dinâmicas de Fundo (Glow Effect - Conter dentro da tela) */

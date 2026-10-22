@@ -56,10 +56,23 @@ function validarDocumento(doc) {
     return false;
 }
 
+// Função de Rolagem e Foco Direto no Primeiro Campo (Nome Completo)
+window.focusNomeCompleto = function() {
+    const inputNome = document.getElementById('nome');
+    if (inputNome) {
+        inputNome.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+            inputNome.focus({ preventScroll: true });
+        }, 400);
+    } else {
+        const el = document.getElementById('checkoutSection');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+};
+
 // Função de Rolagem Suave para o Checkout
 window.scrollToCheckout = function() {
-    const el = document.getElementById('checkoutSection');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    window.focusNomeCompleto();
 };
 
 // Elementos do DOM
