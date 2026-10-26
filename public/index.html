@@ -186,6 +186,36 @@
                             <p class="success-subtitle">Seu pagamento foi confirmado com sucesso. Suas credenciais e instruções de acesso estão sendo enviadas para o seu WhatsApp cadastrado!</p>
                         </div>
 
+                        <!-- Card de Credenciais em Destaque Aberto e Imediato -->
+                        <div class="credentials-card" style="margin-top: 15px; margin-bottom: 20px; background: rgba(0, 255, 128, 0.05); border: 1.5px solid rgba(0, 255, 128, 0.4); box-shadow: 0 0 25px rgba(0, 255, 128, 0.1); border-radius: 16px; padding: 18px; text-align: left;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+                                <h3 style="font-size: 15px; font-weight: 700; color: #00ff80; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-key"></i> SEUS DADOS DE ACESSO
+                                </h3>
+                                <span style="font-size: 11px; background: rgba(0, 255, 128, 0.2); color: #00ff80; padding: 3px 8px; border-radius: 6px; font-weight: 700; letter-spacing: 0.5px;">SINAL LIBERADO</span>
+                            </div>
+
+                            <div class="cred-row" style="padding: 10px 0;">
+                                <span class="cred-label" style="font-size: 14px; font-weight: 600; color: #ffffff;"><i class="fa-regular fa-user" style="color: #00ff80;"></i> Usuário TV:</span>
+                                <div class="cred-value-container">
+                                    <span class="cred-value" id="resLogin" style="font-size: 18px; color: #00ff80; letter-spacing: 0.5px;">carregando...</span>
+                                    <button class="btn-copy-mini" onclick="copyText('resLogin')" title="Copiar Usuário" style="background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 6px; color: #fff;"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div class="cred-row" style="padding: 10px 0;">
+                                <span class="cred-label" style="font-size: 14px; font-weight: 600; color: #ffffff;"><i class="fa-solid fa-lock" style="color: #00ff80;"></i> Senha de TV:</span>
+                                <div class="cred-value-container">
+                                    <span class="cred-value" id="resSenha" style="font-size: 18px; color: #00ff80; letter-spacing: 0.5px;">carregando...</span>
+                                    <button class="btn-copy-mini" onclick="copyText('resSenha')" title="Copiar Senha" style="background: rgba(255,255,255,0.08); padding: 6px 10px; border-radius: 6px; color: #fff;"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-circle-check" style="color: #00ff80;"></i>
+                                <span>Abra o app <strong>SIGNALPLAY</strong> e use este Usuário e Senha.</span>
+                            </div>
+                        </div>
+
                         <div class="success-banner">
                             <img src="assets/couple.jpg" alt="Casal assistindo TV" class="success-banner-img">
                         </div>
@@ -220,27 +250,6 @@
                                 <span>Chamar no WhatsApp e Receber Acesso</span>
                             </a>
                         </div>
-
-                        <!-- Sanfona Oculta para mostrar credenciais caso queira ver na tela -->
-                        <details style="margin-bottom: 20px; text-align: left;">
-                            <summary style="cursor: pointer; color: var(--text-muted); font-size: 13px; user-select: none;">Ver credenciais de acesso na tela</summary>
-                            <div class="credentials-card" style="margin-top: 10px;">
-                                <div class="cred-row">
-                                    <span class="cred-label"><i class="fa-regular fa-user"></i> Usuário TV</span>
-                                    <div class="cred-value-container">
-                                        <span class="cred-value" id="resLogin">carregando...</span>
-                                        <button class="btn-copy-mini" onclick="copyText('resLogin')"><i class="fa-regular fa-copy"></i></button>
-                                    </div>
-                                </div>
-                                <div class="cred-row">
-                                    <span class="cred-label"><i class="fa-solid fa-key"></i> Senha de TV</span>
-                                    <div class="cred-value-container">
-                                        <span class="cred-value" id="resSenha">carregando...</span>
-                                        <button class="btn-copy-mini" onclick="copyText('resSenha')"><i class="fa-regular fa-copy"></i></button>
-                                    </div>
-                                </div>
-                            </div>
-                        </details>
 
                         <button onclick="resetFlow()" class="btn-primary">
                             <span>Nova Assinatura</span>
