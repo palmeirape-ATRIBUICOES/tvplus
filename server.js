@@ -188,8 +188,8 @@ app.post('/api/cadastro', async (req, res) => {
             });
         }
 
-        // Se já existe uma assinatura suspensa/expirada, não liberamos outro teste
-        if (assinatura && (assinatura.status === 'suspensa' || assinatura.status === 'vencida')) {
+        // Se já existe uma assinatura suspensa/expirada, só bloqueamos se for tentativa de novo teste gratuito (trial)
+        if (isTrial && assinatura && (assinatura.status === 'suspensa' || assinatura.status === 'vencida')) {
             return res.status(200).json({
                 status: 'suspensa',
                 cliente_id: cliente.id,
@@ -1031,13 +1031,15 @@ async function processarConfirmacaoPagamento(txid) {
         // Remove sufixo 'suspenso' se existir no login
         const loginLimpo = assinatura.login_tv.replace(/suspenso$/, '');
         
-        // Se a assinatura estava pendente (compra direta), enfileira cadastro no ReceitaNet pela primeira vez.
-        // Se já estava ativa ou suspensa, enfileira a reativação no ReceitaNet ERP de forma totalmente assíncrona.
+        // Se a assinatura estava pendente OU ainda não possui ID confirmado no ReceitaNet ERP, enfileira CADASTRO E ATIVAÇÃO.
+        // Se já possui cadastro prévio confirmado no ERP, enfileira a reativação de forma totalmente assíncrona.
         const receitanetQueue = require('./services/receitanetQueue');
         const isTeste = loginLimpo.startsWith('teste') || loginLimpo.startsWith('test') || loginLimpo.startsWith('demo');
         let questionarioEnviado = false;
 
-        if (assinatura.status === 'pendente') {
+        const precisaCadastrarNoErp = (assinatura.status === 'pendente') || !assinatura.receitanet_cliente_id;
+
+        if (precisaCadastrarNoErp) {
             if (isTeste) {
                 console.log(`[CONFIRMAÇÃO] Conversão de teste detectada para ${loginLimpo}. Enfileirando questionário no WhatsApp em vez do robô ERP imediato...`);
                 // Inicializa coleta no banco local
@@ -1068,7 +1070,7 @@ async function processarConfirmacaoPagamento(txid) {
                 });
                 questionarioEnviado = true;
             } else {
-                console.log(`[CONFIRMAÇÃO] Novo cliente detectado. Enfileirando cadastro no ERP em 0.01s...`);
+                console.log(`[CONFIRMAÇÃO] Cliente sem cadastro prévio no ERP detectado (${loginLimpo}). Enfileirando CADASTRO E ATIVAÇÃO no ERP em 0.01s...`);
                 receitanetQueue.adicionarTarefa('CADASTRO_E_ATIVACAO', {
                     cliente,
                     loginTv: loginLimpo,
@@ -1076,8 +1078,9 @@ async function processarConfirmacaoPagamento(txid) {
                 });
             }
         } else {
-            console.log(`[CONFIRMAÇÃO] Enfileirando reativação do login (${loginLimpo}) no ERP em 0.01s...`);
+            console.log(`[CONFIRMAÇÃO] Cliente com cadastro já existente no ERP (ID: ${assinatura.receitanet_cliente_id}). Enfileirando reativação do login (${loginLimpo}) no ERP em 0.01s...`);
             receitanetQueue.adicionarTarefa('REATIVAR', {
+                cliente,
                 loginTv: loginLimpo,
                 cpf: cliente.cpfcnpj,
                 nome: cliente.nome

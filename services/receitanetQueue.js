@@ -53,6 +53,7 @@ class ReceitanetQueueService {
 
             if (task.tipo === 'CADASTRO_E_ATIVACAO') {
                 const clienteObj = task.payload.cliente || {
+                    id: task.payload.clienteId || task.payload.cliente_id,
                     nome: task.payload.nome,
                     cpf: task.payload.cpf || task.payload.cpfcnpj,
                     email: task.payload.email,
@@ -60,9 +61,34 @@ class ReceitanetQueueService {
                 };
                 const loginTv = task.payload.loginTv || task.payload.login_tv;
                 const senhaTv = task.payload.senhaTv || task.payload.senha_tv || clienteObj.cpf;
-                await robotToUse.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
+                const clienteId = await robotToUse.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
+                if (clienteId && clienteObj.id) {
+                    try {
+                        const { db } = require('../database');
+                        db.run('UPDATE assinaturas SET receitanet_cliente_id = ? WHERE cliente_id = ?', [clienteId.toString(), clienteObj.id]);
+                        console.log(`[RECEITANET QUEUE] 💾 ID do cliente ReceitaNet (${clienteId}) salvo na assinatura local.`);
+                    } catch (dbErr) {
+                        console.error('[RECEITANET QUEUE] Erro ao salvar receitanet_cliente_id:', dbErr.message);
+                    }
+                }
             } else if (task.tipo === 'REATIVAR') {
-                await robotToUse.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
+                const clienteObj = task.payload.cliente || {
+                    id: task.payload.clienteId || task.payload.cliente_id,
+                    nome: task.payload.nome,
+                    cpf: task.payload.cpf || task.payload.cpfcnpj,
+                    email: task.payload.email,
+                    telefone: task.payload.telefone
+                };
+                const result = await robotToUse.reativarCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome, clienteObj);
+                if (result && typeof result === 'string' && clienteObj.id) {
+                    try {
+                        const { db } = require('../database');
+                        db.run('UPDATE assinaturas SET receitanet_cliente_id = ? WHERE cliente_id = ?', [result, clienteObj.id]);
+                        console.log(`[RECEITANET QUEUE] 💾 ID do cliente ReceitaNet (${result}) salvo na assinatura local pós-fallback.`);
+                    } catch (dbErr) {
+                        console.error('[RECEITANET QUEUE] Erro ao salvar receitanet_cliente_id:', dbErr.message);
+                    }
+                }
             } else if (task.tipo === 'SUSPENDER') {
                 await robotToUse.suspenderCliente(task.payload.loginTv, task.payload.cpf, task.payload.nome);
             } else if (task.tipo === 'EXCLUIR_COMPLETO') {
