@@ -186,11 +186,11 @@ async function submeterFormulario(tipoCadastro) {
                 pixCopiaCola.value = data.pixCopiaCola;
                 
                 // Exibe os containers do Pix
-                valorTagContainer.style.display = 'block';
-                qrCodeWrapper.style.display = 'block';
-                pixInstructionsText.style.display = 'block';
-                copiaColaContainer.style.display = 'flex';
-                statusIndicatorContainer.style.display = 'block';
+                if (valorTagContainer) valorTagContainer.style.display = 'block';
+                if (qrCodeWrapper) qrCodeWrapper.style.display = 'block';
+                if (pixInstructionsText) pixInstructionsText.style.display = 'block';
+                if (copiaColaContainer) copiaColaContainer.style.display = 'flex';
+                if (statusIndicatorContainer) statusIndicatorContainer.style.display = 'block';
                 if (sandboxAreaContainer) sandboxAreaContainer.style.display = 'none';
                 
                 // Inicia pooling de confirmação
@@ -237,16 +237,18 @@ btnSubmitBuy.addEventListener('click', () => {
 
 // Reset visual dos containers do Pix antes da geração
 function resetPixUI() {
-    pixQrCode.src = '';
-    pixCopiaCola.value = '';
-    valorTagContainer.style.display = 'none';
-    qrCodeWrapper.style.display = 'none';
-    pixInstructionsText.style.display = 'none';
-    copiaColaContainer.style.display = 'none';
-    statusIndicatorContainer.style.display = 'none';
-    sandboxAreaContainer.style.display = 'none';
-    btnGerarNovoPix.disabled = false;
-    btnGerarNovoPix.innerHTML = `<span>Gerar QR Code de Pagamento</span> <i class="fa-solid fa-qrcode"></i>`;
+    if (pixQrCode) pixQrCode.src = '';
+    if (pixCopiaCola) pixCopiaCola.value = '';
+    if (valorTagContainer) valorTagContainer.style.display = 'none';
+    if (qrCodeWrapper) qrCodeWrapper.style.display = 'none';
+    if (pixInstructionsText) pixInstructionsText.style.display = 'none';
+    if (copiaColaContainer) copiaColaContainer.style.display = 'none';
+    if (statusIndicatorContainer) statusIndicatorContainer.style.display = 'none';
+    if (sandboxAreaContainer) sandboxAreaContainer.style.display = 'none';
+    if (btnGerarNovoPix) {
+        btnGerarNovoPix.disabled = false;
+        btnGerarNovoPix.innerHTML = `<span>Gerar QR Code de Pagamento</span> <i class="fa-solid fa-qrcode"></i>`;
+    }
 }
 
 // 2. Ação de Gerar Cobrança Pix para Assinatura Suspensa/Renovação
@@ -288,11 +290,11 @@ btnGerarNovoPix.addEventListener('click', async () => {
         pixCopiaCola.value = data.copiaCola;
 
         // Exibe os containers do Pix
-        valorTagContainer.style.display = 'block';
-        qrCodeWrapper.style.display = 'block';
-        pixInstructionsText.style.display = 'block';
-        copiaColaContainer.style.display = 'flex';
-        statusIndicatorContainer.style.display = 'block';
+        if (valorTagContainer) valorTagContainer.style.display = 'block';
+        if (qrCodeWrapper) qrCodeWrapper.style.display = 'block';
+        if (pixInstructionsText) pixInstructionsText.style.display = 'block';
+        if (copiaColaContainer) copiaColaContainer.style.display = 'flex';
+        if (statusIndicatorContainer) statusIndicatorContainer.style.display = 'block';
         if (sandboxAreaContainer) sandboxAreaContainer.style.display = 'none';
 
         btnGerarNovoPix.innerHTML = `<span>Pix Gerado com Sucesso</span> <i class="fa-solid fa-check"></i>`;
@@ -411,7 +413,7 @@ function mostrarSucesso(login, senha) {
     resSenha.textContent = senha;
     
     // Se o overlay do QR Code estiver ativo, desativa
-    qrOverlay.classList.remove('active');
+    if (qrOverlay) qrOverlay.classList.remove('active');
     
     // Configura o link de suporte de backup do WhatsApp
     const nomeCapitalizado = capitalizeName(currentClienteNome || 'Cliente');
@@ -476,76 +478,84 @@ function copyText(elementId) {
    ======================================================= */
 
 // Abrir e Fechar Modal
-btnOpenAdmin.addEventListener('click', () => adminModal.classList.add('active'));
-btnCloseAdmin.addEventListener('click', () => adminModal.classList.remove('active'));
+if (btnOpenAdmin && adminModal) btnOpenAdmin.addEventListener('click', () => adminModal.classList.add('active'));
+if (btnCloseAdmin && adminModal) btnCloseAdmin.addEventListener('click', () => adminModal.classList.remove('active'));
 
 // Fechar ao clicar fora do modal
 window.addEventListener('click', (e) => {
-    if (e.target === adminModal) {
+    if (adminModal && e.target === adminModal) {
         adminModal.classList.remove('active');
     }
 });
 
 // Logs do Console de Testes
 function logAdmin(msg, isError = false) {
-    adminOutput.textContent = msg;
-    adminOutput.style.color = isError ? '#ff4c4c' : '#39ff14';
+    if (adminOutput) {
+        adminOutput.textContent = msg;
+        adminOutput.style.color = isError ? '#ff4c4c' : '#39ff14';
+    }
     console.log(`[DEV-TEST] ${msg}`);
 }
 
 // 1. Executar Cron de Vencimento
-btnTriggerCron.addEventListener('click', async () => {
-    logAdmin("Disparando rotina de checagem de vencimento e trial...");
-    btnTriggerCron.disabled = true;
-    
-    try {
-        const response = await fetch('/api/admin/run-cron', { method: 'POST' });
-        const data = await response.json();
+if (btnTriggerCron) {
+    btnTriggerCron.addEventListener('click', async () => {
+        logAdmin("Disparando rotina de checagem de vencimento e trial...");
+        btnTriggerCron.disabled = true;
         
-        if (response.ok) {
-            logAdmin(`Cron executado com sucesso: ${data.message}`);
-        } else {
-            throw new Error(data.error);
+        try {
+            const response = await fetch('/api/admin/run-cron', { method: 'POST' });
+            const data = await response.json();
+            
+            if (response.ok) {
+                logAdmin(`Cron executado com sucesso: ${data.message}`);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            logAdmin(`Erro ao executar Cron: ${error.message}`, true);
+        } finally {
+            btnTriggerCron.disabled = false;
         }
-    } catch (error) {
-        logAdmin(`Erro ao executar Cron: ${error.message}`, true);
-    } finally {
-        btnTriggerCron.disabled = false;
-    }
-});
+    });
+}
 
 // 2. Forçar Assinatura Expirando (3 dias antes)
-btnForceExpiring.addEventListener('click', async () => {
-    logAdmin("Alterando data de expiração do último cliente para daqui a 2 dias...");
-    
-    try {
-        const response = await fetch('/api/admin/force-expiring', { method: 'POST' });
-        const data = await response.json();
+if (btnForceExpiring) {
+    btnForceExpiring.addEventListener('click', async () => {
+        logAdmin("Alterando data de expiração do último cliente para daqui a 2 dias...");
         
-        if (response.ok) {
-            logAdmin(`Sucesso! ${data.message}`);
-        } else {
-            throw new Error(data.error);
+        try {
+            const response = await fetch('/api/admin/force-expiring', { method: 'POST' });
+            const data = await response.json();
+            
+            if (response.ok) {
+                logAdmin(`Sucesso! ${data.message}`);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            logAdmin(`Erro: ${error.message}`, true);
         }
-    } catch (error) {
-        logAdmin(`Erro: ${error.message}`, true);
-    }
-});
+    });
+}
 
 // 3. Forçar Assinatura Vencida / Teste Expirado (Ontem)
-btnForceExpired.addEventListener('click', async () => {
-    logAdmin("Alterando data de expiração do último cliente para vencido agora...");
-    
-    try {
-        const response = await fetch('/api/admin/force-expired', { method: 'POST' });
-        const data = await response.json();
+if (btnForceExpired) {
+    btnForceExpired.addEventListener('click', async () => {
+        logAdmin("Alterando data de expiração do último cliente para vencido agora...");
         
-        if (response.ok) {
-            logAdmin(`Sucesso! ${data.message}`);
-        } else {
-            throw new Error(data.error);
+        try {
+            const response = await fetch('/api/admin/force-expired', { method: 'POST' });
+            const data = await response.json();
+            
+            if (response.ok) {
+                logAdmin(`Sucesso! ${data.message}`);
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            logAdmin(`Erro: ${error.message}`, true);
         }
-    } catch (error) {
-        logAdmin(`Erro: ${error.message}`, true);
-    }
-});
+    });
+}
