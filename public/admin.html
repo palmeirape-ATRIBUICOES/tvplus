@@ -218,13 +218,165 @@
 
         .actions-cell {
             display: flex;
-            gap: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
         }
 
         .btn-table {
-            padding: 6px 12px;
-            font-size: 12px;
+            padding: 6px 10px;
+            font-size: 11px;
             border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        /* Termômetro e Badges de Vencimento */
+        .venc-tag {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .venc-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            width: fit-content;
+        }
+
+        .venc-pill.vencido {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .venc-pill.vencendo-hoje {
+            background: rgba(249, 115, 22, 0.25);
+            color: #f97316;
+            border: 1px solid rgba(249, 115, 22, 0.5);
+            animation: pulseOrange 1.5s infinite;
+        }
+
+        .venc-pill.vence-breve {
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.4);
+        }
+
+        .venc-pill.em-dia {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .venc-pill.pendente {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        @keyframes pulseOrange {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0); }
+        }
+
+        /* Tabs de Filtro de Vencimento */
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .filter-tab:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .filter-tab.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 2px 10px rgba(147, 51, 234, 0.3);
+        }
+
+        .filter-tab.tab-vencidos.active {
+            background: #dc2626;
+            border-color: #dc2626;
+            box-shadow: 0 2px 10px rgba(220, 38, 38, 0.3);
+        }
+
+        .filter-tab.tab-breve.active {
+            background: #d97706;
+            border-color: #d97706;
+            box-shadow: 0 2px 10px rgba(217, 119, 6, 0.3);
+        }
+
+        .filter-tab.tab-ativos.active {
+            background: #16a34a;
+            border-color: #16a34a;
+            box-shadow: 0 2px 10px rgba(22, 163, 74, 0.3);
+        }
+
+        /* Card Clicável */
+        .info-card.clickable {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .info-card.clickable:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 260px;
+        }
+
+        .search-input-wrapper i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .search-input-wrapper input {
+            width: 100%;
+            padding: 10px 14px 10px 38px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input-wrapper input:focus {
+            border-color: var(--primary);
         }
 
         .log-output {
@@ -320,29 +472,69 @@
             </div>
         </header>
 
-        <!-- Indicadores Rápidos -->
+        <!-- Indicadores de Vencimento e Gestão em Destaque -->
         <div class="info-grid">
-            <div class="info-card">
+            <div class="info-card clickable" onclick="setFiltroVencimento('todos')" title="Clique para ver todos">
                 <h3>Total de Clientes</h3>
                 <p id="statTotal">0</p>
+                <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">👥 Base Geral Cadastrada</span>
             </div>
-            <div class="info-card green">
-                <h3>Assinaturas Ativas</h3>
+            <div class="info-card red clickable" onclick="setFiltroVencimento('vencidos')" title="Clique para filtrar apenas os clientes vencidos">
+                <h3>🚨 Já Vencidos</h3>
+                <p id="statVencidos" style="color: #ef4444;">0</p>
+                <span style="font-size: 11px; color: #f87171; display: block; margin-top: 4px;">⚠️ Exigem Cobrança ou Bloqueio</span>
+            </div>
+            <div class="info-card yellow clickable" onclick="setFiltroVencimento('breve')" title="Clique para filtrar clientes que vencem hoje ou nos próximos 3 dias">
+                <h3>⏳ Vencem em Breve</h3>
+                <p id="statVenceBreve" style="color: #f59e0b;">0</p>
+                <span style="font-size: 11px; color: #fbbf24; display: block; margin-top: 4px;">🔔 Vencem Hoje ou em até 3 dias</span>
+            </div>
+            <div class="info-card green clickable" onclick="setFiltroVencimento('ativos')" title="Clique para filtrar clientes em dia">
+                <h3>🟢 Assinaturas em Dia</h3>
                 <p id="statAtivas">0</p>
+                <span style="font-size: 11px; color: #4ade80; display: block; margin-top: 4px;">✨ Sinal 100% Liberado</span>
             </div>
-            <div class="info-card red">
-                <h3>Assinaturas Suspensas</h3>
-                <p id="statSuspensas">0</p>
-            </div>
-            <div class="info-card yellow">
-                <h3>Cobranças Pendentes</h3>
+            <div class="info-card yellow clickable" onclick="setFiltroVencimento('pendentes')" title="Clique para filtrar novos cadastros que ainda não pagaram">
+                <h3>⚪ Cadastros Pendentes</h3>
                 <p id="statPendentes">0</p>
+                <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 4px;">💳 Aguardando 1º Pix</span>
             </div>
         </div>
 
-        <!-- Tabela de Clientes -->
+        <!-- Tabela de Clientes e Gestão de Vencimentos -->
         <div class="card">
-            <h2><i class="fa-solid fa-users"></i> Clientes Cadastrados & Status</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <h2 style="margin-bottom: 0;"><i class="fa-solid fa-users"></i> Gestão de Clientes & Vencimentos</h2>
+                <button class="btn-secondary" onclick="carregarDados()" style="font-size: 12px; padding: 6px 14px;">
+                    <i class="fa-solid fa-rotate-right"></i> Atualizar Tabela
+                </button>
+            </div>
+
+            <!-- Filtros Rápidos por Vencimento e Busca em Tempo Real -->
+            <div style="display: flex; gap: 15px; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+                <div class="filter-tabs" id="vencimentoTabs">
+                    <button type="button" class="filter-tab active" data-filter="todos" onclick="setFiltroVencimento('todos')">
+                        <i class="fa-solid fa-list"></i> Todos (<span id="countTabTodos">0</span>)
+                    </button>
+                    <button type="button" class="filter-tab tab-vencidos" data-filter="vencidos" onclick="setFiltroVencimento('vencidos')">
+                        <i class="fa-solid fa-triangle-exclamation"></i> 🚨 Já Vencidos (<span id="countTabVencidos">0</span>)
+                    </button>
+                    <button type="button" class="filter-tab tab-breve" data-filter="breve" onclick="setFiltroVencimento('breve')">
+                        <i class="fa-solid fa-hourglass-half"></i> ⏳ Vencem em Breve (<span id="countTabBreve">0</span>)
+                    </button>
+                    <button type="button" class="filter-tab tab-ativos" data-filter="ativos" onclick="setFiltroVencimento('ativos')">
+                        <i class="fa-solid fa-circle-check"></i> 🟢 Em Dia (<span id="countTabAtivos">0</span>)
+                    </button>
+                    <button type="button" class="filter-tab" data-filter="pendentes" onclick="setFiltroVencimento('pendentes')">
+                        <i class="fa-solid fa-clock"></i> ⚪ Pendentes (<span id="countTabPendentes">0</span>)
+                    </button>
+                </div>
+
+                <div class="search-input-wrapper">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="inputBuscaAdmin" placeholder="Buscar por nome, WhatsApp, CPF ou login @tvplus..." oninput="filtrarTabelaAdmin()">
+                </div>
+            </div>
             
             <div class="table-responsive">
                 <table id="clientesTable">
@@ -351,9 +543,9 @@
                             <th>Cliente</th>
                             <th>WhatsApp</th>
                             <th>CPF</th>
-                            <th>Login TV</th>
-                            <th>Status</th>
-                            <th>Vencimento</th>
+                            <th>Login & Senha TV</th>
+                            <th>Status ERP</th>
+                            <th>Termômetro de Vencimento</th>
                             <th>Ações Administrativas</th>
                         </tr>
                     </thead>
@@ -576,11 +768,321 @@
             return tel;
         }
 
-        // Carrega os dados da tabela
-        async function carregarDados() {
-            document.getElementById('tableLoader').style.display = 'flex';
+        // Variáveis de Controle Global da Tabela de Clientes
+        let listaClientesGlobal = [];
+        let filtroVencimentoAtual = 'todos';
+
+        // Calcula com precisão a categoria de vencimento de um cliente
+        function calcularVencimento(c) {
+            const agora = new Date();
+            let categoria = 'pendentes';
+            let labelVencimento = 'Aguardando 1º Pix';
+            let badgeHtml = '';
+            let dataFormatada = '-';
+            let diffDias = null;
+            let diffHoras = null;
+
+            if (c.data_vencimento) {
+                const dVenc = new Date(c.data_vencimento);
+                dataFormatada = formatarData(c.data_vencimento);
+                const diffMs = dVenc.getTime() - agora.getTime();
+                diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
+
+                if (diffMs < 0 || c.assinatura_status === 'suspensa' || c.assinatura_status === 'vencida') {
+                    categoria = 'vencidos';
+                    const diasPassados = Math.abs(diffDias);
+                    const tempoStr = diasPassados === 0 ? 'Venceu hoje' : (diasPassados === 1 ? 'Venceu ontem' : `Vencido há ${diasPassados} dias`);
+                    labelVencimento = tempoStr;
+                    badgeHtml = `
+                        <div class="venc-tag">
+                            <span class="venc-pill vencido"><i class="fa-solid fa-triangle-exclamation"></i> 🚨 ${tempoStr}</span>
+                            <small style="color: #ef4444; font-size: 11px; font-weight: 600;">Data: ${dataFormatada}</small>
+                        </div>
+                    `;
+                } else if (diffDias === 0) {
+                    categoria = 'breve';
+                    labelVencimento = `Vence HOJE (${diffHoras}h)`;
+                    badgeHtml = `
+                        <div class="venc-tag">
+                            <span class="venc-pill vencendo-hoje"><i class="fa-solid fa-bell"></i> ⚠️ VENCE HOJE (${diffHoras}h)</span>
+                            <small style="color: #f97316; font-size: 11px; font-weight: 600;">Data: ${dataFormatada}</small>
+                        </div>
+                    `;
+                } else if (diffDias <= 3) {
+                    categoria = 'breve';
+                    labelVencimento = `Vence em ${diffDias}d`;
+                    badgeHtml = `
+                        <div class="venc-tag">
+                            <span class="venc-pill vence-breve"><i class="fa-solid fa-clock"></i> ⏳ Vence em ${diffDias} dia${diffDias > 1 ? 's' : ''}</span>
+                            <small style="color: #eab308; font-size: 11px; font-weight: 600;">Data: ${dataFormatada}</small>
+                        </div>
+                    `;
+                } else {
+                    categoria = 'ativos';
+                    labelVencimento = `Ativo (${diffDias}d)`;
+                    badgeHtml = `
+                        <div class="venc-tag">
+                            <span class="venc-pill em-dia"><i class="fa-solid fa-circle-check"></i> 🟢 Em dia (${diffDias} dias)</span>
+                            <small style="color: #22c55e; font-size: 11px; font-weight: 600;">Vence: ${dataFormatada}</small>
+                        </div>
+                    `;
+                }
+            } else {
+                categoria = 'pendentes';
+                badgeHtml = `
+                    <div class="venc-tag">
+                        <span class="venc-pill pendente"><i class="fa-solid fa-hourglass-start"></i> ⚪ Não ativado</span>
+                        <small style="color: var(--text-muted); font-size: 11px;">Sem pagamento Pix</small>
+                    </div>
+                `;
+            }
+
+            return {
+                categoria,
+                labelVencimento,
+                badgeHtml,
+                dataFormatada,
+                diffDias,
+                diffHoras
+            };
+        }
+
+        // Alterna a Aba de Filtro Ativa
+        function setFiltroVencimento(filtro) {
+            filtroVencimentoAtual = filtro;
+            
+            // Atualiza classe ativa nos botões
+            document.querySelectorAll('#vencimentoTabs .filter-tab').forEach(tab => {
+                if (tab.getAttribute('data-filter') === filtro) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            filtrarTabelaAdmin();
+        }
+
+        // Filtra a Tabela em Tempo Real (Busca + Aba de Vencimento)
+        function filtrarTabelaAdmin() {
+            const termo = (document.getElementById('inputBuscaAdmin')?.value || '').toLowerCase().trim();
+
+            const filtrados = listaClientesGlobal.filter(c => {
+                const infoVenc = calcularVencimento(c);
+                
+                // 1. Filtro por Categoria de Vencimento
+                if (filtroVencimentoAtual !== 'todos' && infoVenc.categoria !== filtroVencimentoAtual) {
+                    return false;
+                }
+
+                // 2. Filtro por Termo de Busca
+                if (termo) {
+                    const textoTotal = [
+                        c.nome || '',
+                        c.email || '',
+                        c.telefone || '',
+                        c.cpfcnpj || '',
+                        c.login_tv || ''
+                    ].join(' ').toLowerCase();
+
+                    if (!textoTotal.includes(termo)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            renderizarLinhasTabela(filtrados);
+        }
+
+        // Renderiza as Linhas da Tabela de Clientes com Todos os Detalhes
+        function renderizarLinhasTabela(clientes) {
             const tbody = document.getElementById('clientesTableBody');
             tbody.innerHTML = '';
+
+            if (clientes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    <i class="fa-solid fa-folder-open" style="font-size: 24px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>
+                    Nenhum cliente encontrado para os filtros selecionados.
+                </td></tr>`;
+                return;
+            }
+
+            clientes.forEach(c => {
+                const infoVenc = calcularVencimento(c);
+                const tr = document.createElement('tr');
+                
+                // 1. Coluna Cliente
+                const tdCliente = document.createElement('td');
+                tdCliente.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #3b82f6); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; color: #fff;">
+                            ${(c.nome || 'C').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <strong style="color: #fff; font-size: 14px;">${c.nome}</strong>
+                            <div style="font-size: 12px; color: var(--text-muted);">${c.email || 'Sem e-mail'}</div>
+                        </div>
+                    </div>
+                `;
+                tr.appendChild(tdCliente);
+
+                // 2. Coluna WhatsApp
+                const tdTel = document.createElement('td');
+                const cleanTel = (c.telefone || '').replace(/\D/g, '');
+                tdTel.innerHTML = `
+                    <a href="https://wa.me/55${cleanTel}" target="_blank" style="color: #22c55e; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-brands fa-whatsapp"></i> ${formatarTelefone(c.telefone)}
+                    </a>
+                `;
+                tr.appendChild(tdTel);
+
+                // 3. Coluna CPF
+                const tdCpf = document.createElement('td');
+                tdCpf.innerHTML = `<span style="font-family: monospace; font-size: 13px; color: #cbd5e1;">${c.cpfcnpj || '-'}</span>`;
+                tr.appendChild(tdCpf);
+
+                // 4. Coluna Login & Senha TV
+                const tdLogin = document.createElement('td');
+                if (c.login_tv) {
+                    tdLogin.innerHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <code style="color: #60efff; font-weight: 700; background: rgba(0,255,255,0.08); padding: 2px 6px; border-radius: 4px;">${c.login_tv}</code>
+                                <button type="button" class="btn-table" onclick="copiarTextoRapido('${c.login_tv}')" title="Copiar Usuário" style="padding: 2px 6px; background: rgba(255,255,255,0.08);"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                            <small style="color: var(--text-muted); font-size: 11px;">Senha: <strong style="color: #fff;">${c.senha_tv || c.cpfcnpj || '-'}</strong></small>
+                        </div>
+                    `;
+                } else {
+                    tdLogin.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">Não gerado</span>`;
+                }
+                tr.appendChild(tdLogin);
+
+                // 5. Coluna Status ERP
+                const tdStatus = document.createElement('td');
+                const statusStr = c.assinatura_status || 'pendente';
+                tdStatus.innerHTML = `<span class="status-badge ${statusStr}">${statusStr}</span>`;
+                tr.appendChild(tdStatus);
+
+                // 6. Coluna Termômetro de Vencimento
+                const tdVenc = document.createElement('td');
+                tdVenc.innerHTML = infoVenc.badgeHtml;
+                tr.appendChild(tdVenc);
+
+                // 7. Coluna Ações Administrativas & WhatsApp Dinâmico
+                const tdActions = document.createElement('td');
+                tdActions.className = 'actions-cell';
+
+                // A) Botão WhatsApp Inteligente (Cobrança / Lembrete / Suporte)
+                if (cleanTel) {
+                    let msgWhatsapp = '';
+                    let btnWaColor = '#22c55e';
+                    let btnWaText = 'Lembrete';
+                    let btnWaIcon = 'fa-brands fa-whatsapp';
+
+                    if (infoVenc.categoria === 'vencidos') {
+                        msgWhatsapp = `Olá, *${c.nome}*! Tudo bem?\n\nPassando para avisar que sua assinatura da *AURA TV* venceu recentemente.\n\nPara restabelecer seu acesso completo em até 3 telas simultâneas por apenas *R$ 10,00*, você pode efetuar o pagamento Pix ou me avisar por aqui para eu emitir o seu código de renovação.\n\nCaso já tenha efetuado o pagamento, pode nos enviar o comprovante por aqui!`;
+                        btnWaText = 'Cobrar Pix';
+                        btnWaColor = '#ef4444';
+                    } else if (infoVenc.categoria === 'breve') {
+                        msgWhatsapp = `Olá, *${c.nome}*! Tudo bem?\n\nPassando para avisar que sua assinatura da *AURA TV* vence *${infoVenc.diffDias === 0 ? 'HOJE' : `em ${infoVenc.diffDias} dia(s)`}*.\n\nPara não ter interrupção no seu sinal de TV, você já pode antecipar sua renovação de apenas *R$ 10,00*. Deseja que eu gere o seu Pix de renovação agora?`;
+                        btnWaText = 'Lembrar';
+                        btnWaColor = '#f59e0b';
+                    } else if (infoVenc.categoria === 'ativos') {
+                        msgWhatsapp = `Olá, *${c.nome}*! Tudo bem?\n\nSeu acesso à *AURA TV* está 100% ativo e liberado! Se precisar de suporte ou tiver qualquer dúvida sobre configuração na TV ou celular, estamos à disposição por aqui.`;
+                        btnWaText = 'WhatsApp';
+                        btnWaColor = '#22c55e';
+                    } else {
+                        msgWhatsapp = `Olá, *${c.nome}*! Vimos que seu cadastro na *AURA TV* foi iniciado.\n\nDeseja que eu te envie o Pix de R$ 10,00 para liberar o seu usuário e senha imediatamente?`;
+                        btnWaText = 'Enviar Pix';
+                        btnWaColor = '#3b82f6';
+                    }
+
+                    const btnWa = document.createElement('a');
+                    btnWa.href = `https://wa.me/55${cleanTel}?text=${encodeURIComponent(msgWhatsapp)}`;
+                    btnWa.target = '_blank';
+                    btnWa.className = 'btn-table';
+                    btnWa.style.backgroundColor = btnWaColor;
+                    btnWa.style.color = '#fff';
+                    btnWa.style.textDecoration = 'none';
+                    btnWa.style.display = 'inline-flex';
+                    btnWa.style.alignItems = 'center';
+                    btnWa.style.gap = '5px';
+                    btnWa.innerHTML = `<i class="${btnWaIcon}"></i> ${btnWaText}`;
+                    tdActions.appendChild(btnWa);
+                }
+
+                // B) Botão Liberar (+30 dias)
+                if (c.assinatura_status) {
+                    const btnReativar = document.createElement('button');
+                    btnReativar.type = 'button';
+                    btnReativar.className = 'btn-success btn-table';
+                    btnReativar.innerHTML = `<i class="fa-solid fa-user-check"></i> +30 Dias`;
+                    btnReativar.title = 'Renovar assinatura por +30 dias e reativar no ERP';
+                    btnReativar.onclick = () => gerenciarCliente(c.cliente_id, 'reativar');
+                    tdActions.appendChild(btnReativar);
+
+                    // C) Botão Suspender
+                    if (c.assinatura_status === 'ativa') {
+                        const btnSuspender = document.createElement('button');
+                        btnSuspender.type = 'button';
+                        btnSuspender.className = 'btn-danger btn-table';
+                        btnSuspender.innerHTML = `<i class="fa-solid fa-pause"></i> Pausar`;
+                        btnSuspender.title = 'Suspender o cliente no banco e no ERP';
+                        btnSuspender.onclick = () => gerenciarCliente(c.cliente_id, 'suspender');
+                        tdActions.appendChild(btnSuspender);
+                    }
+
+                    // D) Botão Pix QR Code
+                    const btnPix = document.createElement('button');
+                    btnPix.type = 'button';
+                    btnPix.className = 'btn-secondary btn-table';
+                    btnPix.style.backgroundColor = '#059669';
+                    btnPix.style.color = '#fff';
+                    btnPix.innerHTML = `<i class="fa-solid fa-qrcode"></i> Pix`;
+                    btnPix.title = 'Gerar QR Code de Pagamento';
+                    btnPix.onclick = () => abrirModalPix(c.login_tv, c.cliente_id);
+                    tdActions.appendChild(btnPix);
+
+                    // E) Botão Excluir
+                    const btnExcluir = document.createElement('button');
+                    btnExcluir.type = 'button';
+                    btnExcluir.className = 'btn-danger btn-table';
+                    btnExcluir.style.backgroundColor = '#b91c1c';
+                    btnExcluir.innerHTML = `<i class="fa-solid fa-trash-can"></i>`;
+                    btnExcluir.title = 'Excluir Cliente e Cancelar no ERP';
+                    btnExcluir.onclick = () => {
+                        if (confirm(`CUIDADO: Deseja realmente EXCLUIR o cliente ${c.nome} (${c.login_tv}) do ReceitaNet e do banco de dados?`)) {
+                            gerenciarCliente(c.cliente_id, 'excluir');
+                        }
+                    };
+                    tdActions.appendChild(btnExcluir);
+                } else {
+                    tdActions.innerHTML += `<span style="color:var(--text-muted); font-size: 11px;">Sem assinatura</span>`;
+                }
+
+                tr.appendChild(tdActions);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Função Utilitária para Copiar Texto Rápido
+        function copiarTextoRapido(texto) {
+            navigator.clipboard.writeText(texto).then(() => {
+                const logBox = document.getElementById('logOutput');
+                if (logBox) {
+                    logBox.textContent = `[COPIADO] '${texto}' copiado para a área de transferência!`;
+                    logBox.style.color = '#00ff80';
+                }
+            });
+        }
+
+        // Carrega os dados da tabela e atualiza os contadores em tempo real
+        async function carregarDados() {
+            document.getElementById('tableLoader').style.display = 'flex';
 
             try {
                 const response = await fetch('/api/admin/clientes');
@@ -589,118 +1091,47 @@
                 document.getElementById('tableLoader').style.display = 'none';
 
                 if (!Array.isArray(clientes)) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Falha ao obter lista de clientes.</td></tr>`;
+                    document.getElementById('clientesTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Falha ao obter lista de clientes.</td></tr>`;
                     return;
                 }
 
-                // Estatísticas
+                listaClientesGlobal = clientes;
+
+                // Estatísticas e Contagens Inteligentes
                 let total = clientes.length;
                 let ativas = 0;
-                let suspensas = 0;
+                let vencidos = 0;
+                let venceBreve = 0;
                 let pendentes = 0;
 
                 clientes.forEach(c => {
-                    if (c.assinatura_status === 'ativa') ativas++;
-                    else if (c.assinatura_status === 'suspensa') suspensas++;
-                    else if (c.assinatura_status === 'pendente') pendentes++;
-
-                    const tr = document.createElement('tr');
-                    
-                    // Coluna Cliente
-                    const tdCliente = document.createElement('td');
-                    tdCliente.innerHTML = `<strong>${c.nome}</strong><br><small style="color:var(--text-muted);">${c.email}</small>`;
-                    tr.appendChild(tdCliente);
-
-                    // Coluna WhatsApp
-                    const tdTel = document.createElement('td');
-                    tdTel.textContent = formatarTelefone(c.telefone);
-                    tr.appendChild(tdTel);
-
-                    // Coluna CPF
-                    const tdCpf = document.createElement('td');
-                    tdCpf.textContent = c.cpfcnpj || '-';
-                    tr.appendChild(tdCpf);
-
-                    // Coluna Login
-                    const tdLogin = document.createElement('td');
-                    tdLogin.innerHTML = c.login_tv ? `<code>${c.login_tv}</code>` : `<span style="color:var(--text-muted);">Não criado</span>`;
-                    tr.appendChild(tdLogin);
-
-                    // Coluna Status
-                    const tdStatus = document.createElement('td');
-                    const statusStr = c.assinatura_status || 'pendente';
-                    tdStatus.innerHTML = `<span class="status-badge ${statusStr}">${statusStr}</span>`;
-                    tr.appendChild(tdStatus);
-
-                    // Coluna Vencimento
-                    const tdVenc = document.createElement('td');
-                    tdVenc.textContent = formatarData(c.data_vencimento);
-                    tr.appendChild(tdVenc);
-
-                    // Coluna Ações
-                    const tdActions = document.createElement('td');
-                    tdActions.className = 'actions-cell';
-                    
-                    if (c.assinatura_status) {
-                        // Botão Reativar
-                        const btnReativar = document.createElement('button');
-                        btnReativar.className = 'btn-success btn-table';
-                        btnReativar.innerHTML = `<i class="fa-solid fa-user-check"></i> Liberar (30d)`;
-                        btnReativar.onclick = () => gerenciarCliente(c.cliente_id, 'reativar');
-                        tdActions.appendChild(btnReativar);
-
-                        // Botão Suspender
-                        const btnSuspender = document.createElement('button');
-                        btnSuspender.className = 'btn-danger btn-table';
-                        btnSuspender.innerHTML = `<i class="fa-solid fa-user-slash"></i> Suspender`;
-                        btnSuspender.onclick = () => gerenciarCliente(c.cliente_id, 'suspender');
-                        tdActions.appendChild(btnSuspender);
-
-                        // Botão Enviar Instruções
-                        const btnInstructions = document.createElement('button');
-                        btnInstructions.className = 'btn-info btn-table';
-                        btnInstructions.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Instruções`;
-                        btnInstructions.onclick = () => gerenciarCliente(c.cliente_id, 'enviar-instrucoes');
-                        tdActions.appendChild(btnInstructions);
-
-                        // Botão Gerar / Testar Pix QR Code TV
-                        const btnPix = document.createElement('button');
-                        btnPix.type = 'button';
-                        btnPix.className = 'btn-secondary btn-table';
-                        btnPix.style.backgroundColor = '#059669';
-                        btnPix.style.color = '#fff';
-                        btnPix.innerHTML = `<i class="fa-solid fa-qrcode"></i> Pix QR Code`;
-                        btnPix.onclick = () => abrirModalPix(c.login_tv, c.cliente_id);
-                        tdActions.appendChild(btnPix);
-
-                        // Botão Excluir Contrato & Cliente
-                        const btnExcluir = document.createElement('button');
-                        btnExcluir.type = 'button';
-                        btnExcluir.className = 'btn-danger btn-table';
-                        btnExcluir.style.backgroundColor = '#b91c1c';
-                        btnExcluir.innerHTML = `<i class="fa-solid fa-trash-can"></i> Excluir`;
-                        btnExcluir.onclick = () => {
-                            if (confirm(`CUIDADO: Deseja realmente rescindir o contrato (cancelado chip) e EXCLUIR o cliente ${c.nome} do ReceitaNet e do banco local?`)) {
-                                gerenciarCliente(c.cliente_id, 'excluir');
-                            }
-                        };
-                        tdActions.appendChild(btnExcluir);
-                    } else {
-                        tdActions.innerHTML = `<span style="color:var(--text-muted);">Sem assinatura cadastrada</span>`;
-                    }
-                    
-                    tr.appendChild(tdActions);
-                    tbody.appendChild(tr);
+                    const info = calcularVencimento(c);
+                    if (info.categoria === 'vencidos') vencidos++;
+                    else if (info.categoria === 'breve') venceBreve++;
+                    else if (info.categoria === 'ativos') ativas++;
+                    else if (info.categoria === 'pendentes') pendentes++;
                 });
 
+                // Atualiza os Cards Superiores
                 document.getElementById('statTotal').textContent = total;
+                document.getElementById('statVencidos').textContent = vencidos;
+                document.getElementById('statVenceBreve').textContent = venceBreve;
                 document.getElementById('statAtivas').textContent = ativas;
-                document.getElementById('statSuspensas').textContent = suspensas;
                 document.getElementById('statPendentes').textContent = pendentes;
+
+                // Atualiza os Badges das Tabs
+                document.getElementById('countTabTodos').textContent = total;
+                document.getElementById('countTabVencidos').textContent = vencidos;
+                document.getElementById('countTabBreve').textContent = venceBreve;
+                document.getElementById('countTabAtivos').textContent = ativas;
+                document.getElementById('countTabPendentes').textContent = pendentes;
+
+                // Renderiza a tabela aplicando os filtros correntes
+                filtrarTabelaAdmin();
 
             } catch (error) {
                 document.getElementById('tableLoader').style.display = 'none';
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Erro de rede: ${error.message}</td></tr>`;
+                document.getElementById('clientesTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger);">Erro de rede: ${error.message}</td></tr>`;
             }
         }
 

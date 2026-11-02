@@ -75,7 +75,7 @@ const basicAuth = (req, res, next) => {
     }
 
     const referer = req.headers.referer || req.headers.referrer || '';
-    if (referer.includes('/admin.html') || referer.includes('/admin-provedores') || referer.includes('/tv')) {
+    if (referer.includes('/admin') || referer.includes('/painel') || referer.includes('/clientes') || referer.includes('/admin-provedores') || referer.includes('/tv')) {
         return next();
     }
 
@@ -93,8 +93,8 @@ const basicAuth = (req, res, next) => {
     return res.status(401).send('Acesso não autorizado.');
 };
 
-// Protege a rota do admin.html especificamente antes de servir estáticos
-app.get('/admin.html', basicAuth, (req, res) => {
+// Rotas amigáveis para o Painel Administrativo de Gestão de Clientes e Vencimentos
+app.get(['/admin', '/admin.html', '/painel', '/clientes'], basicAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
