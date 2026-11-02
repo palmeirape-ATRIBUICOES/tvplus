@@ -104,7 +104,23 @@ class ReceitanetRobotService {
             // ETAPA 1: CADASTRO DO CLIENTE (Preenchimento instantâneo em lote)
             console.log('[RECEITANET-ROBOT] ETAPA 1: Acessando tela de cadastro...');
             await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
-            await page.waitForSelector('input[name="cli_login"]', { timeout: 8000 });
+
+            // Verifica se a sessão expirou e redirecionou para o Keycloak
+            if (page.url().includes('auth.receitanet.net') || await page.$('#username')) {
+                console.log('[RECEITANET-ROBOT] Sessão expirada detectada. Reautenticando no Keycloak...');
+                const adminUser = process.env.RECEITANET_ADMIN_USER;
+                const adminPass = process.env.RECEITANET_ADMIN_PASS;
+                await page.waitForSelector('#username', { timeout: 10000 });
+                await page.type('#username', adminUser);
+                await page.type('#password', adminPass);
+                await Promise.all([
+                    page.click('#kc-login'),
+                    page.waitForNavigation({ waitUntil: 'networkidle2' })
+                ]);
+                await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
+            }
+
+            await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
 
             // Preenchimento instantâneo de todos os campos de uma só vez (sem delay de digitação)
             await page.evaluate(({ loginTv, senhaTv, nomeCliente, cpf }) => {
@@ -151,8 +167,45 @@ class ReceitanetRobotService {
             // Aguarda navegação pós-criação
             await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
 
-            const urlPosCriacao = page.url();
+            let urlPosCriacao = page.url();
             console.log('[RECEITANET-ROBOT] ETAPA 1 OK (' + ((Date.now() - startTime)/1000).toFixed(2) + 's). URL pós-criação: ' + urlPosCriacao);
+
+            // Recuperação automática se o login já existir no ERP
+            if (urlPosCriacao.includes('error=true') || urlPosCriacao.includes('j%C3%A1%20existe') || urlPosCriacao.includes('Login%20')) {
+                const randSuffix = Math.floor(1000 + Math.random() * 9000);
+                loginTv = `${loginClean}${randSuffix}@tvplus`;
+                console.warn(`[RECEITANET-ROBOT] Conflito de login no ERP! Tentando com novo login exclusivo: ${loginTv}`);
+
+                await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
+                await page.waitForSelector('input[name="cli_login"]', { timeout: 10000 });
+                await page.evaluate(({ loginTv, senhaTv, nomeCliente, cpf }) => {
+                    const setVal = (sel, val) => {
+                        const el = document.querySelector(sel);
+                        if (el) {
+                            el.value = val;
+                            el.dispatchEvent(new Event('input', { bubbles: true }));
+                            el.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                    };
+                    setVal('input[name="cli_login"]', loginTv);
+                    setVal('input[name="cli_senha"]', senhaTv);
+                    setVal('input[name="cli_nome"]', nomeCliente);
+                    setVal('input[name="cli_cgc"]', cpf);
+                    setVal('select[name="cli_tipo"]',       '1');
+                    setVal('select[name="cli_diatari"]',    '10');
+                    setVal('select[name="cli_boleto"]',     'S');
+                    setVal('select[name="men_codigo"]',     '1');
+                    setVal('select[name="plano"]',          '2');
+                    setVal('select[name="ban_codigo"]',     '12168');
+                    setVal('select[name="base_referencia"]','V');
+                }, { loginTv, senhaTv, nomeCliente, cpf });
+
+                const btnExisteRetry = await page.$(btnIncluirSel);
+                if (btnExisteRetry) await page.click(btnIncluirSel);
+                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+                urlPosCriacao = page.url();
+                console.log('[RECEITANET-ROBOT] URL pós-retry com login ajustado: ' + urlPosCriacao);
+            }
             this.tirarScreenshot(page, '02_cliente_criado').catch(() => {});
 
             // ETAPA 2: EXTRAÇÃO INSTANTÂNEA DO ID NUMÉRICO DO CLIENTE
@@ -300,7 +353,7 @@ class ReceitanetRobotService {
             const totalTimeSec = ((Date.now() - startTime) / 1000).toFixed(2);
             this.tirarScreenshot(page, '06_plano_cdntv_incluido').catch(() => {});
             console.log('[RECEITANET-ROBOT SUCCESS] ⚡⚡ CONCLUÍDO EM APENAS ' + totalTimeSec + 's! Cliente ' + loginTv + ' criado e CDNTV ativado!');
-            return clienteId || true;
+            return { clienteId: clienteId ? clienteId.toString() : null, finalLogin: loginTv, senhaTv };
 
         } catch (error) {
             console.error('[RECEITANET-ROBOT ERROR] Falha na automação ultrarrápida:', error.message);
@@ -379,7 +432,7 @@ class ReceitanetRobotService {
         const launchOptions = {
             headless: true,
             slowMo: 60,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
         };
 
         if (process.env.PUPPETEER_EXECUTABLE_PATH) {

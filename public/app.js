@@ -360,15 +360,17 @@ function syncCadSteps(toStep) {
 }
 
 function switchStep(fromStep, toStep) {
+    if (!fromStep) fromStep = document.getElementById('stepForm') || stepForm;
+    if (!toStep) toStep = document.getElementById('stepPix') || stepPix;
     syncCadSteps(toStep);
-    fromStep.classList.remove('active');
+    if (fromStep) fromStep.classList.remove('active');
     setTimeout(() => {
-        fromStep.style.display = 'none';
-        toStep.style.display = 'block';
+        if (fromStep && fromStep.style) fromStep.style.display = 'none';
+        if (toStep && toStep.style) toStep.style.display = 'block';
         setTimeout(() => {
-            toStep.classList.add('active');
+            if (toStep) toStep.classList.add('active');
             // Quando avançar para o passo do Pix ou Sucesso, centraliza a tela no card
-            if (toStep.id === 'stepPix' || toStep.id === 'stepSuccess') {
+            if (toStep && (toStep.id === 'stepPix' || toStep.id === 'stepSuccess')) {
                 const checkoutCardEl = document.getElementById('checkoutCard');
                 if (checkoutCardEl) {
                     checkoutCardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -409,11 +411,14 @@ function capitalizeName(name) {
 }
 
 function mostrarSucesso(login, senha) {
-    resLogin.textContent = login;
-    resSenha.textContent = senha;
+    const elLogin = document.getElementById('resLogin') || resLogin;
+    const elSenha = document.getElementById('resSenha') || resSenha;
+    if (elLogin) elLogin.textContent = login;
+    if (elSenha) elSenha.textContent = senha;
     
     // Se o overlay do QR Code estiver ativo, desativa
-    if (qrOverlay) qrOverlay.classList.remove('active');
+    const overlay = document.getElementById('qrOverlay') || qrOverlay;
+    if (overlay) overlay.classList.remove('active');
     
     // Configura o link de suporte de backup do WhatsApp
     const nomeCapitalizado = capitalizeName(currentClienteNome || 'Cliente');
@@ -428,10 +433,14 @@ function mostrarSucesso(login, senha) {
     }
     
     // Transiciona para o sucesso (Passo 3)
-    if (stepPix.style.display === 'block') {
-        switchStep(stepPix, stepSuccess);
+    const elStepForm = document.getElementById('stepForm') || stepForm;
+    const elStepPix = document.getElementById('stepPix') || stepPix;
+    const elStepSuccess = document.getElementById('stepSuccess') || stepSuccess;
+
+    if (elStepPix && elStepPix.style && elStepPix.style.display === 'block') {
+        switchStep(elStepPix, elStepSuccess);
     } else {
-        switchStep(stepForm, stepSuccess);
+        switchStep(elStepForm, elStepSuccess);
     }
 }
 
@@ -441,21 +450,30 @@ function resetFlow() {
     currentClienteId = null;
     
     // Limpar campos
-    cadastroForm.reset();
-    btnSubmitTrial.disabled = false;
-    btnSubmitBuy.disabled = false;
-    btnSubmitTrial.innerHTML = `<i class="fa-solid fa-bolt" style="color: #eab308;"></i> <span>Teste Grátis (1 Hora)</span>`;
-    btnSubmitBuy.innerHTML = `<i class="fa-solid fa-user-check"></i> <span>CRIAR CADASTRO E PAGAR R$ 10</span>`;
-    if (typeof syncCadSteps === 'function') syncCadSteps(stepForm);
+    if (cadastroForm) cadastroForm.reset();
+    if (btnSubmitTrial) {
+        btnSubmitTrial.disabled = false;
+        btnSubmitTrial.innerHTML = `<i class="fa-solid fa-bolt" style="color: #eab308;"></i> <span>Teste Grátis (1 Hora)</span>`;
+    }
+    if (btnSubmitBuy) {
+        btnSubmitBuy.disabled = false;
+        btnSubmitBuy.innerHTML = `<i class="fa-solid fa-user-check"></i> <span>CRIAR CADASTRO E PAGAR R$ 10</span>`;
+    }
+    
+    const elStepForm = document.getElementById('stepForm') || stepForm;
+    const elStepPix = document.getElementById('stepPix') || stepPix;
+    const elStepSuccess = document.getElementById('stepSuccess') || stepSuccess;
+
+    if (typeof syncCadSteps === 'function') syncCadSteps(elStepForm);
     
     // Voltar para o Passo 1
-    stepSuccess.classList.remove('active');
+    if (elStepSuccess) elStepSuccess.classList.remove('active');
     setTimeout(() => {
-        stepSuccess.style.display = 'none';
-        stepPix.style.display = 'none';
-        stepForm.style.display = 'block';
+        if (elStepSuccess && elStepSuccess.style) elStepSuccess.style.display = 'none';
+        if (elStepPix && elStepPix.style) elStepPix.style.display = 'none';
+        if (elForm && elForm.style) elForm.style.display = 'block';
         setTimeout(() => {
-            stepForm.classList.add('active');
+            if (elStepForm) elStepForm.classList.add('active');
         }, 50);
     }, 400);
 }

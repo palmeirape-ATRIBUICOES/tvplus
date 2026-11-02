@@ -48,36 +48,27 @@ async function generateUniqueLogin(nomeCompleto) {
         .trim();
 
     const parts = normalized.split(/\s+/).filter(p => p.length > 0);
-    if (parts.length === 0) return `user${Math.floor(Math.random() * 1000)}@tvplus`;
+    if (parts.length === 0) return `tv${Math.floor(1000 + Math.random() * 9000)}@tvplus`;
 
-    const firstName = parts[0].substring(0, 8); // Evita nomes longos no login limitando o primeiro nome a 8 caracteres
+    const firstName = parts[0].substring(0, 8); // Limita tamanho do primeiro nome
     const lastNameParts = parts.slice(1);
 
-    // Tentativa 1: primeiro_nome@tvplus (ex: thiago@tvplus)
-    let candidate = `${firstName}@tvplus`;
+    // Sufixo numérico aleatório de 3 dígitos para garantir unicidade absoluta no ReceitaNet ERP
+    const randSuffix = Math.floor(100 + Math.random() * 900);
+
+    // Formato prioritário: primeiro_nome + inicial_do_sobrenome + 3_digitos@tvplus (ex: thiagop284@tvplus)
+    let candidate;
+    if (lastNameParts.length > 0) {
+        candidate = `${firstName}${lastNameParts[0][0]}${randSuffix}@tvplus`;
+    } else {
+        candidate = `${firstName}${randSuffix}@tvplus`;
+    }
+
     if (!(await isLoginTaken(candidate))) return candidate;
 
-    // Tentativa 2: primeiro_nome + inicial_do_segundo_nome@tvplus (ex: thiagop@tvplus)
-    if (lastNameParts.length > 0) {
-        candidate = `${firstName}${lastNameParts[0][0]}@tvplus`;
-        if (!(await isLoginTaken(candidate))) return candidate;
-    }
-
-    // Tentativa 3: primeiro_nome + iniciais_de_todos_os_sobrenomes@tvplus (ex: thiagopb@tvplus)
-    if (lastNameParts.length > 1) {
-        const initials = lastNameParts.map(p => p[0]).join('');
-        candidate = `${firstName}${initials}@tvplus`;
-        if (!(await isLoginTaken(candidate))) return candidate;
-    }
-
-    // Tentativa 4: primeiro_nome + iniciais + número incremental (ex: thiagopb2@tvplus)
-    const base = lastNameParts.length > 0 
-        ? `${firstName}${lastNameParts.map(p => p[0]).join('')}`
-        : firstName;
-        
-    let counter = 2;
+    let counter = 1;
     while (true) {
-        candidate = `${base}${counter}@tvplus`;
+        candidate = `${firstName}${randSuffix}${counter}@tvplus`;
         if (!(await isLoginTaken(candidate))) return candidate;
         counter++;
     }

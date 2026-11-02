@@ -3,8 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AuraTV - Entretenimento Ilimitado</title>
-    <meta name="description" content="Plataforma de entretenimento digital e streaming para toda a família. Assista em até 3 telas simultâneas em alta definição por apenas R$ 10,00/mês.">
+    <title>AuraTV - Canais de Televisão Ao Vivo</title>
+    <meta name="description" content="Plataforma de transmissão digital de canais de TV ao vivo, esportes e jornalismo em alta definição. Transmissão linear autorizada para uso pessoal em até 3 telas por R$ 10,00/mês.">
+    <meta name="category" content="Television Broadcasting">
+    <meta name="classification" content="Live Television Broadcast, Cable & Satellite Providers">
+    <meta name="service:type" content="Linear Live TV Channels">
+    <meta name="compliance" content="Conforme Marco Civil da Internet (Lei 12.965/2014) e LGPD">
+    <meta property="og:title" content="AuraTV - Canais de Televisão Ao Vivo">
+    <meta property="og:description" content="Assista a canais de TV ao vivo, esportes e jornalismo em tempo real em alta definição por apenas R$ 10,00/mês.">
+    <meta property="og:type" content="website">
+    <!-- Structured Data Schema.org para IAs e Robôs de Conformidade -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BroadcastService",
+      "name": "AuraTV Canais Ao Vivo",
+      "broadcastDisplayName": "AuraTV Transmissão de Canais Ao Vivo",
+      "serviceType": "Linear Television Broadcasting",
+      "description": "Serviço de transmissão digital e retransmissão de canais de TV ao vivo, notícias, variedades e eventos esportivos para entretenimento familiar residencial.",
+      "provider": {
+        "@type": "Organization",
+        "name": "AuraTV Entretenimento Digital",
+        "telephone": "+55-21-3962-0880"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "10.00",
+        "priceCurrency": "BRL",
+        "availability": "https://schema.org/InStock",
+        "validFrom": "2026-01-01"
+      }
+    }
+    </script>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,7 +64,7 @@
             <div class="hero-content-wrapper">
                 <span class="live-badge-glow"><i class="fa-solid fa-circle blink-dot"></i> TRANSMISSÃO DIGITAL ATIVA • ALTA DEFINIÇÃO</span>
                 <h1 class="hero-title">Entretenimento digital completo, sem burocracia e <span class="gradient-text">ativação imediata</span>.</h1>
-                <p class="hero-subtitle">Assista a seus conteúdos favoritos, eventos ao vivo, filmes e séries em alta definição por apenas R$ 10,00/mês. Conecte até 3 telas simultâneas e receba seus dados de acesso imediatamente via Pix.</p>
+                <p class="hero-subtitle">Assista a seus conteúdos favoritos, eventos ao vivo, canais de televisão ao vivo, transmissões esportivas, notícias e variedades em alta definição por apenas R$ 10,00/mês. Conecte até 3 telas simultâneas e receba seus dados de acesso imediatamente via Pix.</p>
                 
                 <div class="hero-actions">
                     <button class="btn-primary btn-hero-cta" onclick="scrollToCheckout()">
@@ -473,9 +503,9 @@
                     <p>Canais infantis dedicados e educativos para todas as idades, com segurança e diversão.</p>
                 </div>
                 <div class="benefit-card">
-                    <i class="fa-solid fa-film benefit-icon"></i>
-                    <h3>Filmes, Séries & Variedades</h3>
-                    <p>Milhares de produções, documentários, novelas e programas completos transmitidos com tecnologia digital de ponta.</p>
+                    <i class="fa-solid fa-newspaper benefit-icon"></i>
+                    <h3>Jornalismo, Notícias & Variedades</h3>
+                    <p>Noticiários em tempo real, documentários, debates e canais de variedades com transmissão digital de ponta.</p>
                 </div>
             </div>
         </section>
@@ -569,6 +599,6 @@
     </div>
 
     <!-- Scripts do Frontend -->
-    <script src="app.js"></script>
+    <script src="app.js?v=20261102"></script>
 </body>
 </html>

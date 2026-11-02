@@ -61,12 +61,19 @@ class ReceitanetQueueService {
                 };
                 const loginTv = task.payload.loginTv || task.payload.login_tv;
                 const senhaTv = task.payload.senhaTv || task.payload.senha_tv || clienteObj.cpf;
-                const clienteId = await robotToUse.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
-                if (clienteId && clienteObj.id) {
+                const robotRes = await robotToUse.cadastrarEAtivarTV(clienteObj, loginTv, senhaTv);
+                const cId = (robotRes && typeof robotRes === 'object') ? robotRes.clienteId : robotRes;
+                const finalLogin = (robotRes && typeof robotRes === 'object' && robotRes.finalLogin) ? robotRes.finalLogin : loginTv;
+                if (clienteObj.id) {
                     try {
                         const { db } = require('../database');
-                        db.run('UPDATE assinaturas SET receitanet_cliente_id = ? WHERE cliente_id = ?', [clienteId.toString(), clienteObj.id]);
-                        console.log(`[RECEITANET QUEUE] 💾 ID do cliente ReceitaNet (${clienteId}) salvo na assinatura local.`);
+                        if (cId && finalLogin && finalLogin !== loginTv) {
+                            db.run('UPDATE assinaturas SET receitanet_cliente_id = ?, login_tv = ? WHERE cliente_id = ?', [cId.toString(), finalLogin, clienteObj.id]);
+                            console.log(`[RECEITANET QUEUE] 💾 ID do cliente ReceitaNet (${cId}) e Login atualizado (${finalLogin}) salvos.`);
+                        } else if (cId) {
+                            db.run('UPDATE assinaturas SET receitanet_cliente_id = ? WHERE cliente_id = ?', [cId.toString(), clienteObj.id]);
+                            console.log(`[RECEITANET QUEUE] 💾 ID do cliente ReceitaNet (${cId}) salvo na assinatura local.`);
+                        }
                     } catch (dbErr) {
                         console.error('[RECEITANET QUEUE] Erro ao salvar receitanet_cliente_id:', dbErr.message);
                     }
