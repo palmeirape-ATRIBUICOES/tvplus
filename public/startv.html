@@ -552,7 +552,7 @@
             <!-- CAMPO DE BUSCA DE ASSINANTES -->
             <div style="margin-bottom: 20px; position: relative;">
                 <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
-                <input type="text" id="inputBuscaClientes" class="input-control" style="padding-left: 44px;" placeholder="🔍 Buscar por Nome, CPF/CNPJ, E-mail ou Login @startv..." oninput="filtrarClientesStartv()">
+                <input type="text" id="inputBuscaClientes" class="input-control" style="padding-left: 44px;" placeholder="🔍 Buscar por Nome, CPF/CNPJ, E-mail ou Login..." oninput="filtrarClientesStartv()">
             </div>
 
             <div class="table-wrapper">
@@ -564,7 +564,7 @@
                             <th>CPF / CNPJ</th>
                             <th>E-mail</th>
                             <th>WhatsApp</th>
-                            <th>Login TV (@startv)</th>
+                            <th>Login TV</th>
                             <th>Senha TV (CPF)</th>
                             <th>Data Cadastro</th>
                             <th>Ação</th>
@@ -648,6 +648,27 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            // Auto-detecção de subdomínio por Hostname ou Path (ex: clientestv.levemaisfibra.com.br ou /clientestv)
+            const host = window.location.hostname.toLowerCase();
+            const path = window.location.pathname.toLowerCase();
+            let detectedSub = null;
+            if (host.includes('clientestv') || path.includes('clientestv')) {
+                detectedSub = 'clientestv';
+            } else if (host.includes('.levemaisfibra.com.br') && !host.startsWith('tv.')) {
+                detectedSub = host.split('.')[0];
+            }
+
+            if (detectedSub) {
+                const subAtualSalvo = localStorage.getItem('startv_subdominio');
+                if (subAtualSalvo !== detectedSub) {
+                    localStorage.setItem('startv_subdominio', detectedSub);
+                    localStorage.setItem('startv_usuario', detectedSub);
+                    localStorage.removeItem('startv_logado');
+                }
+                const inputUser = document.getElementById('loginUsuario');
+                if (inputUser) inputUser.value = detectedSub;
+            }
+
             // Tema padrão: light (modo claro)
             const savedTheme = localStorage.getItem('theme_startv') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);

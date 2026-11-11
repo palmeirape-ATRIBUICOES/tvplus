@@ -101,13 +101,21 @@ function initDb() {
                     db.run("ALTER TABLE provedor_usuarios ADD COLUMN nome_marca TEXT", () => {});
                     db.run("ALTER TABLE provedor_usuarios ADD COLUMN logo_url TEXT", () => {});
 
-                    // Insere o provedor padrão 'startv' com a marca 'STARNET TV'
+                    // Insere os provedores padrão 'startv' e 'clientestv'
                     db.run(`
                         INSERT INTO provedor_usuarios (subdominio, nome_marca, usuario, senha, logo_url, senha_alterada)
                         VALUES ('startv', 'STARNET TV', 'startv', '1234', '/starnet-logo.jpg', 0)
                         ON CONFLICT(usuario) DO NOTHING
                     `, () => {
                         db.run("UPDATE provedor_usuarios SET subdominio = 'startv', nome_marca = 'STARNET TV', logo_url = '/starnet-logo.jpg' WHERE usuario = 'startv' AND (subdominio IS NULL OR subdominio = '')");
+                    });
+
+                    db.run(`
+                        INSERT INTO provedor_usuarios (subdominio, nome_marca, usuario, senha, logo_url, senha_alterada)
+                        VALUES ('clientestv', 'CLIENTES TV', 'clientestv', '1234', '/starnet-logo.jpg', 0)
+                        ON CONFLICT(usuario) DO NOTHING
+                    `, () => {
+                        db.run("UPDATE provedor_usuarios SET subdominio = 'clientestv', nome_marca = 'CLIENTES TV', logo_url = '/starnet-logo.jpg' WHERE usuario = 'clientestv' AND (subdominio IS NULL OR subdominio = '')");
                     });
                 });
 
@@ -820,8 +828,11 @@ const dbHelpers = {
     },
 
     async listarClientesStartv(subdominio = null) {
-        if (!subdominio || subdominio === 'startv' || subdominio === 'todos') {
+        if (!subdominio || subdominio === 'todos') {
             return await dbAll('SELECT * FROM clientes_startv ORDER BY id DESC').catch(() => []);
+        }
+        if (subdominio === 'startv') {
+            return await dbAll("SELECT * FROM clientes_startv WHERE subdominio = 'startv' OR subdominio IS NULL OR subdominio = '' ORDER BY id DESC").catch(() => []);
         }
         return await dbAll('SELECT * FROM clientes_startv WHERE subdominio = ? ORDER BY id DESC', [subdominio]).catch(() => []);
     },

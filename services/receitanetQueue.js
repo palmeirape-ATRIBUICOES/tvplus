@@ -44,11 +44,11 @@ class ReceitanetQueueService {
 
         try {
             const loginTarget = task.payload ? (task.payload.loginTv || task.payload.login_tv || '') : '';
-            const isStartv = loginTarget.includes('@startv');
-            const robotToUse = isStartv ? startvRobot : receitanetRobot;
+            const isProvider = loginTarget.includes('@startv') || loginTarget.includes('@clientestv') || !loginTarget.includes('@tvplus');
+            const robotToUse = isProvider ? startvRobot : receitanetRobot;
 
-            if (isStartv) {
-                console.log(`[RECEITANET QUEUE] 🛡️ Direcionado para o Robô Exclusivo do Provedor Star TV.`);
+            if (isProvider) {
+                console.log(`[RECEITANET QUEUE] 🛡️ Direcionado para o Robô do Provedor Multi-Tenant (${loginTarget}).`);
             }
 
             if (task.tipo === 'CADASTRO_E_ATIVACAO') {

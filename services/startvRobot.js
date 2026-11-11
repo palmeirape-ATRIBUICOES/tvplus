@@ -61,6 +61,8 @@ class ReceitanetRobotService {
 
         this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
+        this.page.setDefaultNavigationTimeout(60000);
+        this.page.setDefaultTimeout(60000);
 
         // OTIMIZAÇÃO CRÍTICA: Bloqueia imagens, fontes e mídias para navegação ultrarrápida (300ms)
         await this.page.setRequestInterception(true);
@@ -174,7 +176,8 @@ class ReceitanetRobotService {
             // Recuperação automática se o login já existir no ERP
             if (urlPosCriacao.includes('error=true') || urlPosCriacao.includes('j%C3%A1%20existe') || urlPosCriacao.includes('Login%20')) {
                 const randSuffix = Math.floor(1000 + Math.random() * 9000);
-                loginTv = `${loginClean}${randSuffix}@startv`;
+                const domainSuffix = (loginTv && loginTv.includes('@')) ? loginTv.split('@')[1] : 'startv';
+                loginTv = `${loginClean}${randSuffix}@${domainSuffix}`;
                 console.warn(`[STARTV-ROBOT] Conflito de login no ERP! Tentando com novo login exclusivo: ${loginTv}`);
 
                 await page.goto(CADASTRO_CLIENTE_URL, { waitUntil: 'domcontentloaded' });
@@ -286,9 +289,14 @@ class ReceitanetRobotService {
             // ETAPA 3: NAVEGAÇÃO DIRETA E ADESÃO AO PLANO CDNTV
             const planosPageUrl = 'https://sistema.receitanet.net/novo/financeiros/clientes/planos/' + clienteId;
             console.log('[STARTV-ROBOT] ETAPA 3: Acessando página de Planos: ' + planosPageUrl);
-            await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded' });
+            try {
+                await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            } catch (navError) {
+                console.warn('[STARTV-ROBOT] Timeout/aviso ao acessar página de planos (tentando novamente):', navError.message);
+                await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            }
 
-            await page.waitForSelector('select', { timeout: 10000 });
+            await page.waitForSelector('select', { timeout: 20000 });
 
             // Encontra o select com a opção CDNTV
             const cdntvInfo = await page.evaluate(() => {

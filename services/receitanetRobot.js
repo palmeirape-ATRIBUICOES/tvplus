@@ -61,6 +61,8 @@ class ReceitanetRobotService {
 
         this.browser = await puppeteer.launch(launchOptions);
         this.page = await this.browser.newPage();
+        this.page.setDefaultNavigationTimeout(60000);
+        this.page.setDefaultTimeout(60000);
 
         // OTIMIZAÇÃO CRÍTICA: Bloqueia imagens, fontes e mídias para navegação ultrarrápida (300ms)
         await this.page.setRequestInterception(true);
@@ -285,9 +287,14 @@ class ReceitanetRobotService {
             // ETAPA 3: NAVEGAÇÃO DIRETA E ADESÃO AO PLANO CDNTV
             const planosPageUrl = 'https://sistema.receitanet.net/novo/financeiros/clientes/planos/' + clienteId;
             console.log('[RECEITANET-ROBOT] ETAPA 3: Acessando página de Planos: ' + planosPageUrl);
-            await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded' });
+            try {
+                await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            } catch (navError) {
+                console.warn('[RECEITANET-ROBOT] Timeout/aviso ao acessar página de planos (tentando novamente):', navError.message);
+                await page.goto(planosPageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+            }
 
-            await page.waitForSelector('select', { timeout: 10000 });
+            await page.waitForSelector('select', { timeout: 20000 });
 
             // Encontra o select com a opção CDNTV
             const cdntvInfo = await page.evaluate(() => {

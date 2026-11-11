@@ -123,7 +123,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get('/startv', (req, res) => {
+app.get(['/startv', '/clientestv'], (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'startv.html'));
 });
 
@@ -2123,7 +2123,7 @@ app.use((req, res, next) => {
 });
 
 // Rotas de atalhos estáticos para os arquivos HTML dos Painéis
-app.get('/startv', (req, res) => {
+app.get(['/startv', '/clientestv'], (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'startv.html'));
 });
 
