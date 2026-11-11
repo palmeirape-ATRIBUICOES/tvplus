@@ -197,6 +197,7 @@ function initDb() {
                                     )
                                 `, (errBlacklist) => {
                                     if (errBlacklist) return reject(errBlacklist);
+                                    db.run("INSERT INTO blacklist_logins (login_tv, motivo) VALUES ('thiago@startv', 'Excluído pelo Provedor') ON CONFLICT(login_tv) DO NOTHING", () => {});
                                     console.log('Tabelas do banco de dados (clientes, assinaturas, pagamentos, conversas_bot, testes, sessoes_ativas, coleta_cadastro, blacklist_logins) verificadas com sucesso.');
                                     resolve();
                                 });

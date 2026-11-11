@@ -616,6 +616,43 @@ const handleSvaAuth = async (req, res) => {
         const dispositivo = req.headers['user-agent'] || 'SignalPlay App';
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
+        // 0.2 CHECK PROVEDORES MULTI-TENANT (@startv, @clientestv, ou qualquer domínio diferente de @tvplus):
+        // Clientes de provedor DEVEM existir com status 'ativo' na tabela clientes_startv
+        if (userClean.includes('@') && !userClean.includes('@tvplus')) {
+            const cliProv = await new Promise((resolve) => {
+                dbClient.get('SELECT * FROM clientes_startv WHERE LOWER(TRIM(login_tv)) = ?', [userClean], (err, row) => resolve(row));
+            });
+
+            if (!cliProv || cliProv.status !== 'ativo') {
+                console.log(`[SVA AUTH PROVEDOR BLOQUEADO] 🚫 Acesso NEGADO: Cliente de provedor inexistente, cancelado ou excluído: ${userClean}`);
+                registrarLogDebugSva(userClean, passClean, 'EXCLUIDO_PROVEDOR', 'Assinatura excluída ou inativa.');
+                dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv = ?", [userClean]);
+                return res.status(403).json({
+                    success: false,
+                    status: "kicked",
+                    msg: "Sua assinatura de TV foi cancelada ou excluída pelo provedor."
+                });
+            }
+
+            // Valida senha do cliente do provedor (CPF)
+            const senhaProvMatches = (
+                cliProv.senha_tv == passClean ||
+                cliProv.senha_tv == passOnlyDigits ||
+                cliProv.senha_tv == passPadded ||
+                cliProv.cpfcnpj == passOnlyDigits
+            );
+
+            if (!senhaProvMatches) {
+                console.log(`[SVA AUTH PROVEDOR SENHA INCORRETA] Senha inválida para cliente de provedor: ${userClean}`);
+                return res.status(401).json({ success: false, status: "wrong_password", msg: "Senha incorreta." });
+            }
+
+            console.log(`[SVA AUTH PROVEDOR OK] 📺 Acesso autorizado para cliente de provedor: ${cliProv.login_tv} (${cliProv.subdominio})`);
+            await helpers.registrarPingSessao(cliProv.login_tv, dispositivo, ip, `Provedor ${cliProv.subdominio.toUpperCase()}`);
+            registrarLogDebugSva(userClean, passClean, 'SUCESSO', `Acesso autorizado Provedor ${cliProv.subdominio}`, cliProv.senha_tv);
+            return res.status(200).json({ success: true, status: "active", msg: "Autenticado com sucesso." });
+        }
+
         // 1. Busca em assinaturas pagas (Suporta variações de login e variações de senha)
         const assinatura = await new Promise((resolve, reject) => {
             dbClient.get(
@@ -2131,17 +2168,25 @@ app.post('/api/startv/excluir-cliente', async (req, res) => {
     try {
         const cliente = await helpers.excluirClienteStartv(id);
         if (cliente && cliente.login_tv) {
-            // Enfileira a tarefa de rescisão/exclusão completa no ReceitaNet ERP
+            // 1. Adiciona à Blacklist permanente para corte imediato de sinal em qualquer app de TV
+            await helpers.adicionarBlacklist(cliente.login_tv, 'Excluído pelo Provedor');
+
+            // 2. Derruba quaisquer conexões ativas na TV
+            const dbClient = require('./database').db;
+            dbClient.run("UPDATE sessoes_ativas SET status = 'DERRUBADO' WHERE login_tv LIKE ?", [`%${cliente.login_tv}%`]);
+            dbClient.run("UPDATE assinaturas SET status = 'suspensa' WHERE login_tv LIKE ?", [`%${cliente.login_tv}%`]);
+
+            // 3. Enfileira a tarefa de rescisão/exclusão completa no ReceitaNet ERP
             const receitanetQueue = require('./services/receitanetQueue');
             receitanetQueue.adicionarTarefa('EXCLUIR_COMPLETO', {
                 loginTv: cliente.login_tv,
                 cpf: cliente.cpfcnpj,
                 nome: cliente.nome
             });
-            console.log(`[STAR TV PROVEDOR] 🗑️ Cliente ${cliente.nome} (${cliente.login_tv}) excluído pelo provedor! Robô acionado.`);
+            console.log(`[PROVEDOR] 🗑️ Cliente ${cliente.nome} (${cliente.login_tv}) excluído, blacklisted e sinal da TV cortado! Robô acionado.`);
         }
 
-        res.status(200).json({ success: true, message: 'Cliente excluído com sucesso do painel e enfileirado para remoção no ERP!' });
+        res.status(200).json({ success: true, message: 'Cliente excluído com sucesso do painel e sinal da TV cancelado!' });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
