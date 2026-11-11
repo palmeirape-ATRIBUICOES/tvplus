@@ -127,16 +127,39 @@ app.get(['/startv', '/clientestv'], (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'startv.html'));
 });
 
+app.get('/p/:subdominio', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+});
+
 app.get('/admin-provedores', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
 });
 
-app.get('/tv', (req, res) => {
+app.get(['/tv', '/master'], (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin-provedores.html'));
 });
 
 // Servir arquivos estáticos do frontend
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Rota dinâmica para qualquer provedor cadastrado no banco (/nomeprovedor)
+app.get('/:subdominio', async (req, res, next) => {
+    const sub = (req.params.subdominio || '').toLowerCase();
+    const reserved = [
+        'api', 'admin', 'painel', 'clientes', 'tv', 'admin-provedores', 
+        'master', 'webhook', 'favicon.ico', 'index.html', 'startv.html'
+    ];
+    if (sub.includes('.') || reserved.includes(sub)) {
+        return next();
+    }
+    try {
+        const prov = await helpers.obterProvedorPorSubdominioOuUsuario(sub);
+        if (prov) {
+            return res.sendFile(path.join(__dirname, 'public', 'startv.html'));
+        }
+    } catch (e) {}
+    next();
+});
 
 // Inicializar banco de dados ao iniciar
 initDb().then(() => {
@@ -1865,6 +1888,41 @@ app.post('/api/admin/alterar-senha-master', async (req, res) => {
 
     console.log('[GESTOR MASTER] 🔑 Senha Master de Administrador alterada com sucesso!');
     res.status(200).json({ success: true, message: 'Senha Master alterada com sucesso!' });
+});
+
+/**
+ * ROTA PÚBLICA: Obter Informações do Provedor por Subdomínio ou Usuário (White Label)
+ * GET /api/provedor/info
+ */
+app.get('/api/provedor/info', async (req, res) => {
+    try {
+        const sub = (req.query.subdominio || req.query.sub || req.query.usuario || '').toString().trim().toLowerCase();
+        if (!sub) {
+            return res.status(400).json({ error: 'Subdomínio ou usuário é obrigatório.' });
+        }
+        const prov = await helpers.obterProvedorPorSubdominioOuUsuario(sub);
+        if (!prov) {
+            if (sub === 'startv') {
+                return res.status(200).json({
+                    id: 1,
+                    subdominio: 'startv',
+                    nome_marca: 'STARNET TV',
+                    usuario: 'startv',
+                    logo_url: '/starnet-logo.jpg'
+                });
+            }
+            return res.status(404).json({ error: 'Provedor não encontrado.' });
+        }
+        res.status(200).json({
+            id: prov.id,
+            subdominio: prov.subdominio,
+            nome_marca: prov.nome_marca,
+            usuario: prov.usuario,
+            logo_url: prov.logo_url || '/starnet-logo.jpg'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 /**

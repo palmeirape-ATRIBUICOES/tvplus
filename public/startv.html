@@ -502,7 +502,7 @@
         <!-- CARD DE CADASTRO DE ASSINANTE -->
         <div class="card" style="border-top: 4px solid var(--primary);">
             <div class="card-header">
-                <h2><i class="fa-solid fa-user-plus" style="color: var(--primary-glow);"></i> Novo Assinante</h2>
+                <h2 id="headerNovoAssinante"><i class="fa-solid fa-user-plus" style="color: var(--primary-glow);"></i> Novo Assinante</h2>
                 <p>Cadastre os dados do novo assinante. A senha de acesso do cliente será o seu próprio CPF.</p>
             </div>
 
@@ -541,7 +541,7 @@
         <div class="card" style="border-top: 4px solid var(--accent-purple);">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div>
-                    <h2><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Assinantes Cadastrados</h2>
+                    <h2 id="headerListaAssinantes"><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Assinantes Cadastrados</h2>
                     <p>Gestão de clientes ativos do provedor. A exclusão de contas é realizada manualmente.</p>
                 </div>
                 <button onclick="carregarClientesStartv()" class="btn-refresh">
@@ -564,7 +564,7 @@
                             <th>CPF / CNPJ</th>
                             <th>E-mail</th>
                             <th>WhatsApp</th>
-                            <th>Login TV</th>
+                            <th id="thLoginTv">Login TV</th>
                             <th>Senha TV (CPF)</th>
                             <th>Data Cadastro</th>
                             <th>Ação</th>
@@ -647,26 +647,76 @@
             } catch(e) {}
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            // Auto-detecção de subdomínio por Hostname ou Path (ex: clientestv.levemaisfibra.com.br ou /clientestv)
-            const host = window.location.hostname.toLowerCase();
-            const path = window.location.pathname.toLowerCase();
-            let detectedSub = null;
-            if (host.includes('clientestv') || path.includes('clientestv')) {
-                detectedSub = 'clientestv';
-            } else if (host.includes('.levemaisfibra.com.br') && !host.startsWith('tv.')) {
-                detectedSub = host.split('.')[0];
+        async function carregarInfoProvedor(sub) {
+            try {
+                const res = await fetch(`/api/provedor/info?subdominio=${encodeURIComponent(sub)}`);
+                if (res.ok) {
+                    const info = await res.json();
+                    localStorage.setItem('startv_subdominio', info.subdominio);
+                    localStorage.setItem('startv_nome_marca', info.nome_marca);
+                    localStorage.setItem('startv_logo_url', info.logo_url || '/starnet-logo.jpg');
+                    localStorage.setItem('startv_usuario', info.usuario);
+
+                    aplicarMarcaProvedor(info.nome_marca, info.logo_url, info.subdominio);
+                    return info;
+                }
+            } catch(e) {
+                console.warn('Não foi possível carregar detalhes do provedor:', e);
+            }
+            aplicarMarcaProvedor();
+            return null;
+        }
+
+        function aplicarMarcaProvedor(marca, logo, sub) {
+            const m = marca || localStorage.getItem('startv_nome_marca') || 'STARNET TV';
+            const l = logo || localStorage.getItem('startv_logo_url') || '/starnet-logo.jpg';
+            const s = sub || localStorage.getItem('startv_subdominio') || 'startv';
+
+            document.querySelectorAll('.brand-title').forEach(el => el.textContent = m);
+            document.querySelectorAll('.brand-logo-img, header .brand-logo img').forEach(el => el.src = l);
+            document.title = `${m} - Painel do Provedor`;
+
+            const inputUser = document.getElementById('loginUsuario');
+            if (inputUser) {
+                inputUser.value = localStorage.getItem('startv_usuario') || s;
             }
 
-            if (detectedSub) {
-                const subAtualSalvo = localStorage.getItem('startv_subdominio');
-                if (subAtualSalvo !== detectedSub) {
-                    localStorage.setItem('startv_subdominio', detectedSub);
-                    localStorage.setItem('startv_usuario', detectedSub);
-                    localStorage.removeItem('startv_logado');
-                }
-                const inputUser = document.getElementById('loginUsuario');
-                if (inputUser) inputUser.value = detectedSub;
+            const hNovo = document.getElementById('headerNovoAssinante');
+            if (hNovo) hNovo.innerHTML = `<i class="fa-solid fa-user-plus" style="color: var(--primary-glow);"></i> Novo Assinante - ${m}`;
+
+            const hLista = document.getElementById('headerListaAssinantes');
+            if (hLista) hLista.innerHTML = `<i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> Assinantes - ${m}`;
+
+            const thLogin = document.getElementById('thLoginTv');
+            if (thLogin) thLogin.textContent = `Login TV (@${s})`;
+
+            const buscaInput = document.getElementById('inputBuscaClientes');
+            if (buscaInput) buscaInput.placeholder = `🔍 Buscar assinantes de ${m} por Nome, CPF, Login @${s}...`;
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Detecção robusta do subdomínio:
+            // 1. Query param: ?sub=clientestv ou ?provedor=clientestv
+            // 2. Hostname: clientestv.levemaisfibra.com.br
+            // 3. Pathname: /clientestv ou /p/clientestv
+            // 4. LocalStorage
+            const urlParams = new URLSearchParams(window.location.search);
+            const querySub = urlParams.get('sub') || urlParams.get('subdominio') || urlParams.get('p');
+            const host = window.location.hostname.toLowerCase();
+            const rawPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+
+            let detectedSub = null;
+            if (querySub) {
+                detectedSub = querySub;
+            } else if (host.includes('.levemaisfibra.com.br') && !host.startsWith('tv.')) {
+                detectedSub = host.split('.')[0];
+            } else if (rawPath && rawPath !== 'startv.html' && rawPath !== 'index.html' && rawPath !== 'startv') {
+                const parts = rawPath.split('/');
+                detectedSub = parts[parts.length - 1];
+            } else if (rawPath === 'startv') {
+                detectedSub = 'startv';
+            } else {
+                detectedSub = localStorage.getItem('startv_subdominio') || 'startv';
             }
 
             // Tema padrão: light (modo claro)
@@ -677,8 +727,17 @@
             carregarLogsDebug();
             setInterval(carregarLogsDebug, 2000);
 
+            // Carrega informações oficiais deste provedor no backend
+            if (detectedSub) {
+                await carregarInfoProvedor(detectedSub);
+            } else {
+                aplicarMarcaProvedor();
+            }
+
+            const subSalvo = localStorage.getItem('startv_subdominio');
             const logado = localStorage.getItem('startv_logado');
-            if (logado === 'true') {
+
+            if (logado === 'true' && (!detectedSub || subSalvo === detectedSub)) {
                 document.getElementById('loginScreen').style.display = 'none';
                 carregarClientesStartv();
             } else {
@@ -713,7 +772,7 @@
                     localStorage.setItem('startv_logo_url', logoAtual);
                     localStorage.setItem('startv_logado', 'true');
 
-                    aplicarMarcaProvedor(marcaAtual, logoAtual);
+                    aplicarMarcaProvedor(marcaAtual, logoAtual, subdominioAtual);
 
                     if (data.precisaTrocarSenha) {
                         document.getElementById('modalTrocaSenha').style.display = 'flex';
@@ -729,14 +788,6 @@
                 alertBox.className = 'alert-box error';
                 alertBox.textContent = 'Falha de conexão com o servidor.';
             }
-        }
-
-        function aplicarMarcaProvedor(marca, logo) {
-            const m = marca || localStorage.getItem('startv_nome_marca') || 'STARNET TV';
-            const l = logo || localStorage.getItem('startv_logo_url') || '/starnet-logo.jpg';
-
-            document.querySelectorAll('.brand-title').forEach(el => el.textContent = m);
-            document.querySelectorAll('.brand-logo-img, header .brand-logo img').forEach(el => el.src = l);
         }
 
         // Realiza Troca Obrigatória de Senha

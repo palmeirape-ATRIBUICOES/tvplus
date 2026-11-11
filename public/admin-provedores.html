@@ -635,20 +635,30 @@
                         liderNome = `${p.nome_marca} (${totalCli})`;
                     }
 
+                    const safeMarca = (p.nome_marca || '').replace(/'/g, "\\'");
+                    const safeLogo = p.logo_url || '/starnet-logo.jpg';
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>
-                            <img src="${p.logo_url || '/starnet-logo.jpg'}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
+                            <img src="${safeLogo}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;">
                         </td>
-                        <td><span class="subdomain-tag">${p.subdominio}.levemaisfibra.com.br</span></td>
+                        <td>
+                            <a href="/${p.subdominio}" target="_blank" class="subdomain-tag" style="text-decoration:none; display:inline-flex; align-items:center; gap:5px;" title="Abrir página exclusiva deste provedor">
+                                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px;"></i> ${p.subdominio}.levemaisfibra.com.br
+                            </a>
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+                                Rota direta: <strong>/${p.subdominio}</strong>
+                            </div>
+                        </td>
                         <td style="font-weight: 800;">${p.nome_marca}</td>
                         <td style="font-family: monospace;">${p.usuario}</td>
                         <td><span class="count-badge"><i class="fa-solid fa-users"></i> ${totalCli} clientes</span></td>
                         <td>${new Date(p.data_criacao).toLocaleDateString('pt-BR')}</td>
                         <td style="display: flex; gap: 8px;">
-                            <button class="btn-action access" onclick="acessarPainel('${p.usuario}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Acessar</button>
-                            <button class="btn-action reset" onclick="redefinirSenha(${p.id}, '${p.nome_marca}')"><i class="fa-solid fa-key"></i> Reset 1234</button>
-                            ${p.usuario !== 'startv' ? `<button class="btn-action del" onclick="excluirProvedor(${p.id}, '${p.nome_marca}')"><i class="fa-solid fa-trash"></i> Excluir</button>` : ''}
+                            <button class="btn-action access" onclick="acessarPainel('${p.subdominio}', '${p.usuario}', '${safeMarca}', '${safeLogo}')"><i class="fa-solid fa-arrow-right-to-bracket"></i> Acessar</button>
+                            <button class="btn-action reset" onclick="redefinirSenha(${p.id}, '${safeMarca}')"><i class="fa-solid fa-key"></i> Reset 1234</button>
+                            ${p.usuario !== 'startv' ? `<button class="btn-action del" onclick="excluirProvedor(${p.id}, '${safeMarca}')"><i class="fa-solid fa-trash"></i> Excluir</button>` : ''}
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -779,10 +789,13 @@
             document.getElementById('masterLoginScreen').style.display = 'flex';
         }
 
-        function acessarPainel(usuario) {
-            localStorage.setItem('startv_usuario', usuario);
+        function acessarPainel(subdominio, usuario, nomeMarca, logoUrl) {
+            localStorage.setItem('startv_subdominio', subdominio || 'startv');
+            localStorage.setItem('startv_usuario', usuario || subdominio);
+            localStorage.setItem('startv_nome_marca', nomeMarca || 'STARNET TV');
+            localStorage.setItem('startv_logo_url', logoUrl || '/starnet-logo.jpg');
             localStorage.setItem('startv_logado', 'true');
-            window.location.href = '/startv';
+            window.location.href = '/' + encodeURIComponent(subdominio);
         }
 
         window.addEventListener('DOMContentLoaded', () => {

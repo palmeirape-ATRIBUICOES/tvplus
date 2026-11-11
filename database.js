@@ -725,6 +725,11 @@ const dbHelpers = {
     },
 
     // === MÓDULO EXCLUSIVO DE PROVEDORES MULTI-TENANT ===
+    async obterProvedorPorSubdominioOuUsuario(termo) {
+        const tClean = (termo || '').toString().trim().toLowerCase();
+        return await dbGet('SELECT * FROM provedor_usuarios WHERE LOWER(TRIM(subdominio)) = ? OR LOWER(TRIM(usuario)) = ?', [tClean, tClean]).catch(() => null);
+    },
+
     async autenticarProvedor(usuario, senha) {
         const uClean = (usuario || '').toString().trim().toLowerCase();
         const pClean = (senha || '').toString().trim();
